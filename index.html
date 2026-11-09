@@ -124,8 +124,8 @@ textarea.field{min-height:80px;resize:vertical;line-height:1.6}
     <div class="logo">Work <span>follow up</span></div>
     <div class="sub">متابعة المخالفات والمعاملات</div>
     <form id="loginForm">
-      <label>البريد الإلكتروني</label>
-      <input class="field" type="email" id="email" required autocomplete="username" dir="ltr">
+      <label>اسم المستخدم</label>
+      <input class="field" type="text" id="email" required autocomplete="username" autocapitalize="none" dir="ltr">
       <label>كلمة المرور</label>
       <input class="field" type="password" id="password" required autocomplete="current-password" dir="ltr">
       <div class="err" id="loginErr"></div>
@@ -140,6 +140,7 @@ textarea.field{min-height:80px;resize:vertical;line-height:1.6}
       <div class="logo">Work <span>follow up</span></div>
       <div class="top-actions">
         <button class="icon-btn" id="importBtn">⬆ استيراد إكسل</button>
+        <button class="icon-btn" id="pwBtn" title="تغيير كلمة المرور">🔑</button>
         <button class="icon-btn" id="logoutBtn">خروج</button>
       </div>
     </div>
@@ -270,12 +271,30 @@ async function init(){
 function showLogin(){ $('#login').classList.remove('hidden'); $('#app').classList.add('hidden'); }
 $('#loginForm').onsubmit = async e => {
   e.preventDefault(); $('#loginErr').textContent='';
-  const { error } = await sb.auth.signInWithPassword({ email:$('#email').value.trim(), password:$('#password').value });
-  if(error){ $('#loginErr').textContent='البريد أو كلمة المرور غير صحيحة'; return; }
+  const u = $('#email').value.trim().toLowerCase();
+  const { error } = await sb.auth.signInWithPassword({ email: u.includes('@') ? u : u+'@workfollowup.app', password:$('#password').value });
+  if(error){ $('#loginErr').textContent='اسم المستخدم أو كلمة المرور غير صحيحة'; return; }
   enterApp();
+};
+$('#pwBtn').onclick = () => {
+  modal(head('تغيير كلمة المرور') + `
+    <label>كلمة المرور الجديدة</label><input class="field" type="password" id="pw1" autocomplete="new-password" dir="ltr">
+    <label>تأكيد كلمة المرور</label><input class="field" type="password" id="pw2" autocomplete="new-password" dir="ltr">
+    <div class="err" id="pwErr"></div>
+    <div class="actions"><button class="btn btn-primary" id="pwSave">حفظ</button></div>`);
+  $('#pwSave').onclick = async () => {
+    const a=$('#pw1').value, b=$('#pw2').value;
+    if(a.length<8) return $('#pwErr').textContent='كلمة المرور لازم تكون 8 حروف أو أكثر';
+    if(a!==b) return $('#pwErr').textContent='كلمتين المرور مو متطابقة';
+    const { error } = await sb.auth.updateUser({ password:a });
+    if(error) return $('#pwErr').textContent = /different|same/i.test(error.message) ? 'اختر كلمة مرور مختلفة عن الحالية' : 'خطأ: '+error.message;
+    closeModal(); toast('تم تغيير كلمة المرور ✅');
+  };
 };
 $('#logoutBtn').onclick = async () => { await sb.auth.signOut(); showLogin(); };
 async function enterApp(){
+  const { data:{ user } } = await sb.auth.getUser();
+  if(!user || user.email !== 'admin@workfollowup.app'){ await sb.auth.signOut(); showLogin(); $('#loginErr').textContent='هذا الحساب ما له صلاحية على Work follow up'; return; }
   $('#login').classList.add('hidden'); $('#app').classList.remove('hidden');
   await loadAll();
 }
