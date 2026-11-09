@@ -35,7 +35,8 @@ header{position:sticky;top:0;z-index:10;background:var(--ink);color:#fff;padding
 .top .logo{font-size:20px;text-align:start;color:#fff}
 .top .logo span{color:#5eead4}
 .top-actions{display:flex;gap:6px}
-.icon-btn{background:rgba(255,255,255,.12);border:0;color:#fff;border-radius:10px;padding:8px 12px;cursor:pointer;font-weight:700}
+.icon-btn{white-space:nowrap;background:rgba(255,255,255,.12);border:0;color:#fff;border-radius:10px;padding:8px 12px;cursor:pointer;font-weight:700}
+@media(max-width:480px){.wide{display:none}.top .logo{font-size:16px;white-space:nowrap}.icon-btn{padding:7px 8px;font-size:12.5px}.top-actions{gap:4px}}
 nav{display:flex;gap:6px;max-width:1000px;margin:12px auto 0;overflow-x:auto}
 nav button{flex:1;white-space:nowrap;background:transparent;color:#cbd5e1;border:0;padding:9px 12px;border-radius:10px;cursor:pointer;font-weight:700}
 nav button.active{background:#fff;color:var(--ink)}
@@ -139,7 +140,8 @@ textarea.field{min-height:80px;resize:vertical;line-height:1.6}
     <div class="top">
       <div class="logo">Work <span>follow up</span></div>
       <div class="top-actions">
-        <button class="icon-btn" id="importBtn">⬆ استيراد إكسل</button>
+        <button class="icon-btn" id="importBtn">⬆ استيراد<span class="wide"> إكسل</span></button>
+        <button class="icon-btn" id="exportAllBtn">⬇ تصدير<span class="wide"> إكسل</span></button>
         <button class="icon-btn" id="pwBtn" title="تغيير كلمة المرور">🔑</button>
         <button class="icon-btn" id="logoutBtn">خروج</button>
       </div>
@@ -766,18 +768,43 @@ async function runImport(){
 }
 
 // ===== EXPORT =====
-$('#exportBtn').onclick = () => {
-  const list = filteredViol();
-  const data = list.map(v=>({
+const violRow = v => ({
     'الجهة':v.authority,'الشركة':v.company,'الفرع':v.branch,'رقم المخالفة':v.violation_no,'رقم الفاتورة':v.invoice_no,
     'رقم الرخصة':v.license_no,'السجل':v.cr_no,'السبب':v.reason,'التصنيف':v.category,'تاريخ الرصد':v.violation_date||'',
     'تاريخ هجري':v.violation_date_hijri,'آخر موعد اعتراض':v.objection_deadline||'','الحالة':VSTATUS[v.status],
-    'رقم الاعتراض':v.objection_ref,'المبلغ':Number(v.amount),'الإجراء':v.action,'ملاحظات':v.notes
-  }));
-  const ws = XLSX.utils.json_to_sheet(data); ws['!views']=[{RTL:true}];
-  const wb = XLSX.utils.book_new(); wb.Workbook={Views:[{RTL:true}]};
-  XLSX.utils.book_append_sheet(wb, ws, 'المخالفات');
+    'رقم الاعتراض':v.objection_ref,'المبلغ':Number(v.amount),'الإجراء':v.action,'ملاحظات':v.notes,
+    'آخر تحديث متابعة':(state.vupd.filter(u=>u.violation_id===v.id).pop()||{}).body||''
+  });
+function addSheet(wb, rows, name){
+  const ws = XLSX.utils.json_to_sheet(rows.length?rows:[{'':'لا توجد بيانات'}]);
+  ws['!views']=[{RTL:true}];
+  if(rows.length) ws['!cols'] = Object.keys(rows[0]).map(k=>({wch: Math.min(50, Math.max(k.length, ...rows.map(r=>String(r[k]??'').length))+2)}));
+  XLSX.utils.book_append_sheet(wb, ws, name.replace(/[\\/?*\[\]:]/g,'').slice(0,31));
+}
+function newBook(){ const wb = XLSX.utils.book_new(); wb.Workbook={Views:[{RTL:true}]}; return wb; }
+$('#exportBtn').onclick = () => {
+  const wb = newBook(); addSheet(wb, filteredViol().map(violRow), 'المخالفات');
   XLSX.writeFile(wb, `مخالفات-${today()}.xlsx`);
+};
+$('#exportAllBtn').onclick = () => {
+  const V = state.viol;
+  const wb = newBook();
+  // summary
+  const auths = [...new Set(V.map(v=>v.authority))];
+  const summary = auths.map(a=>{ const all=V.filter(v=>v.authority===a);
+    const s = st => sum(all.filter(v=>st.includes(v.status)));
+    return {'الجهة':a,'عدد المخالفات':all.length,'واجبة السداد':s(['due','rejected']),'تحت الاعتراض':s(['objection_prep','objection_pending']),'اعتراض مقبول':s(['accepted']),'تم السداد':s(['paid']),'الإجمالي':sum(all)}; });
+  summary.push({'الجهة':'الإجمالي','عدد المخالفات':V.length,
+    'واجبة السداد':summary.reduce((a,x)=>a+x['واجبة السداد'],0),'تحت الاعتراض':summary.reduce((a,x)=>a+x['تحت الاعتراض'],0),
+    'اعتراض مقبول':summary.reduce((a,x)=>a+x['اعتراض مقبول'],0),'تم السداد':summary.reduce((a,x)=>a+x['تم السداد'],0),'الإجمالي':sum(V)});
+  addSheet(wb, summary, 'الملخص');
+  addSheet(wb, V.map(violRow), 'كل المخالفات');
+  auths.forEach(a=>addSheet(wb, V.filter(v=>v.authority===a).map(violRow), a));
+  addSheet(wb, state.topics.map(t=>({'العنوان':t.title,'رقم المعاملة':t.ref_no,'الجهة':t.party,'الحالة':TSTATUS[t.status],'الأهمية':PRIO[t.priority],
+    'تاريخ البداية':t.start_date,'موعد المتابعة':t.due_date||'','التفاصيل':t.details,
+    'آخر تحديث':(state.tupd.filter(u=>u.topic_id===t.id).pop()||{}).body||''})), 'المعاملات');
+  XLSX.writeFile(wb, `Work-follow-up-${today()}.xlsx`);
+  toast('تم تصدير الملف');
 };
 
 document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeModal(); });
