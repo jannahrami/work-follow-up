@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f172a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Work follow up</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<style>
+:root{
+  --bg:#f4f5f7; --card:#fff; --ink:#0f172a; --muted:#64748b; --line:#e2e8f0;
+  --brand:#0f766e; --brand-soft:#ccfbf1;
+  --red:#b91c1c; --red-soft:#fee2e2; --amber:#b45309; --amber-soft:#fef3c7;
+  --blue:#1d4ed8; --blue-soft:#dbeafe; --green:#15803d; --green-soft:#dcfce7;
+  --purple:#6d28d9; --purple-soft:#ede9fe; --gray-soft:#f1f5f9; --radius:14px;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:'Tajawal',system-ui,sans-serif;background:var(--bg);color:var(--ink);font-size:15px}
+button,input,select,textarea{font-family:inherit;font-size:15px}
+.hidden{display:none!important}
+.num{font-variant-numeric:tabular-nums}
+
+#login{min-height:100vh;display:grid;place-items:center;padding:24px}
+.login-box{background:var(--card);border-radius:20px;padding:28px;width:100%;max-width:380px;box-shadow:0 10px 30px rgba(15,23,42,.08)}
+.logo{font-weight:800;font-size:26px;letter-spacing:.3px;direction:ltr;text-align:center}
+.logo span{color:var(--brand)}
+.sub{color:var(--muted);text-align:center;margin:4px 0 22px}
+
+header{position:sticky;top:0;z-index:10;background:var(--ink);color:#fff;padding:14px 16px 10px;padding-top:max(14px,env(safe-area-inset-top))}
+.top{display:flex;align-items:center;justify-content:space-between;gap:8px;max-width:1000px;margin:auto}
+.top .logo{font-size:20px;text-align:start;color:#fff}
+.top .logo span{color:#5eead4}
+.top-actions{display:flex;gap:6px}
+.icon-btn{background:rgba(255,255,255,.12);border:0;color:#fff;border-radius:10px;padding:8px 12px;cursor:pointer;font-weight:700}
+nav{display:flex;gap:6px;max-width:1000px;margin:12px auto 0;overflow-x:auto}
+nav button{flex:1;white-space:nowrap;background:transparent;color:#cbd5e1;border:0;padding:9px 12px;border-radius:10px;cursor:pointer;font-weight:700}
+nav button.active{background:#fff;color:var(--ink)}
+main{max-width:1000px;margin:auto;padding:16px 14px 110px}
+
+.stats{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:6px}
+@media(min-width:760px){.stats{grid-template-columns:repeat(4,1fr)}}
+.stat{background:var(--card);border-radius:var(--radius);padding:14px;border:1px solid var(--line);cursor:pointer}
+.stat b{display:block;font-size:22px;font-weight:800}
+.stat small{color:var(--muted);display:block}
+.stat em{font-style:normal;color:var(--muted);font-size:12px}
+h2{font-size:17px;margin:22px 0 10px}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.toolbar input,.toolbar select{flex:1;min-width:140px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:#fff}
+.result-bar{display:flex;justify-content:space-between;align-items:center;color:var(--muted);font-size:13px;margin:4px 2px 10px;gap:8px}
+.list{display:flex;flex-direction:column;gap:10px}
+.item{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px;cursor:pointer;transition:.15s}
+.item:hover{border-color:#94a3b8}
+.item .row{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+.item h3{margin:0 0 4px;font-size:15px;line-height:1.5}
+.item p{margin:6px 0 0;color:#334155;white-space:pre-wrap;line-height:1.6}
+.amt{font-weight:800;font-size:17px;white-space:nowrap}
+.meta{color:var(--muted);font-size:13px;display:flex;gap:6px 12px;flex-wrap:wrap;margin-top:6px}
+.chip{display:inline-block;padding:3px 10px;border-radius:99px;font-size:12px;font-weight:700;white-space:nowrap}
+.s-due,.s-rejected{background:var(--red-soft);color:var(--red)}
+.s-objection_prep{background:var(--amber-soft);color:var(--amber)}
+.s-objection_pending{background:var(--purple-soft);color:var(--purple)}
+.s-accepted{background:var(--green-soft);color:var(--green)}
+.s-paid{background:var(--gray-soft);color:#334155}
+.c-new{background:var(--blue-soft);color:var(--blue)}
+.c-in_progress{background:var(--amber-soft);color:var(--amber)}
+.c-waiting{background:var(--purple-soft);color:var(--purple)}
+.c-done{background:var(--green-soft);color:var(--green)}
+.c-urgent{background:var(--red);color:#fff}
+.c-high{background:var(--red-soft);color:var(--red)}
+.c-low{background:var(--gray-soft);color:var(--muted)}
+.auth{background:var(--gray-soft);color:#334155}
+.late{color:var(--red);font-weight:700}
+.soon{color:var(--amber);font-weight:700}
+.empty{text-align:center;color:var(--muted);padding:30px 10px;background:var(--card);border-radius:var(--radius);border:1px dashed var(--line)}
+table.tbl{width:100%;border-collapse:collapse;background:var(--card);border-radius:var(--radius);overflow:hidden;border:1px solid var(--line)}
+.tbl th,.tbl td{padding:10px 12px;text-align:start;border-bottom:1px solid var(--line);font-size:14px}
+.tbl th{background:var(--gray-soft);font-size:13px;color:#334155}
+.tbl tr:last-child td{border-bottom:0}
+.tbl tr.click{cursor:pointer}
+.tbl tr.click:hover td{background:#f8fafc}
+
+label{display:block;font-weight:700;font-size:13px;margin:12px 0 5px;color:#334155}
+.field{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:#fff}
+textarea.field{min-height:80px;resize:vertical;line-height:1.6}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.btn{border:0;border-radius:11px;padding:11px 16px;font-weight:700;cursor:pointer}
+.btn-primary{background:var(--brand);color:#fff}
+.btn-ghost{background:var(--gray-soft);color:var(--ink)}
+.btn-danger{background:var(--red-soft);color:var(--red)}
+.btn-sm{padding:7px 12px;font-size:13px}
+.btn-block{width:100%}
+.err{color:var(--red);font-size:13px;min-height:18px;margin-top:8px}
+.fab{position:fixed;bottom:max(20px,env(safe-area-inset-bottom));left:20px;background:var(--brand);color:#fff;border:0;border-radius:99px;padding:14px 22px;font-weight:800;font-size:16px;box-shadow:0 8px 20px rgba(15,118,110,.35);cursor:pointer;z-index:20}
+
+.overlay{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:50;display:flex;align-items:flex-end;justify-content:center}
+@media(min-width:700px){.overlay{align-items:center}}
+.sheet{background:#fff;width:100%;max-width:600px;max-height:92vh;overflow:auto;border-radius:20px 20px 0 0;padding:20px 18px calc(20px + env(safe-area-inset-bottom))}
+@media(min-width:700px){.sheet{border-radius:20px}}
+.sheet-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px}
+.sheet-head h3{margin:0;font-size:18px}
+.actions{display:flex;gap:8px;margin-top:18px}
+.actions .btn{flex:1}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;background:var(--gray-soft);border-radius:12px;padding:12px 14px;font-size:14px;margin-top:10px}
+.kv dt{color:var(--muted)}
+.kv dd{margin:0;font-weight:500;word-break:break-word}
+.timeline{border-right:2px solid var(--line);margin:12px 6px 0 0;padding-right:14px}
+.tl{position:relative;margin-bottom:12px}
+.tl::before{content:"";position:absolute;right:-21px;top:6px;width:12px;height:12px;border-radius:50%;background:var(--brand);border:2px solid #fff}
+.tl small{color:var(--muted)}
+.tl div{white-space:pre-wrap;line-height:1.6}
+.tl .del{background:none;border:0;color:var(--muted);cursor:pointer;font-size:12px}
+.toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 18px;border-radius:12px;z-index:100;font-weight:700;max-width:90vw;text-align:center}
+.warn{background:var(--amber-soft);color:var(--amber);border-radius:10px;padding:10px 12px;font-size:13px;margin-top:10px}
+</style>
+</head>
+<body>
+
+<section id="login" class="hidden">
+  <div class="login-box">
+    <div class="logo">Work <span>follow up</span></div>
+    <div class="sub">متابعة المخالفات والمعاملات</div>
+    <form id="loginForm">
+      <label>البريد الإلكتروني</label>
+      <input class="field" type="email" id="email" required autocomplete="username" dir="ltr">
+      <label>كلمة المرور</label>
+      <input class="field" type="password" id="password" required autocomplete="current-password" dir="ltr">
+      <div class="err" id="loginErr"></div>
+      <button class="btn btn-primary btn-block" type="submit">دخول</button>
+    </form>
+  </div>
+</section>
+
+<section id="app" class="hidden">
+  <header>
+    <div class="top">
+      <div class="logo">Work <span>follow up</span></div>
+      <div class="top-actions">
+        <button class="icon-btn" id="importBtn">⬆ استيراد إكسل</button>
+        <button class="icon-btn" id="logoutBtn">خروج</button>
+      </div>
+    </div>
+    <nav>
+      <button data-tab="home" class="active">الرئيسية</button>
+      <button data-tab="viol">المخالفات</button>
+      <button data-tab="topics">المعاملات</button>
+    </nav>
+  </header>
+  <input type="file" id="fileInput" accept=".xlsx,.xls,.xlsm,.csv" class="hidden">
+
+  <main>
+    <div id="tab-home">
+      <div class="stats">
+        <div class="stat" onclick="goViol('dueish')"><small>واجبة السداد</small><b class="num" id="kDue" style="color:var(--red)">0</b><em id="kDueN"></em></div>
+        <div class="stat" onclick="goViol('objection')"><small>تحت الاعتراض</small><b class="num" id="kObj" style="color:var(--purple)">0</b><em id="kObjN"></em></div>
+        <div class="stat" onclick="goViol('accepted')"><small>اعتراضات مقبولة (توفير)</small><b class="num" id="kAcc" style="color:var(--green)">0</b><em id="kAccN"></em></div>
+        <div class="stat" onclick="goViol('')"><small>إجمالي المخالفات</small><b class="num" id="kAll">0</b><em id="kAllN"></em></div>
+      </div>
+
+      <h2>⏰ مواعيد اعتراض قريبة (خلال 21 يوم)</h2>
+      <div class="list" id="homeDeadlines"></div>
+
+      <h2>حسب الجهة</h2>
+      <table class="tbl" id="byAuthority"></table>
+
+      <h2>أكثر الفروع مخالفات (المفتوحة)</h2>
+      <table class="tbl" id="byBranch"></table>
+
+      <h2>معاملات تحتاج متابعة</h2>
+      <div class="list" id="homeTopics"></div>
+    </div>
+
+    <div id="tab-viol" class="hidden">
+      <div class="toolbar">
+        <input id="vSearch" placeholder="بحث: رقم مخالفة، فاتورة، فرع، سبب...">
+      </div>
+      <div class="toolbar">
+        <select id="vAuth"><option value="">كل الجهات</option></select>
+        <select id="vStatus">
+          <option value="">كل الحالات</option>
+          <option value="open">المفتوحة (غير منتهية)</option>
+          <option value="dueish">واجبة السداد</option>
+          <option value="objection">تحت الاعتراض</option>
+          <option value="objection_prep">تحت إجراء رفع الاعتراض</option>
+          <option value="objection_pending">اعتراض قيد النظر</option>
+          <option value="accepted">اعتراض مقبول</option>
+          <option value="paid">تم السداد</option>
+        </select>
+        <select id="vCompany"><option value="">كل الشركات</option></select>
+        <select id="vSort">
+          <option value="deadline">ترتيب: الموعد الأقرب</option>
+          <option value="date_desc">الأحدث</option>
+          <option value="amount_desc">الأعلى مبلغ</option>
+        </select>
+      </div>
+      <div class="result-bar"><span id="vCount"></span><button class="btn btn-ghost btn-sm" id="exportBtn">⬇ تصدير إكسل</button></div>
+      <div class="list" id="violList"></div>
+    </div>
+
+    <div id="tab-topics" class="hidden">
+      <div class="toolbar">
+        <input id="tSearch" placeholder="بحث بالعنوان أو الرقم أو الجهة...">
+        <select id="tStatus">
+          <option value="active">المفتوحة</option>
+          <option value="">الكل</option>
+          <option value="new">جديدة</option>
+          <option value="in_progress">قيد الإجراء</option>
+          <option value="waiting">بانتظار رد</option>
+          <option value="done">منتهية</option>
+        </select>
+      </div>
+      <div class="list" id="topicsList"></div>
+    </div>
+  </main>
+
+  <button class="fab" id="fab">+ إضافة</button>
+</section>
+
+<div id="modalRoot"></div>
+
+<script>
+// ===== CONFIG =====
+const SUPABASE_URL = 'https://gfpzjydgcmwwrxrvmreq.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_VJ17gLtZ7CAHnpOP6G1yqw_CxvZgyrz';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ===== LABELS =====
+const VSTATUS = {
+  due:'واجبة السداد', objection_prep:'تحت إجراء رفع الاعتراض', objection_pending:'اعتراض قيد النظر',
+  accepted:'اعتراض مقبول', rejected:'اعتراض مرفوض', paid:'تم السداد'
+};
+const OPEN = ['due','objection_prep','objection_pending','rejected'];
+const AUTHORITIES = ['بلدي','أمانة الرياض','هيئة النقل','وزارة التجارة','وزارة الموارد البشرية','هيئة الغذاء والدواء'];
+const TSTATUS = {new:'جديدة',in_progress:'قيد الإجراء',waiting:'بانتظار رد',done:'منتهية'};
+const PRIO = {low:'منخفضة',normal:'عادية',high:'مهمة',urgent:'عاجلة'};
+
+let state = { viol:[], vupd:[], topics:[], tupd:[], tab:'home' };
+
+// ===== HELPERS =====
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const today = () => new Date().toLocaleDateString('en-CA');
+const fmtDate = d => d ? new Date(d.length===10 ? d+'T00:00:00' : d).toLocaleDateString('ar-SA-u-ca-gregory-nu-latn',{day:'numeric',month:'short',year:'numeric'}) : '—';
+const fmtDT = d => new Date(d).toLocaleString('ar-SA-u-ca-gregory-nu-latn',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+const money = n => Number(n||0).toLocaleString('en-US',{maximumFractionDigits:2}) + ' ر.س';
+const daysTo = d => Math.round((new Date(d+'T00:00:00') - new Date(today()+'T00:00:00'))/864e5);
+const sum = (arr,f='amount') => arr.reduce((a,x)=>a+Number(x[f]||0),0);
+function toast(msg){const el=document.createElement('div');el.className='toast';el.textContent=msg;document.body.appendChild(el);setTimeout(()=>el.remove(),2600)}
+function fail(e){console.error(e);toast('خطأ: '+(e.message||e))}
+const vTitle = v => v.reason || v.category || 'مخالفة';
+const statusChip = s => `<span class="chip s-${s}">${VSTATUS[s]||s}</span>`;
+function deadlineHtml(v){
+  if(!v.objection_deadline) return '';
+  if(!['due','objection_prep'].includes(v.status)) return `<span>آخر موعد اعتراض: ${fmtDate(v.objection_deadline)}</span>`;
+  const d = daysTo(v.objection_deadline);
+  if(d<0) return `<span class="late">انتهى موعد الاعتراض منذ ${-d} يوم</span>`;
+  if(d<=7) return `<span class="late">باقي ${d} يوم على موعد الاعتراض</span>`;
+  if(d<=21) return `<span class="soon">باقي ${d} يوم على موعد الاعتراض</span>`;
+  return `<span>آخر موعد اعتراض: ${fmtDate(v.objection_deadline)}</span>`;
+}
+
+// ===== AUTH =====
+async function init(){
+  const { data:{ session } } = await sb.auth.getSession();
+  session ? enterApp() : showLogin();
+}
+function showLogin(){ $('#login').classList.remove('hidden'); $('#app').classList.add('hidden'); }
+$('#loginForm').onsubmit = async e => {
+  e.preventDefault(); $('#loginErr').textContent='';
+  const { error } = await sb.auth.signInWithPassword({ email:$('#email').value.trim(), password:$('#password').value });
+  if(error){ $('#loginErr').textContent='البريد أو كلمة المرور غير صحيحة'; return; }
+  enterApp();
+};
+$('#logoutBtn').onclick = async () => { await sb.auth.signOut(); showLogin(); };
+async function enterApp(){
+  $('#login').classList.add('hidden'); $('#app').classList.remove('hidden');
+  await loadAll();
+}
+
+// ===== DATA =====
+async function loadAll(){
+  const [v,vu,t,tu] = await Promise.all([
+    sb.from('wf_violations').select('*').order('violation_date',{ascending:false,nullsFirst:false}).limit(5000),
+    sb.from('wf_violation_updates').select('*').order('created_at'),
+    sb.from('wf_topics').select('*').order('created_at',{ascending:false}),
+    sb.from('wf_topic_updates').select('*').order('created_at')
+  ]);
+  for(const r of [v,vu,t,tu]) if(r.error) return fail(r.error);
+  state.viol=v.data; state.vupd=vu.data; state.topics=t.data; state.tupd=tu.data;
+  fillFilters(); render();
+}
+function fillFilters(){
+  const auths = [...new Set([...AUTHORITIES.filter(a=>state.viol.some(v=>v.authority===a)), ...state.viol.map(v=>v.authority)])];
+  const keepA = $('#vAuth').value, keepC = $('#vCompany').value;
+  $('#vAuth').innerHTML = '<option value="">كل الجهات</option>' + auths.map(a=>`<option>${esc(a)}</option>`).join('');
+  const comps = [...new Set(state.viol.map(v=>v.company).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ar'));
+  $('#vCompany').innerHTML = '<option value="">كل الشركات</option>' + comps.map(c=>`<option>${esc(c)}</option>`).join('');
+  $('#vAuth').value = keepA; $('#vCompany').value = keepC;
+}
+
+// ===== RENDER =====
+function render(){ renderHome(); renderViol(); renderTopics(); }
+
+function violCard(v){
+  return `<div class="item" onclick="openViol('${v.id}')">
+    <div class="row">
+      <div><h3>${esc(vTitle(v))}</h3></div>
+      <div class="amt num">${money(v.amount)}</div>
+    </div>
+    <div class="meta">
+      ${statusChip(v.status)}
+      <span class="chip auth">${esc(v.authority)}</span>
+      ${v.branch?`<span>📍 ${esc(v.branch)}</span>`:''}
+      ${v.violation_no?`<span class="num">${esc(v.violation_no)}</span>`:(v.invoice_no?`<span class="num">فاتورة ${esc(v.invoice_no)}</span>`:'')}
+    </div>
+    <div class="meta">
+      <span>رصد: ${fmtDate(v.violation_date)}${v.violation_date_hijri?` (${esc(v.violation_date_hijri)} هـ)`:''}</span>
+      ${deadlineHtml(v)}
+      ${v.objection_ref?`<span>${esc(v.objection_ref)}</span>`:''}
+    </div>
+  </div>`;
+}
+function topicCard(t){
+  const ups = state.tupd.filter(u=>u.topic_id===t.id), last = ups[ups.length-1];
+  const late = t.status!=='done' && t.due_date && t.due_date < today();
+  return `<div class="item" onclick="openTopic('${t.id}')">
+    <div class="row"><h3>${esc(t.title)}</h3><span class="chip c-${t.status}">${TSTATUS[t.status]}</span></div>
+    <div class="meta">
+      ${t.ref_no?`<span>رقم: ${esc(t.ref_no)}</span>`:''}
+      ${t.party?`<span>الجهة: ${esc(t.party)}</span>`:''}
+      ${t.priority!=='normal'?`<span class="chip c-${t.priority}">${PRIO[t.priority]}</span>`:''}
+    </div>
+    ${last?`<p style="color:var(--muted)">آخر تحديث: ${esc(last.body.length>110?last.body.slice(0,110)+'…':last.body)}</p>`:''}
+    <div class="meta"><span>من ${fmtDate(t.start_date)}</span>${t.due_date?`<span class="${late?'late':''}">${late?'متأخرة — ':''}الموعد ${fmtDate(t.due_date)}</span>`:''}</div>
+  </div>`;
+}
+const empty = msg => `<div class="empty">${msg}</div>`;
+
+function renderHome(){
+  const V = state.viol;
+  const dueish = V.filter(v=>v.status==='due'||v.status==='rejected');
+  const obj = V.filter(v=>v.status==='objection_prep'||v.status==='objection_pending');
+  const acc = V.filter(v=>v.status==='accepted');
+  $('#kDue').textContent = money(sum(dueish)); $('#kDueN').textContent = dueish.length+' مخالفة';
+  $('#kObj').textContent = money(sum(obj));    $('#kObjN').textContent = obj.length+' مخالفة';
+  $('#kAcc').textContent = money(sum(acc));    $('#kAccN').textContent = acc.length+' مخالفة';
+  $('#kAll').textContent = money(sum(V));      $('#kAllN').textContent = V.length+' مخالفة';
+
+  const dl = V.filter(v=>['due','objection_prep'].includes(v.status) && v.objection_deadline && daysTo(v.objection_deadline)>=-7 && daysTo(v.objection_deadline)<=21)
+              .sort((a,b)=>a.objection_deadline.localeCompare(b.objection_deadline));
+  $('#homeDeadlines').innerHTML = dl.map(violCard).join('') || empty('لا توجد مواعيد اعتراض قريبة 👌');
+
+  const auths = [...new Set(V.map(v=>v.authority))];
+  const rows = auths.map(a=>{
+    const all=V.filter(v=>v.authority===a), op=all.filter(v=>OPEN.includes(v.status));
+    return {a, n:all.length, nOpen:op.length, open:sum(op), acc:sum(all.filter(v=>v.status==='accepted'))};
+  }).sort((x,y)=>y.open-x.open);
+  $('#byAuthority').innerHTML = `<tr><th>الجهة</th><th>العدد</th><th>مفتوحة</th><th>مبلغ مفتوح</th></tr>` +
+    rows.map(r=>`<tr class="click" onclick="goViol('open','${esc(r.a)}')"><td>${esc(r.a)}</td><td class="num">${r.n}</td><td class="num">${r.nOpen}</td><td class="num">${money(r.open)}</td></tr>`).join('') +
+    `<tr><td><b>الإجمالي</b></td><td class="num"><b>${V.length}</b></td><td class="num"><b>${V.filter(v=>OPEN.includes(v.status)).length}</b></td><td class="num"><b>${money(sum(V.filter(v=>OPEN.includes(v.status))))}</b></td></tr>`;
+
+  const bmap = {};
+  V.filter(v=>v.branch && OPEN.includes(v.status)).forEach(v=>{ const b=bmap[v.branch]||(bmap[v.branch]={n:0,amt:0}); b.n++; b.amt+=Number(v.amount); });
+  const br = Object.entries(bmap).sort((a,b)=>b[1].amt-a[1].amt).slice(0,8);
+  $('#byBranch').innerHTML = br.length ? `<tr><th>الفرع</th><th>العدد</th><th>المبلغ</th></tr>` +
+    br.map(([b,x])=>`<tr class="click" onclick="goSearch('${esc(b)}')"><td>${esc(b)}</td><td class="num">${x.n}</td><td class="num">${money(x.amt)}</td></tr>`).join('') : `<tr><td>لا يوجد</td></tr>`;
+
+  const open = state.topics.filter(t=>t.status!=='done');
+  $('#homeTopics').innerHTML = open.slice(0,5).map(topicCard).join('') || empty('لا توجد معاملات مفتوحة — أضف معاملة من زر + إضافة');
+}
+
+function filteredViol(){
+  const q = $('#vSearch').value.trim().toLowerCase(), a=$('#vAuth').value, s=$('#vStatus').value, c=$('#vCompany').value, sort=$('#vSort').value;
+  let list = state.viol.filter(v =>
+    (!a || v.authority===a) && (!c || v.company===c) &&
+    (!s || (s==='open'?OPEN.includes(v.status): s==='dueish'?(v.status==='due'||v.status==='rejected'): s==='objection'?(v.status==='objection_prep'||v.status==='objection_pending'): v.status===s)) &&
+    (!q || [v.violation_no,v.invoice_no,v.branch,v.reason,v.category,v.objection_ref,v.license_no,v.company,v.action,v.notes].join(' ').toLowerCase().includes(q)));
+  if(sort==='amount_desc') list.sort((x,y)=>y.amount-x.amount);
+  else if(sort==='date_desc') list.sort((x,y)=>(y.violation_date||'').localeCompare(x.violation_date||''));
+  else list.sort((x,y)=>{
+    const ka = OPEN.includes(x.status)&&x.objection_deadline ? x.objection_deadline : '9999', kb = OPEN.includes(y.status)&&y.objection_deadline ? y.objection_deadline : '9999';
+    return ka.localeCompare(kb) || (y.violation_date||'').localeCompare(x.violation_date||'');
+  });
+  return list;
+}
+function renderViol(){
+  const list = filteredViol();
+  $('#vCount').textContent = `${list.length} مخالفة — ${money(sum(list))}`;
+  $('#violList').innerHTML = list.slice(0,300).map(violCard).join('') || empty('لا توجد نتائج');
+}
+function renderTopics(){
+  const q = $('#tSearch').value.trim().toLowerCase(), s = $('#tStatus').value;
+  const list = state.topics.filter(t =>
+    (s==='' || (s==='active' ? t.status!=='done' : t.status===s)) &&
+    (!q || [t.title,t.ref_no,t.party,t.details].join(' ').toLowerCase().includes(q)));
+  $('#topicsList').innerHTML = list.map(topicCard).join('') || empty('لا توجد معاملات');
+}
+['#vSearch','#vAuth','#vStatus','#vCompany','#vSort'].forEach(s=>$(s).addEventListener('input',renderViol));
+['#tSearch','#tStatus'].forEach(s=>$(s).addEventListener('input',renderTopics));
+
+// ===== TABS =====
+function setTab(tab){
+  state.tab=tab;
+  document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('active',x.dataset.tab===tab));
+  ['home','viol','topics'].forEach(t=>$('#tab-'+t).classList.toggle('hidden',t!==tab));
+  window.scrollTo(0,0);
+}
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
+function goViol(status, auth=''){ $('#vStatus').value=status; $('#vAuth').value=auth; $('#vSearch').value=''; renderViol(); setTab('viol'); }
+function goSearch(q){ $('#vStatus').value='open'; $('#vAuth').value=''; $('#vSearch').value=q; renderViol(); setTab('viol'); }
+$('#fab').onclick = () => state.tab==='topics' ? openTopic() : state.tab==='viol' ? openViolForm() : openChooser();
+
+// ===== MODAL =====
+function modal(html){ $('#modalRoot').innerHTML = `<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="sheet">${html}</div></div>`; document.body.style.overflow='hidden'; }
+function closeModal(){ $('#modalRoot').innerHTML=''; document.body.style.overflow=''; }
+const head = t => `<div class="sheet-head"><h3>${t}</h3><button class="btn btn-ghost btn-sm" onclick="closeModal()">✕</button></div>`;
+function openChooser(){
+  modal(head('إضافة جديد')+`<div class="actions" style="flex-direction:column">
+    <button class="btn btn-primary" onclick="openViolForm()">مخالفة جديدة</button>
+    <button class="btn btn-primary" onclick="openTopic()">معاملة / موضوع للمتابعة</button>
+    <button class="btn btn-ghost" onclick="closeModal();$('#fileInput').click()">⬆ استيراد ملف إكسل</button></div>`);
+}
+const opts = (obj, cur) => Object.entries(obj).map(([k,v])=>`<option value="${k}" ${cur===k?'selected':''}>${v}</option>`).join('');
+
+// ----- Violation detail -----
+function openViol(id){
+  const v = state.viol.find(x=>x.id===id); if(!v) return;
+  const ups = state.vupd.filter(u=>u.violation_id===id).slice().reverse();
+  const kv = [
+    ['الجهة',v.authority],['الشركة',v.company],['السجل / الرقم الموحد',v.cr_no],['رقم الرخصة',v.license_no],['الفرع',v.branch],
+    ['رقم المخالفة',v.violation_no],['رقم الفاتورة',v.invoice_no],['التصنيف / النظام',v.category],
+    ['تاريخ الرصد',v.violation_date?fmtDate(v.violation_date)+(v.violation_date_hijri?` (${v.violation_date_hijri} هـ)`:''):''],
+    ['وقت المخالفة',v.violation_time],['الحالة في الملف',v.raw_status],['حالة الفاتورة',v.invoice_status],['المصدر',v.source]
+  ].filter(x=>x[1]);
+  modal(head(esc(vTitle(v))) + `
+    <div class="meta">${statusChip(v.status)} <span class="amt num" style="color:var(--ink)">${money(v.amount)}</span> ${deadlineHtml(v)}</div>
+    <dl class="kv">${kv.map(([k,x])=>`<dt>${k}</dt><dd>${esc(x)}</dd>`).join('')}</dl>
+    ${v.reason && v.category ? '' : ''}
+    <div class="grid2">
+      <div><label>الحالة</label><select class="field" id="eStatus">${opts(VSTATUS,v.status)}</select></div>
+      <div><label>المبلغ</label><input class="field num" type="number" step="0.01" id="eAmount" value="${v.amount}"></div>
+    </div>
+    <div class="grid2">
+      <div><label>آخر موعد للاعتراض</label><input class="field" type="date" id="eDeadline" value="${v.objection_deadline||''}"></div>
+      <div><label>رقم طلب الاعتراض</label><input class="field" id="eObjRef" value="${esc(v.objection_ref)}" placeholder="OBJ-..."></div>
+    </div>
+    <label>الإجراء</label><textarea class="field" id="eAction">${esc(v.action)}</textarea>
+    <label>ملاحظات</label><textarea class="field" id="eNotes">${esc(v.notes)}</textarea>
+    <div class="actions">
+      <button class="btn btn-primary" onclick="saveViol('${id}')">حفظ</button>
+      <button class="btn btn-ghost" onclick="openViolForm('${id}')">تعديل البيانات</button>
+      <button class="btn btn-danger" onclick="deleteViol('${id}')">حذف</button>
+    </div>
+    <h2>سجل المتابعة</h2>
+    <textarea class="field" id="uBody" placeholder="وش صار؟ (رفعت الاعتراض، تواصلت مع الفرع، تم السداد...)" style="min-height:64px"></textarea>
+    <button class="btn btn-ghost btn-block" style="margin-top:8px" onclick="addVUpdate('${id}')">+ إضافة تحديث</button>
+    <div class="timeline">${ups.map(u=>`<div class="tl"><small>${fmtDT(u.created_at)}</small> <button class="del" onclick="deleteVUpdate('${u.id}','${id}')">حذف</button><div>${esc(u.body)}</div></div>`).join('') || '<div class="tl" style="color:var(--muted)">لا توجد تحديثات</div>'}</div>`);
+}
+async function saveViol(id){
+  const old = state.viol.find(x=>x.id===id);
+  const row = { status:$('#eStatus').value, amount:Number($('#eAmount').value||0), objection_deadline:$('#eDeadline').value||null,
+                objection_ref:$('#eObjRef').value.trim(), action:$('#eAction').value.trim(), notes:$('#eNotes').value.trim() };
+  const { error } = await sb.from('wf_violations').update(row).eq('id',id);
+  if(error) return fail(error);
+  if(old.status!==row.status) await sb.from('wf_violation_updates').insert({violation_id:id, body:`تغيير الحالة: ${VSTATUS[old.status]} ← ${VSTATUS[row.status]}`});
+  toast('تم الحفظ'); await loadAll(); openViol(id);
+}
+async function deleteViol(id){
+  if(!confirm('حذف المخالفة نهائياً؟')) return;
+  const { error } = await sb.from('wf_violations').delete().eq('id',id);
+  if(error) return fail(error);
+  closeModal(); toast('تم الحذف'); loadAll();
+}
+async function addVUpdate(id){
+  const body = $('#uBody').value.trim(); if(!body) return;
+  const { error } = await sb.from('wf_violation_updates').insert({violation_id:id, body});
+  if(error) return fail(error);
+  await loadAll(); openViol(id);
+}
+async function deleteVUpdate(uid,id){
+  if(!confirm('حذف هذا التحديث؟')) return;
+  const { error } = await sb.from('wf_violation_updates').delete().eq('id',uid);
+  if(error) return fail(error);
+  await loadAll(); openViol(id);
+}
+
+// ----- Violation add / full edit -----
+function openViolForm(id){
+  const v = state.viol.find(x=>x.id===id) || {authority:'بلدي',company:'',cr_no:'',license_no:'',branch:'',violation_no:'',invoice_no:'',category:'',reason:'',violation_date:today(),objection_deadline:'',status:'due',amount:'',action:'',notes:''};
+  const comps = [...new Set(state.viol.map(x=>x.company).filter(Boolean))], branches=[...new Set(state.viol.map(x=>x.branch).filter(Boolean))];
+  const auths = [...new Set([...AUTHORITIES, ...state.viol.map(x=>x.authority)])];
+  modal(head(id?'تعديل بيانات المخالفة':'مخالفة جديدة') + `
+    <div class="grid2">
+      <div><label>الجهة</label><input class="field" id="fAuth" list="dlAuth" value="${esc(v.authority)}"></div>
+      <div><label>الحالة</label><select class="field" id="fStatus">${opts(VSTATUS,v.status)}</select></div>
+    </div>
+    <datalist id="dlAuth">${auths.map(a=>`<option value="${esc(a)}">`).join('')}</datalist>
+    <div class="grid2">
+      <div><label>الشركة</label><input class="field" id="fCompany" list="dlComp" value="${esc(v.company)}"></div>
+      <div><label>الفرع</label><input class="field" id="fBranch" list="dlBranch" value="${esc(v.branch)}"></div>
+    </div>
+    <datalist id="dlComp">${comps.map(a=>`<option value="${esc(a)}">`).join('')}</datalist>
+    <datalist id="dlBranch">${branches.map(a=>`<option value="${esc(a)}">`).join('')}</datalist>
+    <div class="grid2">
+      <div><label>رقم المخالفة</label><input class="field" id="fVno" value="${esc(v.violation_no)}" dir="ltr"></div>
+      <div><label>رقم الفاتورة</label><input class="field" id="fInv" value="${esc(v.invoice_no)}" dir="ltr"></div>
+    </div>
+    <div class="grid2">
+      <div><label>رقم الرخصة</label><input class="field" id="fLic" value="${esc(v.license_no)}" dir="ltr"></div>
+      <div><label>السجل / الرقم الموحد</label><input class="field" id="fCr" value="${esc(v.cr_no)}" dir="ltr"></div>
+    </div>
+    <label>سبب المخالفة</label><textarea class="field" id="fReason" style="min-height:60px">${esc(v.reason)}</textarea>
+    <label>التصنيف / النظام</label><input class="field" id="fCat" value="${esc(v.category)}">
+    <div class="grid2">
+      <div><label>تاريخ الرصد</label><input class="field" type="date" id="fDate" value="${v.violation_date||''}"></div>
+      <div><label>آخر موعد للاعتراض</label><input class="field" type="date" id="fDeadline" value="${v.objection_deadline||''}"></div>
+    </div>
+    <label>المبلغ</label><input class="field num" type="number" step="0.01" id="fAmount" value="${v.amount}">
+    <label>الإجراء</label><textarea class="field" id="fAction" style="min-height:60px">${esc(v.action)}</textarea>
+    <div class="actions"><button class="btn btn-primary" onclick="saveViolForm('${id||''}')">حفظ</button>${id?`<button class="btn btn-ghost" onclick="openViol('${id}')">رجوع</button>`:''}</div>`);
+}
+async function saveViolForm(id){
+  const row = { authority:$('#fAuth').value.trim(), status:$('#fStatus').value, company:$('#fCompany').value.trim(), branch:$('#fBranch').value.trim(),
+    violation_no:$('#fVno').value.trim(), invoice_no:$('#fInv').value.trim(), license_no:$('#fLic').value.trim(), cr_no:$('#fCr').value.trim(),
+    reason:$('#fReason').value.trim(), category:$('#fCat').value.trim(), violation_date:$('#fDate').value||null,
+    objection_deadline:$('#fDeadline').value||null, amount:Number($('#fAmount').value||0), action:$('#fAction').value.trim() };
+  if(!row.authority) return toast('اكتب الجهة');
+  if(!id) row.source='إدخال يدوي';
+  const res = id ? await sb.from('wf_violations').update(row).eq('id',id).select().single() : await sb.from('wf_violations').insert(row).select().single();
+  if(res.error) return fail(res.error.code==='23505'?{message:'المخالفة موجودة مسبقاً بنفس الرقم'}:res.error);
+  toast('تم الحفظ'); await loadAll(); openViol(res.data.id);
+}
+
+// ----- Topics -----
+function openTopic(id){
+  const t = state.topics.find(x=>x.id===id) || { title:'', ref_no:'', party:'', details:'', status:'new', priority:'normal', start_date:today(), due_date:'' };
+  const ups = id ? state.tupd.filter(u=>u.topic_id===id).slice().reverse() : [];
+  modal(head(id?'تفاصيل المعاملة':'معاملة جديدة') + `
+    <label>العنوان</label><input class="field" id="tTitle" value="${esc(t.title)}" placeholder="مثال: تجديد رخصة فرع العقيق">
+    <div class="grid2">
+      <div><label>رقم المعاملة</label><input class="field" id="tRef" value="${esc(t.ref_no)}"></div>
+      <div><label>الجهة / القسم</label><input class="field" id="tParty" value="${esc(t.party)}"></div>
+    </div>
+    <div class="grid2">
+      <div><label>الحالة</label><select class="field" id="tStat">${opts(TSTATUS,t.status)}</select></div>
+      <div><label>الأهمية</label><select class="field" id="tPrio">${opts(PRIO,t.priority)}</select></div>
+    </div>
+    <div class="grid2">
+      <div><label>تاريخ البداية</label><input class="field" type="date" id="tStart" value="${t.start_date}"></div>
+      <div><label>موعد المتابعة</label><input class="field" type="date" id="tDue" value="${t.due_date||''}"></div>
+    </div>
+    <label>التفاصيل</label><textarea class="field" id="tDetails">${esc(t.details)}</textarea>
+    <div class="actions"><button class="btn btn-primary" onclick="saveTopic('${id||''}')">حفظ</button>${id?`<button class="btn btn-danger" onclick="deleteTopic('${id}')">حذف</button>`:''}</div>
+    ${id?`<h2>سجل المتابعة</h2>
+      <textarea class="field" id="uBody" placeholder="وش صار في المعاملة؟" style="min-height:64px"></textarea>
+      <button class="btn btn-ghost btn-block" style="margin-top:8px" onclick="addTUpdate('${id}')">+ إضافة تحديث</button>
+      <div class="timeline">${ups.map(u=>`<div class="tl"><small>${fmtDT(u.created_at)}</small> <button class="del" onclick="deleteTUpdate('${u.id}','${id}')">حذف</button><div>${esc(u.body)}</div></div>`).join('') || '<div class="tl" style="color:var(--muted)">لا توجد تحديثات</div>'}</div>`:''}`);
+}
+async function saveTopic(id){
+  const status = $('#tStat').value, old = state.topics.find(x=>x.id===id);
+  const row = { title:$('#tTitle').value.trim(), ref_no:$('#tRef').value.trim(), party:$('#tParty').value.trim(), status, priority:$('#tPrio').value,
+    start_date:$('#tStart').value||today(), due_date:$('#tDue').value||null, details:$('#tDetails').value.trim(),
+    closed_at: status==='done' ? (old?.closed_at || new Date().toISOString()) : null };
+  if(!row.title) return toast('اكتب عنوان المعاملة');
+  const { error } = id ? await sb.from('wf_topics').update(row).eq('id',id) : await sb.from('wf_topics').insert(row);
+  if(error) return fail(error);
+  if(id && old && old.status!==status) await sb.from('wf_topic_updates').insert({ topic_id:id, body:`تغيير الحالة: ${TSTATUS[old.status]} ← ${TSTATUS[status]}` });
+  closeModal(); toast('تم الحفظ'); loadAll();
+}
+async function deleteTopic(id){
+  if(!confirm('حذف المعاملة وكل تحديثاتها نهائياً؟')) return;
+  const { error } = await sb.from('wf_topics').delete().eq('id',id);
+  if(error) return fail(error);
+  closeModal(); toast('تم الحذف'); loadAll();
+}
+async function addTUpdate(id){
+  const body = $('#uBody').value.trim(); if(!body) return;
+  const { error } = await sb.from('wf_topic_updates').insert({ topic_id:id, body });
+  if(error) return fail(error);
+  await loadAll(); openTopic(id);
+}
+async function deleteTUpdate(uid,id){
+  if(!confirm('حذف هذا التحديث؟')) return;
+  const { error } = await sb.from('wf_topic_updates').delete().eq('id',uid);
+  if(error) return fail(error);
+  await loadAll(); openTopic(id);
+}
+
+// ===== EXCEL IMPORT =====
+$('#importBtn').onclick = () => $('#fileInput').click();
+$('#fileInput').onchange = async e => {
+  const file = e.target.files[0]; e.target.value=''; if(!file) return;
+  try{
+    const wb = XLSX.read(await file.arrayBuffer(), {cellDates:true});
+    const rows = parseWorkbook(wb);
+    if(!rows.length) return toast('ما لقيت مخالفات في الملف');
+    previewImport(rows, file.name);
+  }catch(err){ fail(err); }
+};
+const clean = v => v==null ? '' : String(v).replace(/ /g,' ').replace(/\s+/g,' ').trim();
+const hdr = v => clean(v).replace(/[ـ]/g,'');
+function numText(v){
+  if(v==null||v==='') return ['',''];
+  if(typeof v==='number'){
+    if(v>1e15) return [v.toExponential(13).split('e')[0].replace('.','')+'…','رقم الفاتورة مقطوع في ملف الإكسل (ظهر بصيغة علمية) — يحتاج تصحيح من النظام'];
+    return [Number.isInteger(v)?String(v):String(v),''];
+  }
+  return [clean(v),''];
+}
+function hijriToGreg(y,m,d){
+  const jd = Math.floor((11*y+3)/30) + 354*y + 30*m - Math.floor((m-1)/2) + d + 1948440 - 385;
+  const dt = new Date(Date.UTC(1970,0,1) + (jd-2440588)*864e5);
+  return dt.toISOString().slice(0,10);
+}
+function toDate(v){
+  if(v instanceof Date && !isNaN(v)) return [`${v.getFullYear()}-${String(v.getMonth()+1).padStart(2,'0')}-${String(v.getDate()).padStart(2,'0')}`,''];
+  const s = clean(v); if(!s) return [null,''];
+  let m = s.match(/^(1[34]\d\d)[-\/](\d{1,2})[-\/](\d{1,2})/);
+  if(m) return [hijriToGreg(+m[1],+m[2],+m[3]), `${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`];
+  m = s.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](1[34]\d\d)$/);
+  if(m) return [hijriToGreg(+m[3],+m[2],+m[1]), `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`];
+  m = s.match(/^(20\d\d)[-\/](\d{1,2})[-\/](\d{1,2})/);
+  if(m) return [`${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`,''];
+  m = s.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](20\d\d)$/);
+  if(m) return [`${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`,''];
+  return [null,''];
+}
+function statusOf(raw){
+  const r = raw||'';
+  if(r.includes('قبول الاعتراض')) return 'accepted';
+  if(r.includes('رفض')) return 'rejected';
+  if(r.includes('قيد النظر') || r==='تحت اجراء الاعتراض' || r==='تحت إجراء الاعتراض') return 'objection_pending';
+  if(r.includes('رفع الاعتراض')) return 'objection_prep';
+  if(r.includes('تم السداد') || r==='مسددة') return 'paid';
+  return 'due';
+}
+function normAuthority(s){
+  s = clean(s);
+  if(!s) return '';
+  if(/نقل/.test(s)) return 'هيئة النقل';
+  if(/موارد/.test(s)) return 'وزارة الموارد البشرية';
+  if(/تجار/.test(s)) return 'وزارة التجارة';
+  if(/غذاء/.test(s)) return 'هيئة الغذاء والدواء';
+  if(s.includes('امانة')||s.includes('أمانة')) return 'أمانة '+(s.split(/[أا]مانة/)[1]||'').trim().replace(/^ال?منطقة\s*/,'') || 'أمانة';
+  if(s.includes('بلدي')) return 'بلدي';
+  return s;
+}
+// header name -> field
+const MAP = [
+  [/^الجهة$/, 'authority'], [/رقم الرخصة/, 'license_no'], [/^الفرع/, 'branch'],
+  [/^رقم المخالفة/, 'violation_no'], [/رقم (فاتورة|الفاتورة)/, 'invoice_no'],
+  [/تاريخ رصد|^التاريخ$|تاريخ الفاتورة|تاريخ المخالفة/, 'date'], [/اخر موعد|آخر موعد/, 'deadline'],
+  [/حالة الاعتراض|^الحالة$/, 'raw_status'], [/حالة (فاتورة|الفاتورة)/, 'inv_status'],
+  [/قيمة|^المبلغ/, 'amount'], [/سبب المخالفة|اسم المخالفة|تفاصيل المخالفة/, 'reason'],
+  [/نوع المخالفة|اسم النظام|^التصنيف$/, 'category'], [/^الاجراء|^الإجراء/, 'action'],
+  [/السجل التجاري/, 'company_or_cr'], [/الرقم الموحد|رقم السجل/, 'cr_no'], [/وقت المخالفة/, 'time']
+];
+function parseWorkbook(wb){
+  const out = [];
+  for(const name of wb.SheetNames){
+    const aoa = XLSX.utils.sheet_to_json(wb.Sheets[name], {header:1, raw:true, defval:null});
+    let hi = aoa.findIndex(r => r && r.filter(c=>clean(c)).length>=3 && r.some(c=>/المخالفة|المبلغ|الفاتورة|الفرع|الجهة/.test(hdr(c))));
+    if(hi<0) continue;
+    const title = clean((aoa.slice(0,hi).flat().find(c=>clean(c))) || name);
+    const sheetAuth = normAuthority(title) !== title ? normAuthority(title) : (/اعتراض|بلدي/.test(title+name) ? 'بلدي' : normAuthority(name));
+    const cols = {};
+    aoa[hi].forEach((c,i)=>{
+      const h = hdr(c); if(!h) return;
+      for(const [re,f] of MAP){ if(re.test(h)){
+        if(f==='category' && h==='التصنيف' && cols.category!==undefined) break;
+        if(f==='category' && /نوع المخالفة|اسم النظام/.test(h)) { cols.category=i; break; }
+        if(f==='category' && h==='التصنيف') { cols.class=i; break; }
+        if(cols[f]===undefined) cols[f]=i; break; } }
+    });
+    if(cols.raw_status===undefined && cols.inv_status!==undefined){ cols.raw_status=cols.inv_status; delete cols.inv_status; }
+    for(const r of aoa.slice(hi+1)){
+      if(!r || !r.some(c=>clean(c))) continue;
+      const g = f => cols[f]===undefined ? null : r[cols[f]];
+      const [vno] = numText(g('violation_no')), [inv, invNote] = numText(g('invoice_no'));
+      const branch = clean(g('branch')), reason = clean(g('reason')), category = clean(g('category'));
+      if(!vno && !inv && !branch && !reason && !category) continue; // total rows
+      let authority = normAuthority(g('authority')) || sheetAuth;
+      const branchIsAuth = !!branch && /هيئة|وزارة|أمانة|امانة/.test(branch) && AUTHORITIES.includes(normAuthority(branch));
+      if(branchIsAuth) authority = normAuthority(branch);
+      const coc = clean(g('company_or_cr'));
+      let company='', cr = numText(g('cr_no'))[0];
+      if(coc){ if(/^\d+$/.test(coc)) cr = cr||coc; else company = coc; }
+      const [vd, vh] = toDate(g('date')); const [dl] = toDate(g('deadline'));
+      const raw = clean(g('raw_status'));
+      const obj = (raw.match(/OBJ-\d+/)||[''])[0];
+      let t = g('time'); if(t instanceof Date) t = `${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}`;
+      const amt = Number(String(g('amount')??'0').replace(/[^\d.]/g,'')) || 0;
+      out.push({
+        authority, company, cr_no:cr, license_no:numText(g('license_no'))[0],
+        branch: branchIsAuth ? '' : branch,
+        violation_no:vno, invoice_no:inv, category, reason,
+        violation_date:vd, violation_date_hijri:vh, violation_time:clean(t), objection_deadline:dl,
+        status:statusOf(raw), objection_ref:obj, raw_status:raw, invoice_status:clean(g('inv_status')),
+        amount:amt, action:clean(g('action')), source:clean(name), ...(invNote?{notes:invNote}:{})
+      });
+    }
+  }
+  // dedupe inside file (same key) – keep last
+  const m = new Map(); out.forEach(r=>m.set([r.authority,r.violation_no,r.invoice_no].join('|'), r));
+  return [...m.values()];
+}
+let pendingImport = [];
+function previewImport(rows, fname){
+  pendingImport = rows;
+  const key = r => [r.authority,r.violation_no,r.invoice_no].join('|');
+  const existing = new Map(state.viol.map(v=>[key(v),v]));
+  const fresh = rows.filter(r=>!existing.has(key(r)));
+  const changed = rows.filter(r=>{ const e=existing.get(key(r)); return e && (e.status!==r.status || Number(e.amount)!==r.amount); });
+  const byA = {}; rows.forEach(r=>{ const x=byA[r.authority]||(byA[r.authority]={n:0,amt:0}); x.n++; x.amt+=r.amount; });
+  const hasNoKey = rows.filter(r=>!r.violation_no && !r.invoice_no).length;
+  modal(head('استيراد: '+esc(fname)) + `
+    <table class="tbl"><tr><th>الجهة</th><th>العدد</th><th>المبلغ</th></tr>
+    ${Object.entries(byA).map(([a,x])=>`<tr><td>${esc(a)}</td><td class="num">${x.n}</td><td class="num">${money(x.amt)}</td></tr>`).join('')}
+    <tr><td><b>الإجمالي</b></td><td class="num"><b>${rows.length}</b></td><td class="num"><b>${money(sum(rows))}</b></td></tr></table>
+    <dl class="kv"><dt>مخالفات جديدة</dt><dd>${fresh.length}</dd><dt>موجودة وتغيرت حالتها/مبلغها</dt><dd>${changed.length}</dd><dt>موجودة بدون تغيير</dt><dd>${rows.length-fresh.length-changed.length}</dd></dl>
+    ${hasNoKey?`<div class="warn">${hasNoKey} صف بدون رقم مخالفة أو فاتورة — بيتم إضافتها لكن ممكن تتكرر لو استوردت نفس الملف مرة ثانية.</div>`:''}
+    <div class="warn" style="background:var(--gray-soft);color:#334155">المخالفات الموجودة تتحدث حالتها ومبلغها من الملف. ملاحظاتك وسجل المتابعة ما يتأثرون.</div>
+    <div class="actions"><button class="btn btn-primary" id="doImport">استيراد ${rows.length}</button><button class="btn btn-ghost" onclick="closeModal()">إلغاء</button></div>`);
+  $('#doImport').onclick = runImport;
+}
+async function runImport(){
+  $('#doImport').disabled = true; $('#doImport').textContent = 'جاري الاستيراد...';
+  const key = r => [r.authority,r.violation_no,r.invoice_no].join('|');
+  const existing = new Map(state.viol.map(v=>[key(v),v]));
+  const noKey = pendingImport.filter(r=>!r.violation_no && !r.invoice_no && !existing.has(key(r)));
+  const keyed = pendingImport.filter(r=>r.violation_no || r.invoice_no);
+  const changes = [];
+  keyed.forEach(r=>{ const e=existing.get(key(r)); if(e && e.status!==r.status) changes.push({id:e.id, body:`تحديث من ملف إكسل: ${VSTATUS[e.status]} ← ${VSTATUS[r.status]}`}); });
+  for(let i=0;i<keyed.length;i+=200){
+    const { error } = await sb.from('wf_violations').upsert(keyed.slice(i,i+200).map(({notes, ...rest})=>rest), { onConflict:'authority,violation_no,invoice_no' });
+    if(error) return fail(error);
+  }
+  for(const r of keyed.filter(r=>r.notes && !existing.has(key(r)))){
+    await sb.from('wf_violations').update({notes:r.notes}).eq('authority',r.authority).eq('violation_no',r.violation_no).eq('invoice_no',r.invoice_no);
+  }
+  if(noKey.length){ const { error } = await sb.from('wf_violations').insert(noKey); if(error) return fail(error); }
+  if(changes.length) await sb.from('wf_violation_updates').insert(changes.map(c=>({violation_id:c.id, body:c.body})));
+  closeModal(); toast(`تم استيراد ${pendingImport.length} مخالفة`); await loadAll(); setTab('home');
+}
+
+// ===== EXPORT =====
+$('#exportBtn').onclick = () => {
+  const list = filteredViol();
+  const data = list.map(v=>({
+    'الجهة':v.authority,'الشركة':v.company,'الفرع':v.branch,'رقم المخالفة':v.violation_no,'رقم الفاتورة':v.invoice_no,
+    'رقم الرخصة':v.license_no,'السجل':v.cr_no,'السبب':v.reason,'التصنيف':v.category,'تاريخ الرصد':v.violation_date||'',
+    'تاريخ هجري':v.violation_date_hijri,'آخر موعد اعتراض':v.objection_deadline||'','الحالة':VSTATUS[v.status],
+    'رقم الاعتراض':v.objection_ref,'المبلغ':Number(v.amount),'الإجراء':v.action,'ملاحظات':v.notes
+  }));
+  const ws = XLSX.utils.json_to_sheet(data); ws['!views']=[{RTL:true}];
+  const wb = XLSX.utils.book_new(); wb.Workbook={Views:[{RTL:true}]};
+  XLSX.utils.book_append_sheet(wb, ws, 'المخالفات');
+  XLSX.writeFile(wb, `مخالفات-${today()}.xlsx`);
+};
+
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeModal(); });
+init();
+</script>
+</body>
+</html>
