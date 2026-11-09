@@ -767,45 +767,240 @@ async function runImport(){
   closeModal(); toast(`تم استيراد ${pendingImport.length} مخالفة`); await loadAll(); setTab('home');
 }
 
-// ===== EXPORT =====
-const violRow = v => ({
-    'الجهة':v.authority,'الشركة':v.company,'الفرع':v.branch,'رقم المخالفة':v.violation_no,'رقم الفاتورة':v.invoice_no,
-    'رقم الرخصة':v.license_no,'السجل':v.cr_no,'السبب':v.reason,'التصنيف':v.category,'تاريخ الرصد':v.violation_date||'',
-    'تاريخ هجري':v.violation_date_hijri,'آخر موعد اعتراض':v.objection_deadline||'','الحالة':VSTATUS[v.status],
-    'رقم الاعتراض':v.objection_ref,'المبلغ':Number(v.amount),'الإجراء':v.action,'ملاحظات':v.notes,
-    'آخر تحديث متابعة':(state.vupd.filter(u=>u.violation_id===v.id).pop()||{}).body||''
+// ===== EXPORT (styled, ExcelJS) =====
+let excelJsReady;
+function loadExcelJS(){
+  if(window.ExcelJS) return Promise.resolve();
+  return excelJsReady ||= new Promise((ok,bad)=>{
+    const s=document.createElement('script'); s.src='https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js';
+    s.onload=ok; s.onerror=()=>{excelJsReady=null; bad(new Error('تعذر تحميل مكتبة الإكسل، تأكد من الإنترنت'));}; document.head.appendChild(s);
   });
-function addSheet(wb, rows, name){
-  const ws = XLSX.utils.json_to_sheet(rows.length?rows:[{'':'لا توجد بيانات'}]);
-  ws['!views']=[{RTL:true}];
-  if(rows.length) ws['!cols'] = Object.keys(rows[0]).map(k=>({wch: Math.min(50, Math.max(k.length, ...rows.map(r=>String(r[k]??'').length))+2)}));
-  XLSX.utils.book_append_sheet(wb, ws, name.replace(/[\\/?*\[\]:]/g,'').slice(0,31));
 }
-function newBook(){ const wb = XLSX.utils.book_new(); wb.Workbook={Views:[{RTL:true}]}; return wb; }
-$('#exportBtn').onclick = () => {
-  const wb = newBook(); addSheet(wb, filteredViol().map(violRow), 'المخالفات');
-  XLSX.writeFile(wb, `مخالفات-${today()}.xlsx`);
-};
-$('#exportAllBtn').onclick = () => {
-  const V = state.viol;
-  const wb = newBook();
-  // summary
-  const auths = [...new Set(V.map(v=>v.authority))];
-  const summary = auths.map(a=>{ const all=V.filter(v=>v.authority===a);
-    const s = st => sum(all.filter(v=>st.includes(v.status)));
-    return {'الجهة':a,'عدد المخالفات':all.length,'واجبة السداد':s(['due','rejected']),'تحت الاعتراض':s(['objection_prep','objection_pending']),'اعتراض مقبول':s(['accepted']),'تم السداد':s(['paid']),'الإجمالي':sum(all)}; });
-  summary.push({'الجهة':'الإجمالي','عدد المخالفات':V.length,
-    'واجبة السداد':summary.reduce((a,x)=>a+x['واجبة السداد'],0),'تحت الاعتراض':summary.reduce((a,x)=>a+x['تحت الاعتراض'],0),
-    'اعتراض مقبول':summary.reduce((a,x)=>a+x['اعتراض مقبول'],0),'تم السداد':summary.reduce((a,x)=>a+x['تم السداد'],0),'الإجمالي':sum(V)});
-  addSheet(wb, summary, 'الملخص');
-  addSheet(wb, V.map(violRow), 'كل المخالفات');
-  auths.forEach(a=>addSheet(wb, V.filter(v=>v.authority===a).map(violRow), a));
-  addSheet(wb, state.topics.map(t=>({'العنوان':t.title,'رقم المعاملة':t.ref_no,'الجهة':t.party,'الحالة':TSTATUS[t.status],'الأهمية':PRIO[t.priority],
-    'تاريخ البداية':t.start_date,'موعد المتابعة':t.due_date||'','التفاصيل':t.details,
-    'آخر تحديث':(state.tupd.filter(u=>u.topic_id===t.id).pop()||{}).body||''})), 'المعاملات');
-  XLSX.writeFile(wb, `Work-follow-up-${today()}.xlsx`);
-  toast('تم تصدير الملف');
-};
+const C = { navy:'FF0F172A', teal:'FF0F766E', tealSoft:'FFCCFBF1', zebra:'FFF8FAFC', line:'FFE2E8F0', white:'FFFFFFFF', muted:'FF64748B',
+  red:'FFB91C1C', redSoft:'FFFEE2E2', amber:'FFB45309', amberSoft:'FFFEF3C7', purple:'FF6D28D9', purpleSoft:'FFEDE9FE',
+  green:'FF15803D', greenSoft:'FFDCFCE7', gray:'FF334155', graySoft:'FFF1F5F9', blue:'FF1D4ED8', blueSoft:'FFDBEAFE' };
+const ST_COLORS = { due:[C.redSoft,C.red], rejected:[C.redSoft,C.red], objection_prep:[C.amberSoft,C.amber],
+  objection_pending:[C.purpleSoft,C.purple], accepted:[C.greenSoft,C.green], paid:[C.graySoft,C.gray] };
+const TST_COLORS = { new:[C.blueSoft,C.blue], in_progress:[C.amberSoft,C.amber], waiting:[C.purpleSoft,C.purple], done:[C.greenSoft,C.green] };
+const FONT = 'Arial';
+const fill = argb => ({type:'pattern', pattern:'solid', fgColor:{argb}});
+const thin = { style:'thin', color:{argb:C.line} };
+const box = { top:thin, bottom:thin, left:thin, right:thin };
+const MONEY = '#,##0" ر.س"';
+const DATE = 'dd/mm/yyyy';
+const xDate = d => d ? new Date(Date.UTC(+d.slice(0,4), +d.slice(5,7)-1, +d.slice(8,10))) : null;
+const safeName = n => n.replace(/[\\/?*\[\]:]/g,'').slice(0,31);
+
+function sheetTitle(ws, title, sub, ncol){
+  ws.mergeCells(1,1,1,ncol); ws.mergeCells(2,1,2,ncol);
+  const t = ws.getCell(1,1); t.value = title;
+  t.font = {name:FONT, size:16, bold:true, color:{argb:C.white}}; t.fill = fill(C.navy);
+  t.alignment = {horizontal:'center', vertical:'middle', readingOrder:'rtl'};
+  const s = ws.getCell(2,1); s.value = sub;
+  s.font = {name:FONT, size:10, color:{argb:C.white}}; s.fill = fill(C.teal);
+  s.alignment = {horizontal:'center', vertical:'middle', readingOrder:'rtl'};
+  ws.getRow(1).height = 32; ws.getRow(2).height = 20;
+}
+function headerRow(ws, r, labels){
+  const row = ws.getRow(r);
+  labels.forEach((h,i)=>{ const c=row.getCell(i+1); c.value=h;
+    c.font={name:FONT, bold:true, size:11, color:{argb:C.white}}; c.fill=fill(C.teal); c.border=box;
+    c.alignment={horizontal:'center', vertical:'middle', wrapText:true, readingOrder:'rtl'}; });
+  row.height = 30;
+}
+// generic table writer. cols: [{h, w, get(v), type:'money'|'date'|'text'|'num', wrap, style(v,cell)}]
+function writeTable(ws, startRow, cols, items, totals){
+  headerRow(ws, startRow, cols.map(c=>c.h));
+  items.forEach((v,i)=>{
+    const row = ws.getRow(startRow+1+i);
+    cols.forEach((c,j)=>{
+      const cell = row.getCell(j+1); let val = c.get(v);
+      if(c.type==='date') val = xDate(val);
+      if(c.type==='money'||c.type==='num') val = val===''||val==null ? null : Number(val);
+      cell.value = val===''?null:val;
+      cell.font = {name:FONT, size:10, color:{argb:'FF0F172A'}};
+      cell.border = box;
+      if(i%2) cell.fill = fill(C.zebra);
+      cell.alignment = {vertical:'middle', horizontal: c.type==='text'||!c.type ? 'right':'center', wrapText:!!c.wrap, readingOrder:'rtl'};
+      if(c.type==='money') cell.numFmt = MONEY;
+      if(c.type==='date') cell.numFmt = DATE;
+      if(c.style) c.style(v, cell);
+    });
+    const lines = Math.max(1, ...cols.filter(c=>c.wrap).map(c=>Math.ceil(String(c.get(v)||'').length / ((c.w||14)*1.1))));
+    row.height = Math.max(22, lines*15 + 6);
+  });
+  const last = startRow + items.length;
+  if(totals && items.length){
+    const row = ws.getRow(last+1);
+    cols.forEach((c,j)=>{
+      const cell=row.getCell(j+1), L = colLetter(j+1);
+      if(j===0) cell.value='الإجمالي';
+      if(c.total==='sum') cell.value={formula:`SUM(${L}${startRow+1}:${L}${last})`, result:items.reduce((a,v)=>a+Number(c.get(v)||0),0)};
+      if(c.total==='count') cell.value=items.length;
+      cell.font={name:FONT, bold:true, size:11, color:{argb:C.white}}; cell.fill=fill(C.navy); cell.border=box;
+      cell.alignment={horizontal:j===0?'right':'center', vertical:'middle', readingOrder:'rtl'};
+      if(c.type==='money') cell.numFmt=MONEY;
+    });
+    row.height = 26;
+  }
+  cols.forEach((c,j)=>{ ws.getColumn(j+1).width = c.w || 14; });
+  if(items.length) ws.autoFilter = { from:{row:startRow, column:1}, to:{row:last, column:cols.length} };
+  return last + (totals&&items.length?1:0);
+}
+function colLetter(n){ let s=''; while(n){ const m=(n-1)%26; s=String.fromCharCode(65+m)+s; n=Math.floor((n-1)/26);} return s; }
+const lastUpd = v => (state.vupd.filter(u=>u.violation_id===v.id).pop()||{}).body||'';
+function statusStyle(v, cell){ const [bg,fg]=ST_COLORS[v.status]||[C.graySoft,C.gray]; cell.fill=fill(bg); cell.font={name:FONT,size:10,bold:true,color:{argb:fg}}; }
+function daysLeft(v){ return ['due','objection_prep'].includes(v.status) && v.objection_deadline ? daysTo(v.objection_deadline) : ''; }
+function deadlineStyle(v, cell){
+  const d = daysLeft(v); if(d==='' || !['due','objection_prep'].includes(v.status)) return;
+  if(d<0||d<=7){ cell.fill=fill(C.redSoft); cell.font={name:FONT,size:10,bold:true,color:{argb:C.red}}; }
+  else if(d<=21){ cell.fill=fill(C.amberSoft); cell.font={name:FONT,size:10,bold:true,color:{argb:C.amber}}; }
+}
+const VCOLS = [
+  {h:'الجهة', w:18, get:v=>v.authority},
+  {h:'الشركة', w:26, get:v=>v.company, wrap:true},
+  {h:'الفرع', w:18, get:v=>v.branch},
+  {h:'رقم المخالفة', w:16, get:v=>v.violation_no, type:'code'},
+  {h:'رقم الفاتورة', w:17, get:v=>v.invoice_no, type:'code'},
+  {h:'رقم الرخصة', w:15, get:v=>v.license_no, type:'code'},
+  {h:'السجل / الرقم الموحد', w:15, get:v=>v.cr_no, type:'code'},
+  {h:'سبب المخالفة', w:42, get:v=>v.reason, wrap:true},
+  {h:'التصنيف / النظام', w:28, get:v=>v.category, wrap:true},
+  {h:'تاريخ الرصد', w:13, get:v=>v.violation_date, type:'date'},
+  {h:'التاريخ الهجري', w:13, get:v=>v.violation_date_hijri, type:'code'},
+  {h:'آخر موعد اعتراض', w:14, get:v=>v.objection_deadline, type:'date', style:deadlineStyle},
+  {h:'الأيام المتبقية', w:11, get:v=>daysLeft(v), type:'num', style:deadlineStyle},
+  {h:'الحالة', w:20, get:v=>VSTATUS[v.status], type:'code', style:statusStyle},
+  {h:'رقم الاعتراض', w:14, get:v=>v.objection_ref, type:'code'},
+  {h:'المبلغ', w:14, get:v=>Number(v.amount), type:'money', total:'sum', style:(v,c)=>{c.font={name:FONT,size:10,bold:true};}},
+  {h:'الإجراء', w:34, get:v=>v.action, wrap:true},
+  {h:'ملاحظات', w:30, get:v=>v.notes, wrap:true},
+  {h:'آخر تحديث متابعة', w:34, get:lastUpd, wrap:true},
+];
+function addViolSheet(wb, name, items, sub, tab){
+  // drop empty columns
+  const cols = VCOLS.filter(c => c.h==='المبلغ' || c.h==='الحالة' || items.some(v=>{ const x=c.get(v); return x!=='' && x!=null; }));
+  const ws = wb.addWorksheet(safeName(name), { views:[{rightToLeft:true, state:'frozen', ySplit:3}], properties:{tabColor:{argb:tab||C.teal}} });
+  sheetTitle(ws, name, sub, cols.length);
+  if(!items.length){ ws.getCell(4,1).value='لا توجد بيانات'; return ws; }
+  writeTable(ws, 3, cols, items, true);
+  ws.pageSetup = { orientation:'landscape', fitToPage:true, fitToWidth:1, fitToHeight:0, paperSize:9 };
+  return ws;
+}
+function kpi(ws, r, c, label, value, bg, fg, sub){
+  ws.mergeCells(r,c,r,c+1); ws.mergeCells(r+1,c,r+1,c+1); ws.mergeCells(r+2,c,r+2,c+1);
+  const a=ws.getCell(r,c), b=ws.getCell(r+1,c), d=ws.getCell(r+2,c);
+  a.value=label; b.value=value; d.value=sub||'';
+  [a,b,d].forEach(x=>{ x.fill=fill(bg); x.alignment={horizontal:'center',vertical:'middle',readingOrder:'rtl'}; });
+  a.font={name:FONT,size:10,bold:true,color:{argb:C.gray}};
+  b.font={name:FONT,size:18,bold:true,color:{argb:fg}}; b.numFmt=MONEY;
+  d.font={name:FONT,size:9,color:{argb:C.muted}};
+}
+async function buildStyledWorkbook(V, opts={}){
+  await loadExcelJS();
+  const wb = new ExcelJS.Workbook(); wb.creator='Work follow up'; wb.created=new Date();
+  wb.views = [{ activeTab:0 }];
+  const stamp = 'تاريخ التقرير: ' + new Date().toLocaleDateString('ar-SA-u-ca-gregory-nu-latn',{day:'numeric',month:'long',year:'numeric'});
+  if(opts.summary){
+    const ws = wb.addWorksheet('الملخص', { views:[{rightToLeft:true, showGridLines:false}], properties:{tabColor:{argb:C.navy}} });
+    sheetTitle(ws, 'تقرير متابعة المخالفات', stamp, 8);
+    const by = st => V.filter(v=>st.includes(v.status));
+    const dueL=by(['due','rejected']), objL=by(['objection_prep','objection_pending']), accL=by(['accepted']), paidL=by(['paid']);
+    kpi(ws,4,1,'واجبة السداد', sum(dueL), C.redSoft, C.red, dueL.length+' مخالفة');
+    kpi(ws,4,3,'تحت الاعتراض', sum(objL), C.purpleSoft, C.purple, objL.length+' مخالفة');
+    kpi(ws,4,5,'اعتراضات مقبولة (توفير)', sum(accL), C.greenSoft, C.green, accL.length+' مخالفة');
+    kpi(ws,4,7,'إجمالي المخالفات', sum(V), C.graySoft, C.navy, V.length+' مخالفة');
+    ws.getRow(5).height = 30;
+
+    const auths = [...new Set(V.map(v=>v.authority))];
+    const rows = auths.map(a=>{ const all=V.filter(v=>v.authority===a), s=st=>sum(all.filter(v=>st.includes(v.status)));
+      return {a, n:all.length, due:s(['due','rejected']), obj:s(['objection_prep','objection_pending']), acc:s(['accepted']), paid:s(['paid']), tot:sum(all)}; })
+      .sort((x,y)=>y.tot-x.tot);
+    let r = 8;
+    ws.mergeCells(r,1,r,8); const h=ws.getCell(r,1); h.value='حسب الجهة'; h.font={name:FONT,size:13,bold:true,color:{argb:C.navy}};
+    const money = (h,k,extra={}) => ({h, w:16, get:x=>x[k], type:'money', total:'sum', ...extra});
+    r = writeTable(ws, r+1, [
+      {h:'الجهة', w:24, get:x=>x.a, style:(x,c)=>{c.font={name:FONT,size:10,bold:true};}},
+      {h:'العدد', w:10, get:x=>x.n, type:'num', total:'sum'},
+      money('واجبة السداد','due',{style:(x,c)=>{ if(x.due) c.font={name:FONT,size:10,bold:true,color:{argb:C.red}}; }}),
+      money('تحت الاعتراض','obj',{style:(x,c)=>{ if(x.obj) c.font={name:FONT,size:10,bold:true,color:{argb:C.purple}}; }}),
+      money('اعتراض مقبول','acc',{style:(x,c)=>{ if(x.acc) c.font={name:FONT,size:10,bold:true,color:{argb:C.green}}; }}),
+      money('تم السداد','paid'),
+      money('الإجمالي','tot',{style:(x,c)=>{c.font={name:FONT,size:10,bold:true};}}),
+      {h:'نسبة من الإجمالي', w:14, get:x=>sum(V)?x.tot/sum(V):0, type:'num', style:(x,c)=>{c.numFmt='0%';}},
+    ], rows, true);
+    ws.autoFilter = null;
+
+    // deadlines soon
+    const soon = V.filter(v=>['due','objection_prep'].includes(v.status) && v.objection_deadline && daysTo(v.objection_deadline)<=21)
+                  .sort((a,b)=>a.objection_deadline.localeCompare(b.objection_deadline));
+    r += 2;
+    ws.mergeCells(r,1,r,8); const h2=ws.getCell(r,1); h2.value='⏰ مواعيد اعتراض قريبة أو منتهية'; h2.font={name:FONT,size:13,bold:true,color:{argb:C.navy}};
+    if(soon.length){
+      r = writeTable(ws, r+1, [
+        {h:'الجهة', get:x=>x.authority}, {h:'الفرع', get:x=>x.branch},
+        {h:'رقم المخالفة', get:x=>x.violation_no||x.invoice_no, type:'code'},
+        {h:'سبب المخالفة', w:36, get:x=>x.reason||x.category, wrap:true},
+        {h:'آخر موعد', get:x=>x.objection_deadline, type:'date', style:deadlineStyle},
+        {h:'الأيام المتبقية', get:daysLeft, type:'num', style:deadlineStyle},
+        {h:'الحالة', get:x=>VSTATUS[x.status], type:'code', style:statusStyle},
+        {h:'المبلغ', get:x=>Number(x.amount), type:'money', total:'sum'},
+      ], soon, true);
+      ws.autoFilter = null;
+    } else { ws.getCell(r+1,1).value='لا توجد مواعيد قريبة'; r+=1; }
+
+    // top branches
+    const bm={}; V.filter(v=>v.branch && OPEN.includes(v.status)).forEach(v=>{ const b=bm[v.branch]||(bm[v.branch]={b:v.branch,n:0,amt:0}); b.n++; b.amt+=Number(v.amount); });
+    const br = Object.values(bm).sort((a,b)=>b.amt-a.amt).slice(0,10);
+    if(br.length){
+      r += 2;
+      ws.mergeCells(r,1,r,8); const h3=ws.getCell(r,1); h3.value='أكثر الفروع مخالفات (المفتوحة)'; h3.font={name:FONT,size:13,bold:true,color:{argb:C.navy}};
+      writeTable(ws, r+1, [ {h:'الفرع', get:x=>x.b}, {h:'العدد', get:x=>x.n, type:'num', total:'sum'}, {h:'المبلغ', get:x=>x.amt, type:'money', total:'sum'} ], br, true);
+      ws.autoFilter = null;
+    }
+    [24,18,16,36,16,16,22,16].forEach((w,i)=>ws.getColumn(i+1).width=w);
+    ws.pageSetup = { orientation:'landscape', fitToPage:true, fitToWidth:1, fitToHeight:0, paperSize:9 };
+  }
+  addViolSheet(wb, opts.mainName||'كل المخالفات', V, stamp + ` — ${V.length} مخالفة — ${money(sum(V))}`, C.navy);
+  if(opts.perAuthority){
+    const tabs=[C.teal,'FF2563EB','FF7C3AED','FFDB2777','FFEA580C','FF16A34A','FF0891B2'];
+    [...new Set(V.map(v=>v.authority))].forEach((a,i)=>{ const L=V.filter(v=>v.authority===a); addViolSheet(wb, a, L, stamp+` — ${L.length} مخالفة — ${money(sum(L))}`, tabs[i%tabs.length]); });
+  }
+  if(opts.topics){
+    const ws = wb.addWorksheet('المعاملات', { views:[{rightToLeft:true, state:'frozen', ySplit:3}], properties:{tabColor:{argb:'FF64748B'}} });
+    const cols = [
+      {h:'العنوان', w:34, get:t=>t.title, wrap:true, style:(t,c)=>{c.font={name:FONT,size:10,bold:true};}},
+      {h:'رقم المعاملة', w:14, get:t=>t.ref_no, type:'code'}, {h:'الجهة / القسم', w:20, get:t=>t.party},
+      {h:'الحالة', w:14, get:t=>TSTATUS[t.status], type:'code', style:(t,c)=>{ const [bg,fg]=TST_COLORS[t.status]; c.fill=fill(bg); c.font={name:FONT,size:10,bold:true,color:{argb:fg}}; }},
+      {h:'الأهمية', w:11, get:t=>PRIO[t.priority], type:'code', style:(t,c)=>{ if(t.priority==='urgent'||t.priority==='high'){ c.fill=fill(C.redSoft); c.font={name:FONT,size:10,bold:true,color:{argb:C.red}}; } }},
+      {h:'تاريخ البداية', w:13, get:t=>t.start_date, type:'date'},
+      {h:'موعد المتابعة', w:13, get:t=>t.due_date, type:'date', style:(t,c)=>{ if(t.status!=='done' && t.due_date && t.due_date<today()){ c.fill=fill(C.redSoft); c.font={name:FONT,size:10,bold:true,color:{argb:C.red}}; } }},
+      {h:'التفاصيل', w:40, get:t=>t.details, wrap:true},
+      {h:'آخر تحديث', w:40, get:t=>(state.tupd.filter(u=>u.topic_id===t.id).pop()||{}).body||'', wrap:true},
+    ];
+    sheetTitle(ws, 'المعاملات', stamp+` — ${state.topics.length} معاملة`, cols.length);
+    if(state.topics.length) writeTable(ws, 3, cols, state.topics, false); else ws.getCell(4,1).value='لا توجد معاملات';
+  }
+  return wb;
+}
+async function downloadWorkbook(wb, fname){
+  const buf = await wb.xlsx.writeBuffer();
+  const url = URL.createObjectURL(new Blob([buf], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+  const a = document.createElement('a'); a.href=url; a.download=fname; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 4000);
+}
+async function withBusy(btn, fn){
+  const old = btn.innerHTML; btn.disabled=true; btn.innerHTML='⏳ جاري التجهيز...';
+  try{ await fn(); toast('تم تصدير الملف ✅'); } catch(e){ fail(e); } finally { btn.disabled=false; btn.innerHTML=old; }
+}
+$('#exportBtn').onclick = e => withBusy(e.currentTarget, async()=>{
+  const wb = await buildStyledWorkbook(filteredViol(), {mainName:'المخالفات'});
+  await downloadWorkbook(wb, `مخالفات-${today()}.xlsx`);
+});
+$('#exportAllBtn').onclick = e => withBusy(e.currentTarget, async()=>{
+  const wb = await buildStyledWorkbook(state.viol, {summary:true, perAuthority:true, topics:true});
+  await downloadWorkbook(wb, `Work-follow-up-${today()}.xlsx`);
+});
 
 document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeModal(); });
 init();
