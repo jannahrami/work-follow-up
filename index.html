@@ -116,6 +116,47 @@ textarea.field{min-height:80px;resize:vertical;line-height:1.6}
 .tl .del{background:none;border:0;color:var(--muted);cursor:pointer;font-size:12px}
 .toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 18px;border-radius:12px;z-index:100;font-weight:700;max-width:90vw;text-align:center}
 .warn{background:var(--amber-soft);color:var(--amber);border-radius:10px;padding:10px 12px;font-size:13px;margin-top:10px}
+
+.top-left{display:flex;align-items:center;gap:8px;min-width:0}
+.hello{font-size:15px;color:var(--muted);font-weight:700;margin:6px 2px 12px}
+.tiles{display:grid;grid-template-columns:1fr;gap:12px}
+@media(min-width:640px){.tiles{grid-template-columns:repeat(2,1fr)}}
+@media(min-width:960px){.tiles{grid-template-columns:repeat(3,1fr)}}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:18px;cursor:pointer;display:flex;gap:14px;align-items:flex-start;transition:.15s;position:relative}
+.tile:hover{border-color:#94a3b8;transform:translateY(-1px);box-shadow:0 6px 18px rgba(15,23,42,.06)}
+.tile .ic{width:52px;height:52px;border-radius:14px;display:grid;place-items:center;font-size:26px;flex:none}
+.tile h3{margin:2px 0 4px;font-size:18px}
+.tile .l1{font-weight:700;font-size:14px}
+.tile .l2{color:var(--muted);font-size:13px;margin-top:3px}
+.tile .badge{position:absolute;top:12px;left:12px;background:var(--red);color:#fff;border-radius:99px;font-size:12px;font-weight:800;padding:3px 9px}
+.tile.soon{border-style:dashed;cursor:default;opacity:.75}
+.tile.soon:hover{transform:none;box-shadow:none;border-color:var(--line)}
+.sec-bar{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:2px 0 14px;flex-wrap:wrap}
+.sec-bar h1{font-size:20px;margin:0}
+.sec-actions{display:flex;gap:6px}
+.steps-box{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px;display:flex;flex-direction:column;gap:12px}
+.prog-row{cursor:pointer}
+.prog-row .lbl{display:flex;justify-content:space-between;font-size:14px;font-weight:700;margin-bottom:5px}
+.prog-row .lbl span:last-child{color:var(--muted);font-weight:500}
+.bar{height:10px;background:var(--gray-soft);border-radius:99px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--brand);border-radius:99px}
+.stepchips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.sc{font-size:12px;font-weight:700;padding:3px 9px;border-radius:99px}
+.sc.ok{background:var(--green-soft);color:var(--green)}
+.sc.no{background:var(--gray-soft);color:var(--muted)}
+.sc.wip{background:var(--amber-soft);color:var(--amber)}
+.sc.bad{background:var(--red-soft);color:var(--red)}
+.h-done{background:var(--green-soft);color:var(--green)}
+.h-failed{background:var(--red-soft);color:var(--red)}
+.h-training{background:var(--amber-soft);color:var(--amber)}
+.h-partial{background:var(--blue-soft);color:var(--blue)}
+.h-none{background:var(--gray-soft);color:#334155}
+.mini{font-size:12px;color:var(--muted)}
+.checkline{display:flex;align-items:center;gap:8px;font-weight:700;font-size:14px;margin:12px 0 4px;cursor:pointer}
+.checkline input{width:20px;height:20px;accent-color:var(--brand)}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.tbl-wrap{overflow-x:auto;border-radius:var(--radius)}
+@media(max-width:480px){.tbl th,.tbl td{padding:8px 6px;font-size:12.5px}.tbl td b{white-space:nowrap}}
 </style>
 </head>
 <body>
@@ -123,7 +164,7 @@ textarea.field{min-height:80px;resize:vertical;line-height:1.6}
 <section id="login" class="hidden">
   <div class="login-box">
     <div class="logo">Work <span>follow up</span></div>
-    <div class="sub">متابعة المخالفات والمعاملات</div>
+    <div class="sub">متابعة المخالفات والكروت الصحية والمعاملات</div>
     <form id="loginForm">
       <label>اسم المستخدم</label>
       <input class="field" type="text" id="email" required autocomplete="username" autocapitalize="none" dir="ltr">
@@ -136,74 +177,137 @@ textarea.field{min-height:80px;resize:vertical;line-height:1.6}
 </section>
 
 <section id="app" class="hidden">
-  <header>
+<header>
     <div class="top">
-      <div class="logo">Work <span>follow up</span></div>
+      <div class="top-left">
+        <button class="icon-btn hidden" id="backBtn" onclick="go('home')">‹ الأقسام</button>
+        <div class="logo" id="logoHome" onclick="go('home')" style="cursor:pointer">Work <span>follow up</span></div>
+      </div>
       <div class="top-actions">
-        <button class="icon-btn" id="importBtn">⬆ استيراد<span class="wide"> إكسل</span></button>
-        <button class="icon-btn" id="exportAllBtn">⬇ تصدير<span class="wide"> إكسل</span></button>
         <button class="icon-btn" id="pwBtn" title="تغيير كلمة المرور">🔑</button>
         <button class="icon-btn" id="logoutBtn">خروج</button>
       </div>
     </div>
-    <nav>
-      <button data-tab="home" class="active">الرئيسية</button>
-      <button data-tab="viol">المخالفات</button>
-      <button data-tab="topics">المعاملات</button>
-    </nav>
+    <nav id="subnav" class="hidden"></nav>
   </header>
   <input type="file" id="fileInput" accept=".xlsx,.xls,.xlsm,.csv" class="hidden">
 
   <main>
-    <div id="tab-home">
-      <div class="stats">
-        <div class="stat" onclick="goViol('dueish')"><small>واجبة السداد</small><b class="num" id="kDue" style="color:var(--red)">0</b><em id="kDueN"></em></div>
-        <div class="stat" onclick="goViol('objection')"><small>تحت الاعتراض</small><b class="num" id="kObj" style="color:var(--purple)">0</b><em id="kObjN"></em></div>
-        <div class="stat" onclick="goViol('accepted')"><small>اعتراضات مقبولة (توفير)</small><b class="num" id="kAcc" style="color:var(--green)">0</b><em id="kAccN"></em></div>
-        <div class="stat" onclick="goViol('')"><small>إجمالي المخالفات</small><b class="num" id="kAll">0</b><em id="kAllN"></em></div>
-      </div>
-
-      <h2>⏰ مواعيد اعتراض قريبة (خلال 21 يوم)</h2>
-      <div class="list" id="homeDeadlines"></div>
-
-      <h2>حسب الجهة</h2>
-      <table class="tbl" id="byAuthority"></table>
-
-      <h2>أكثر الفروع مخالفات (المفتوحة)</h2>
-      <table class="tbl" id="byBranch"></table>
-
-      <h2>معاملات تحتاج متابعة</h2>
-      <div class="list" id="homeTopics"></div>
+    <!-- ===== HOME: section tiles ===== -->
+    <div id="sec-home">
+      <div class="hello">الأقسام</div>
+      <div class="tiles" id="tiles"></div>
     </div>
 
-    <div id="tab-viol" class="hidden">
-      <div class="toolbar">
-        <input id="vSearch" placeholder="بحث: رقم مخالفة، فاتورة، فرع، سبب...">
+    <!-- ===== VIOLATIONS ===== -->
+    <div id="sec-viol" class="hidden">
+      <div class="sec-bar">
+        <h1>🚨 المخالفات</h1>
+        <div class="sec-actions">
+          <button class="btn btn-ghost btn-sm" onclick="startImport('viol')">⬆ استيراد</button>
+          <button class="btn btn-ghost btn-sm" id="violExportBtn">⬇ تصدير</button>
+        </div>
       </div>
-      <div class="toolbar">
-        <select id="vAuth"><option value="">كل الجهات</option></select>
-        <select id="vStatus">
-          <option value="">كل الحالات</option>
-          <option value="open">المفتوحة (غير منتهية)</option>
-          <option value="dueish">واجبة السداد</option>
-          <option value="objection">تحت الاعتراض</option>
-          <option value="objection_prep">تحت إجراء رفع الاعتراض</option>
-          <option value="objection_pending">اعتراض قيد النظر</option>
-          <option value="accepted">اعتراض مقبول</option>
-          <option value="paid">تم السداد</option>
-        </select>
-        <select id="vCompany"><option value="">كل الشركات</option></select>
-        <select id="vSort">
-          <option value="deadline">ترتيب: الموعد الأقرب</option>
-          <option value="date_desc">الأحدث</option>
-          <option value="amount_desc">الأعلى مبلغ</option>
-        </select>
+      <div id="viol-dash">
+        <div class="stats">
+          <div class="stat" onclick="goViol('dueish')"><small>واجبة السداد</small><b class="num" id="kDue" style="color:var(--red)">0</b><em id="kDueN"></em></div>
+          <div class="stat" onclick="goViol('objection')"><small>تحت الاعتراض</small><b class="num" id="kObj" style="color:var(--purple)">0</b><em id="kObjN"></em></div>
+          <div class="stat" onclick="goViol('accepted')"><small>اعتراضات مقبولة (توفير)</small><b class="num" id="kAcc" style="color:var(--green)">0</b><em id="kAccN"></em></div>
+          <div class="stat" onclick="goViol('')"><small>إجمالي المخالفات</small><b class="num" id="kAll">0</b><em id="kAllN"></em></div>
+        </div>
+        <h2>⏰ مواعيد اعتراض قريبة (خلال 21 يوم)</h2>
+        <div class="list" id="homeDeadlines"></div>
+        <h2>حسب الجهة</h2>
+        <div class="tbl-wrap"><table class="tbl" id="byAuthority"></table></div>
+        <h2>أكثر الفروع مخالفات (المفتوحة)</h2>
+        <div class="tbl-wrap"><table class="tbl" id="byBranch"></table></div>
       </div>
-      <div class="result-bar"><span id="vCount"></span><button class="btn btn-ghost btn-sm" id="exportBtn">⬇ تصدير إكسل</button></div>
-      <div class="list" id="violList"></div>
+      <div id="viol-list" class="hidden">
+        <div class="toolbar">
+          <input id="vSearch" placeholder="بحث: رقم مخالفة، فاتورة، فرع، سبب...">
+        </div>
+        <div class="toolbar">
+          <select id="vAuth"><option value="">كل الجهات</option></select>
+          <select id="vStatus">
+            <option value="">كل الحالات</option>
+            <option value="open">المفتوحة (غير منتهية)</option>
+            <option value="dueish">واجبة السداد</option>
+            <option value="objection">تحت الاعتراض</option>
+            <option value="objection_prep">تحت إجراء رفع الاعتراض</option>
+            <option value="objection_pending">اعتراض قيد النظر</option>
+            <option value="accepted">اعتراض مقبول</option>
+            <option value="paid">تم السداد</option>
+          </select>
+          <select id="vCompany"><option value="">كل الشركات</option></select>
+          <select id="vSort">
+            <option value="deadline">ترتيب: الموعد الأقرب</option>
+            <option value="date_desc">الأحدث</option>
+            <option value="amount_desc">الأعلى مبلغ</option>
+          </select>
+        </div>
+        <div class="result-bar"><span id="vCount"></span><button class="btn btn-ghost btn-sm" id="exportBtn">⬇ تصدير النتائج</button></div>
+        <div class="list" id="violList"></div>
+      </div>
     </div>
 
-    <div id="tab-topics" class="hidden">
+    <!-- ===== HEALTH CARDS ===== -->
+    <div id="sec-health" class="hidden">
+      <div class="sec-bar">
+        <h1>🩺 الكروت الصحية</h1>
+        <div class="sec-actions">
+          <button class="btn btn-ghost btn-sm" onclick="startImport('health')">⬆ استيراد</button>
+          <button class="btn btn-ghost btn-sm" id="healthExportBtn">⬇ تصدير</button>
+        </div>
+      </div>
+      <div id="health-dash">
+        <div class="stats">
+          <div class="stat" onclick="goHealth('')"><small>إجمالي الموظفين</small><b class="num" id="hkAll">0</b><em id="hkAllN"></em></div>
+          <div class="stat" onclick="goHealth('done')"><small>مكتمل (الخطوات الثلاث)</small><b class="num" id="hkDone" style="color:var(--green)">0</b><em id="hkDoneN"></em></div>
+          <div class="stat" onclick="goHealth('incomplete')"><small>ناقص / يحتاج إجراء</small><b class="num" id="hkTodo" style="color:var(--amber)">0</b><em id="hkTodoN"></em></div>
+          <div class="stat" onclick="goHealth('failed')"><small>راسب — يعيد الاختبار</small><b class="num" id="hkFail" style="color:var(--red)">0</b><em id="hkFailN"></em></div>
+        </div>
+        <h2>تقدّم الخطوات</h2>
+        <div class="steps-box" id="hSteps"></div>
+        <h2>📌 حالة الكرت (إجراءات مطلوبة)</h2>
+        <div class="list" id="hActions"></div>
+        <h2>حسب العلامة التجارية</h2>
+        <div class="tbl-wrap"><table class="tbl" id="hByBrand"></table></div>
+        <h2>حسب الفرع</h2>
+        <div class="tbl-wrap"><table class="tbl" id="hByBranch"></table></div>
+        <h2>⏳ أقرب انتهاء لشهادة التثقيف</h2>
+        <div class="list" id="hExpiring"></div>
+      </div>
+      <div id="health-list" class="hidden">
+        <div class="toolbar">
+          <input id="hSearch" placeholder="بحث: الاسم، الإقامة، الجوال...">
+        </div>
+        <div class="toolbar">
+          <select id="hStage">
+            <option value="">كل الحالات</option>
+            <option value="done">مكتمل</option>
+            <option value="incomplete">ناقص / يحتاج إجراء</option>
+            <option value="failed">راسب — يعيد الاختبار</option>
+            <option value="training">في التثقيف / الاختبار</option>
+            <option value="none">لم يبدأ</option>
+            <option value="no_med">بدون فحص طبي</option>
+            <option value="no_edu">بدون تثقيف صحي</option>
+            <option value="no_balady">بدون طلب بلدي</option>
+            <option value="action">عليه إجراء في حالة الكرت</option>
+            <option value="notes">عليه ملاحظة / بيانات ناقصة</option>
+          </select>
+          <select id="hBrand"><option value="">كل العلامات</option></select>
+          <select id="hBranch"><option value="">كل الفروع</option></select>
+          <select id="hGroup"><option value="">كل المجموعات</option></select>
+          <select id="hRegion"><option value="">كل المناطق</option></select>
+        </div>
+        <div class="result-bar"><span id="hCount"></span><button class="btn btn-ghost btn-sm" id="healthExportListBtn">⬇ تصدير النتائج</button></div>
+        <div class="list" id="hList"></div>
+      </div>
+    </div>
+
+    <!-- ===== TOPICS ===== -->
+    <div id="sec-topics" class="hidden">
+      <div class="sec-bar"><h1>📋 المعاملات</h1></div>
       <div class="toolbar">
         <input id="tSearch" placeholder="بحث بالعنوان أو الرقم أو الجهة...">
         <select id="tStatus">
@@ -240,7 +344,7 @@ const AUTHORITIES = ['بلدي','أمانة الرياض','هيئة النقل',
 const TSTATUS = {new:'جديدة',in_progress:'قيد الإجراء',waiting:'بانتظار رد',done:'منتهية'};
 const PRIO = {low:'منخفضة',normal:'عادية',high:'مهمة',urgent:'عاجلة'};
 
-let state = { viol:[], vupd:[], topics:[], tupd:[], tab:'home' };
+let state = { viol:[], vupd:[], topics:[], tupd:[], health:[], hupd:[], section:'home', sub:{viol:'dash', health:'dash'} };
 
 // ===== HELPERS =====
 const $ = s => document.querySelector(s);
@@ -303,15 +407,17 @@ async function enterApp(){
 
 // ===== DATA =====
 async function loadAll(){
-  const [v,vu,t,tu] = await Promise.all([
+  const [v,vu,t,tu,h,hu] = await Promise.all([
     sb.from('wf_violations').select('*').order('violation_date',{ascending:false,nullsFirst:false}).limit(5000),
     sb.from('wf_violation_updates').select('*').order('created_at'),
     sb.from('wf_topics').select('*').order('created_at',{ascending:false}),
-    sb.from('wf_topic_updates').select('*').order('created_at')
+    sb.from('wf_topic_updates').select('*').order('created_at'),
+    sb.from('wf_health_employees').select('*').order('region').order('seq_no',{ascending:true,nullsFirst:false}).order('name').limit(5000),
+    sb.from('wf_health_updates').select('*').order('created_at')
   ]);
-  for(const r of [v,vu,t,tu]) if(r.error) return fail(r.error);
-  state.viol=v.data; state.vupd=vu.data; state.topics=t.data; state.tupd=tu.data;
-  fillFilters(); render();
+  for(const r of [v,vu,t,tu,h,hu]) if(r.error) return fail(r.error);
+  state.viol=v.data; state.vupd=vu.data; state.topics=t.data; state.tupd=tu.data; state.health=h.data; state.hupd=hu.data;
+  fillFilters(); fillHealthFilters(); render(); applyRoute();
 }
 function fillFilters(){
   const auths = [...new Set([...AUTHORITIES.filter(a=>state.viol.some(v=>v.authority===a)), ...state.viol.map(v=>v.authority)])];
@@ -323,7 +429,7 @@ function fillFilters(){
 }
 
 // ===== RENDER =====
-function render(){ renderHome(); renderViol(); renderTopics(); }
+function render(){ renderTiles(); renderViolDash(); renderViol(); renderTopics(); renderHealthDash(); renderHealth(); }
 
 function violCard(v){
   return `<div class="item" onclick="openViol('${v.id}')">
@@ -360,7 +466,7 @@ function topicCard(t){
 }
 const empty = msg => `<div class="empty">${msg}</div>`;
 
-function renderHome(){
+function renderViolDash(){
   const V = state.viol;
   const dueish = V.filter(v=>v.status==='due'||v.status==='rejected');
   const obj = V.filter(v=>v.status==='objection_prep'||v.status==='objection_pending');
@@ -389,8 +495,6 @@ function renderHome(){
   $('#byBranch').innerHTML = br.length ? `<tr><th>الفرع</th><th>العدد</th><th>المبلغ</th></tr>` +
     br.map(([b,x])=>`<tr class="click" onclick="goSearch('${esc(b)}')"><td>${esc(b)}</td><td class="num">${x.n}</td><td class="num">${money(x.amt)}</td></tr>`).join('') : `<tr><td>لا يوجد</td></tr>`;
 
-  const open = state.topics.filter(t=>t.status!=='done');
-  $('#homeTopics').innerHTML = open.slice(0,5).map(topicCard).join('') || empty('لا توجد معاملات مفتوحة — أضف معاملة من زر + إضافة');
 }
 
 function filteredViol(){
@@ -422,17 +526,56 @@ function renderTopics(){
 ['#vSearch','#vAuth','#vStatus','#vCompany','#vSort'].forEach(s=>$(s).addEventListener('input',renderViol));
 ['#tSearch','#tStatus'].forEach(s=>$(s).addEventListener('input',renderTopics));
 
-// ===== TABS =====
-function setTab(tab){
-  state.tab=tab;
-  document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('active',x.dataset.tab===tab));
-  ['home','viol','topics'].forEach(t=>$('#tab-'+t).classList.toggle('hidden',t!==tab));
+// ===== NAVIGATION (sections + sub tabs) =====
+const SUBTABS = {
+  viol:   [['dash','لوحة المتابعة'],['list','قائمة المخالفات']],
+  health: [['dash','لوحة المتابعة'],['list','الموظفين']],
+};
+function go(section, sub){
+  const h = section==='home' ? '' : '#'+section+(sub?'/'+sub:'');
+  if(location.hash !== h){ if(h) location.hash = h; else history.pushState('', document.title, location.pathname+location.search); }
+  applyRoute();
+}
+function applyRoute(){
+  const [sec, sub] = (location.hash.replace('#','')||'home').split('/');
+  const section = ['viol','health','topics'].includes(sec) ? sec : 'home';
+  state.section = section;
+  if(sub && SUBTABS[section]?.some(x=>x[0]===sub)) state.sub[section] = sub;
+  ['home','viol','health','topics'].forEach(s=>$('#sec-'+s).classList.toggle('hidden', s!==section));
+  $('#backBtn').classList.toggle('hidden', section==='home');
+  const nav = $('#subnav'), tabs = SUBTABS[section];
+  if(tabs){
+    nav.classList.remove('hidden');
+    nav.innerHTML = tabs.map(([k,l])=>`<button class="${state.sub[section]===k?'active':''}" onclick="go('${section}','${k}')">${l}</button>`).join('');
+    tabs.forEach(([k])=>$(`#${section}-${k}`).classList.toggle('hidden', state.sub[section]!==k));
+  } else { nav.classList.add('hidden'); nav.innerHTML=''; }
+  $('#fab').classList.toggle('hidden', false);
   window.scrollTo(0,0);
 }
-document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
-function goViol(status, auth=''){ $('#vStatus').value=status; $('#vAuth').value=auth; $('#vSearch').value=''; renderViol(); setTab('viol'); }
-function goSearch(q){ $('#vStatus').value='open'; $('#vAuth').value=''; $('#vSearch').value=q; renderViol(); setTab('viol'); }
-$('#fab').onclick = () => state.tab==='topics' ? openTopic() : state.tab==='viol' ? openViolForm() : openChooser();
+window.addEventListener('hashchange', applyRoute);
+function goViol(status, auth=''){ $('#vStatus').value=status; $('#vAuth').value=auth; $('#vSearch').value=''; renderViol(); go('viol','list'); }
+function goSearch(q){ $('#vStatus').value='open'; $('#vAuth').value=''; $('#vSearch').value=q; renderViol(); go('viol','list'); }
+$('#fab').onclick = () => state.section==='topics' ? openTopic() : state.section==='viol' ? openViolForm() : state.section==='health' ? openHealthForm() : openChooser();
+
+function renderTiles(){
+  const V = state.viol, open = V.filter(v=>OPEN.includes(v.status));
+  const dueAmt = sum(V.filter(v=>v.status==='due'||v.status==='rejected'));
+  const soon = V.filter(v=>['due','objection_prep'].includes(v.status) && v.objection_deadline && daysTo(v.objection_deadline)>=0 && daysTo(v.objection_deadline)<=7).length;
+  const H = state.health.filter(e=>e.active!==false), HI = H.map(hInfo);
+  const hMain = HI.filter(x=>x.e.region!=='الرياض');
+  const hDone = hMain.filter(x=>x.cls==='done').length, hTodo = hMain.length - hDone;
+  const hFail = hMain.filter(x=>x.cls==='failed').length;
+  const tOpen = state.topics.filter(t=>t.status!=='done'), tLate = tOpen.filter(t=>t.due_date && t.due_date<today()).length;
+  const tile = (sec, ic, bg, title, l1, l2, badge) => `<div class="tile" onclick="go('${sec}')">
+      ${badge?`<span class="badge">${badge}</span>`:''}
+      <div class="ic" style="background:${bg}">${ic}</div>
+      <div><h3>${title}</h3><div class="l1">${l1}</div><div class="l2">${l2}</div></div></div>`;
+  $('#tiles').innerHTML =
+    tile('viol','🚨','var(--red-soft)','المخالفات', `${open.length} مخالفة مفتوحة`, `واجبة السداد: ${money(dueAmt)}`, soon?`${soon} موعد قريب`:'') +
+    tile('health','🩺','var(--green-soft)','الكروت الصحية', `${H.length} موظف — ${hDone} مكتمل`, `${hTodo} ناقص${hFail?` • ${hFail} راسب يعيد الاختبار`:''}`, hFail?`${hFail} راسب`:'') +
+    tile('topics','📋','var(--blue-soft)','المعاملات', `${tOpen.length} معاملة مفتوحة`, tLate?`${tLate} متأخرة`:'كل المعاملات في وقتها', tLate?`${tLate} متأخرة`:'') +
+    `<div class="tile soon"><div class="ic" style="background:var(--gray-soft)">➕</div><div><h3>أقسام جاية</h3><div class="l2">ارفع ملف القسم الجديد وأجهّزه لك هنا</div></div></div>`;
+}
 
 // ===== MODAL =====
 function modal(html){ $('#modalRoot').innerHTML = `<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="sheet">${html}</div></div>`; document.body.style.overflow='hidden'; }
@@ -441,6 +584,7 @@ const head = t => `<div class="sheet-head"><h3>${t}</h3><button class="btn btn-g
 function openChooser(){
   modal(head('إضافة جديد')+`<div class="actions" style="flex-direction:column">
     <button class="btn btn-primary" onclick="openViolForm()">مخالفة جديدة</button>
+    <button class="btn btn-primary" onclick="openHealthForm()">موظف جديد (الكروت الصحية)</button>
     <button class="btn btn-primary" onclick="openTopic()">معاملة / موضوع للمتابعة</button>
     <button class="btn btn-ghost" onclick="closeModal();$('#fileInput').click()">⬆ استيراد ملف إكسل</button></div>`);
 }
@@ -611,14 +755,19 @@ async function deleteTUpdate(uid,id){
 }
 
 // ===== EXCEL IMPORT =====
-$('#importBtn').onclick = () => $('#fileInput').click();
+let importTarget = 'viol';
+function startImport(target){ importTarget = target; closeModal(); $('#fileInput').click(); }
 $('#fileInput').onchange = async e => {
   const file = e.target.files[0]; e.target.value=''; if(!file) return;
   try{
     const wb = XLSX.read(await file.arrayBuffer(), {cellDates:true});
-    const rows = parseWorkbook(wb);
-    if(!rows.length) return toast('ما لقيت مخالفات في الملف');
-    previewImport(rows, file.name);
+    // detect file type automatically, prefer the section the user is in
+    const hRows = parseHealthWorkbook(wb);
+    const vRows = hRows.length && importTarget==='health' ? [] : parseWorkbook(wb);
+    if(importTarget==='health' && hRows.length) return previewHealthImport(hRows, file.name);
+    if(vRows.length && (importTarget==='viol' || !hRows.length)) return previewImport(vRows, file.name);
+    if(hRows.length){ toast('هذا ملف كروت صحية — بيتم استيراده لقسم الكروت الصحية'); return previewHealthImport(hRows, file.name); }
+    toast('ما لقيت بيانات أعرفها في الملف');
   }catch(err){ fail(err); }
 };
 const clean = v => v==null ? '' : String(v).replace(/ /g,' ').replace(/\s+/g,' ').trim();
@@ -764,7 +913,7 @@ async function runImport(){
   }
   if(noKey.length){ const { error } = await sb.from('wf_violations').insert(noKey); if(error) return fail(error); }
   if(changes.length) await sb.from('wf_violation_updates').insert(changes.map(c=>({violation_id:c.id, body:c.body})));
-  closeModal(); toast(`تم استيراد ${pendingImport.length} مخالفة`); await loadAll(); setTab('home');
+  closeModal(); toast(`تم استيراد ${pendingImport.length} مخالفة`); await loadAll(); go('viol','dash');
 }
 
 // ===== EXPORT (styled, ExcelJS) =====
@@ -997,10 +1146,486 @@ $('#exportBtn').onclick = e => withBusy(e.currentTarget, async()=>{
   const wb = await buildStyledWorkbook(filteredViol(), {mainName:'المخالفات'});
   await downloadWorkbook(wb, `مخالفات-${today()}.xlsx`);
 });
-$('#exportAllBtn').onclick = e => withBusy(e.currentTarget, async()=>{
+$('#violExportBtn').onclick = e => withBusy(e.currentTarget, async()=>{
   const wb = await buildStyledWorkbook(state.viol, {summary:true, perAuthority:true, topics:true});
-  await downloadWorkbook(wb, `Work-follow-up-${today()}.xlsx`);
+  await downloadWorkbook(wb, `المخالفات-${today()}.xlsx`);
 });
+
+// ===== HEALTH CARDS: Excel parser =====
+const H_NAT_FIX = {filiplno:'Filipino', filipino:'Filipino', bangali:'Bengali', bengali:'Bengali', nepal:'Nepali', niepali:'Nepali', egypt:'Egyptian', sudanees:'Sudanese', saudi:'Saudi'};
+function hNorm(s){ return clean(s).toLowerCase(); }
+function hDone(v){
+  if(v==null||v==='') return '';
+  if(v instanceof Date && !isNaN(v)) return `${String(v.getDate()).padStart(2,'0')}/${String(v.getMonth()+1).padStart(2,'0')}/${v.getFullYear()}`;
+  const s = clean(v); if(!s) return '';
+  if(/^(done|yes|تم|ok|✓|✔)$/i.test(s)) return 'done';
+  if(/^(ny|no|لا|-)$/i.test(s)) return '';
+  return s;
+}
+function hResult(v){
+  const s = hNorm(v);
+  if(!s) return '';
+  if(/^pass|ناجح|نجح/.test(s)) return 'passed';
+  if(/^fail|راسب|رسب/.test(s)) return 'failed';
+  return '';
+}
+function hIqama(v){
+  if(v==null) return '';
+  const s = typeof v==='number' ? String(Math.round(v)) : clean(v).replace(/\s/g,'');
+  return /^\d{6,}$/.test(s) ? s : '';
+}
+function titleCase(s){ return s.replace(/\b([a-z])/g, m=>m.toUpperCase()); }
+function hKey(r){ return (r.iqama||'') + '|' + hNorm(r.name).replace(/[^a-z؀-ۿ0-9]/g,''); }
+function parseHealthWorkbook(wb){
+  const map = new Map(); const order = [];
+  for(const sheetName of wb.SheetNames){
+    const aoa = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], {header:1, raw:true, defval:null});
+    const hi = aoa.findIndex(r => r && r.some(c=>/^(name|اسم الموظف)$/i.test(clean(c))) && r.some(c=>/igama|iqama|اقامة|الإقامة|الاقامة/i.test(clean(c))));
+    if(hi<0) continue;
+    const H = aoa[hi].map(c=>hNorm(c));
+    const find = re => H.findIndex(h=>re.test(h));
+    const all = re => H.map((h,i)=>re.test(h)?i:-1).filter(i=>i>=0);
+    const c = {
+      group:find(/group/), seq:find(/^no\.?$|^م$/), name:find(/^name$|اسم الموظف/), iqama:find(/igama|iqama|اقامة|الإقامة|الاقامة/),
+      phone:find(/phone|جوال|الهاتف/), nat:find(/national|الجنسية/), brand:find(/prand|brand|العلامة/), branch:find(/^branch|الفرع/),
+      test:find(/test res|الفحص/), train:find(/training up|التثقيف/), d1:find(/first day|اليوم الاول/), d2:find(/seco?n?e?d day|اليوم الثاني/),
+      exam:find(/^exam$|^الاختبار$/), balady:find(/balady|بلدي|بلدى/), card:find(/حالة الكرت|card status/), cost:find(/مركز تكلف|cost cent/)
+    };
+    const resCols = all(/^res|نتيجة/), ex2 = find(/seco?n?e?d exam/), ex3 = find(/tha?e?i?rd exam|third exam/);
+    const riyadh = /الرياض|riyadh/i.test(sheetName);
+    for(const r of aoa.slice(hi+1)){
+      if(!r) continue;
+      const g = i => i>=0 ? r[i] : null;
+      const name = clean(g(c.name)); if(!name) continue;
+      const notes = [];
+      const rawPhone = g(c.phone); let phone = '';
+      if(rawPhone!=null && rawPhone!==''){ const p = typeof rawPhone==='number'?String(rawPhone):clean(rawPhone);
+        if(/^\+?\d[\d\s-]{6,}$/.test(p)) phone = p.replace(/[\s-]/g,''); else if(!/^ny$/i.test(p)) notes.push('الجوال في الملف: '+p); }
+      const iqama = hIqama(g(c.iqama)); if(!iqama && clean(g(c.iqama))) notes.push('رقم الإقامة في الملف: '+clean(g(c.iqama)));
+      let nat = clean(g(c.nat)); nat = H_NAT_FIX[nat.toLowerCase()] || nat;
+      // training until (hijri dd/mm/yyyy)
+      let th='', tg=null; const tr = g(c.train);
+      if(tr instanceof Date){ tg = toDate(tr)[0]; }
+      else { const s=clean(tr); const m=s.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](1[34]\d\d)$/);
+        if(m){ th=`${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`; tg=hijriToGreg(+m[3],+m[2],+m[1]); }
+        else if(s && !/^ny$/i.test(s)){ const d=toDate(s); if(d[0]){ tg=d[0]; th=d[1]; } } }
+      // exam results: first result col = exam1; 2nd exam col / 2nd result = exam2; 3rd
+      const firstRes = resCols.find(i=>i>c.exam) ?? resCols[0] ?? -1;
+      const exam1 = hResult(g(firstRes));
+      const exam2 = hResult(g(ex2)) || hResult(g(resCols.find(i=>i>ex2 && ex2>=0) ?? -1));
+      const exam3 = hResult(g(ex3)) || hResult(g(resCols.find(i=>i>ex3 && ex3>=0) ?? -1));
+      const rec = {
+        group_no:clean(g(c.group)), seq_no: Number.isFinite(+g(c.seq)) && g(c.seq)!==null && g(c.seq)!=='' ? Math.round(+g(c.seq)) : null,
+        name, iqama, phone, nationality:nat, brand:titleCase(clean(g(c.brand))), branch:titleCase(clean(g(c.branch))),
+        region: riyadh ? 'الرياض' : '', cost_center:clean(g(c.cost)),
+        medical_test:hDone(g(c.test)), training_until_hijri:th, training_until:tg,
+        day1:hDone(g(c.d1)), day2:hDone(g(c.d2)), exam_date:hDone(g(c.exam)),
+        exam1, exam2, exam3, balady_request:hDone(g(c.balady)), card_status:clean(g(c.card)),
+        notes:notes.join(' — '), source: riyadh ? clean(sheetName) : 'ملف الكروت الصحية'
+      };
+      const k = hKey(rec);
+      if(!map.has(k)){ map.set(k, rec); order.push(k); continue; }
+      const cur = map.get(k);   // merge: non-empty wins
+      for(const [f,v] of Object.entries(rec)){
+        if(f==='source') continue;
+        if((cur[f]===''||cur[f]==null) && v!=='' && v!=null) cur[f]=v;
+        else if(f==='exam_date'||f==='day1'||f==='day2'){ if(cur[f]==='done' && v && v!=='done') cur[f]=v; }
+      }
+    }
+  }
+  const out = order.map(k=>map.get(k));
+  const cnt = {}; out.forEach(r=>{ if(r.iqama) cnt[r.iqama]=(cnt[r.iqama]||0)+1; });
+  out.forEach(r=>{ if(r.iqama && r.iqama.length!==10){ const n='رقم الإقامة غير مكتمل/زائد (لازم 10 أرقام) — تحقق'; r.notes = r.notes ? r.notes+' — '+n : n; } });
+  out.forEach(r=>{ if(r.iqama && cnt[r.iqama]>1){ const n='رقم الإقامة مكرر مع موظف آخر — تحقق'; if(!r.notes.includes(n)) r.notes = r.notes ? r.notes+' — '+n : n; } });
+  return out;
+}
+
+// ===== HEALTH CARDS: logic & UI =====
+const RUH = 'الرياض';
+const HSTAGE = { done:'مكتمل', failed:'راسب — يعيد الاختبار', training:'في التثقيف / الاختبار', partial:'ناقص', none:'لم يبدأ' };
+function hInfo(e){
+  const res = [e.exam1,e.exam2,e.exam3];
+  const passed = res.includes('passed'), failed = res.includes('failed');
+  const med = !!e.medical_test, edu = passed || !!e.training_until_hijri || !!e.training_until, balady = !!e.balady_request;
+  const inTraining = !edu && !!(e.day1 || e.day2 || e.exam_date);
+  const missing = [!med&&'الفحص الطبي', !edu&&'التثقيف الصحي', !balady&&'طلب بلدي'].filter(Boolean);
+  let cls;
+  if(med && edu && balady) cls='done';
+  else if(failed && !passed) cls='failed';
+  else if(inTraining) cls='training';
+  else if(!med && !edu && !balady) cls='none';
+  else cls='partial';
+  const stage = cls==='partial' ? 'ناقص: '+missing.join('، ') : HSTAGE[cls];
+  return { e, med, edu, balady, passed, failed, inTraining, missing, cls, stage, steps:[med,edu,balady].filter(Boolean).length };
+}
+const fmtH = h => h ? h.split('-').reverse().join('/') : '';
+const hStageChip = i => `<span class="chip h-${i.cls}">${esc(i.stage)}</span>`;
+function hStepChips(i){
+  const e=i.e;
+  const eduCls = i.edu ? 'ok' : i.failed ? 'bad' : i.inTraining ? 'wip' : 'no';
+  const eduTxt = i.edu ? (e.training_until_hijri ? `التثقيف ✓ حتى ${fmtH(e.training_until_hijri)}` : 'التثقيف ✓') : i.failed ? 'التثقيف ✗ راسب' : i.inTraining ? 'التثقيف ⏳' : 'التثقيف ✗';
+  return `<div class="stepchips">
+    <span class="sc ${i.med?'ok':'no'}">الفحص الطبي ${i.med?'✓':'✗'}</span>
+    <span class="sc ${eduCls}">${eduTxt}</span>
+    <span class="sc ${i.balady?'ok':'no'}">طلب بلدي ${i.balady?'✓':'✗'}</span>
+  </div>`;
+}
+function healthCard(e){
+  const i = hInfo(e);
+  const isRuh = e.region===RUH;
+  return `<div class="item" onclick="openHealth('${e.id}')">
+    <div class="row"><div><h3>${esc(e.name)}</h3></div>${isRuh?`<span class="chip auth">الرياض</span>`:hStageChip(i)}</div>
+    <div class="meta">
+      ${e.iqama?`<span class="num">🪪 ${esc(e.iqama)}</span>`:'<span class="late">بدون رقم إقامة</span>'}
+      ${e.brand?`<span>${esc(e.brand)}</span>`:''}${e.branch?`<span>📍 ${esc(e.branch)}</span>`:''}
+      ${e.group_no?`<span>${esc(e.group_no)}</span>`:''}${e.cost_center?`<span class="num">${esc(e.cost_center)}</span>`:''}
+    </div>
+    ${isRuh && !i.steps && !i.inTraining ? '' : hStepChips(i)}
+    ${e.card_status||e.notes?`<div class="meta">${e.card_status?`<span class="chip h-training">📌 ${esc(e.card_status)}</span>`:''}${e.notes?`<span class="late">⚠ ${esc(e.notes)}</span>`:''}</div>`:''}
+  </div>`;
+}
+function fillHealthFilters(){
+  const H = state.health;
+  const fill = (sel, label, vals) => { const cur=$(sel).value; $(sel).innerHTML = `<option value="">${label}</option>` + vals.map(v=>`<option>${esc(v)}</option>`).join(''); $(sel).value = cur; };
+  const uniq = f => [...new Set(H.map(e=>e[f]).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ar',{numeric:true}));
+  fill('#hBrand','كل العلامات', uniq('brand'));
+  fill('#hBranch','كل الفروع', uniq('branch'));
+  fill('#hGroup','كل المجموعات', uniq('group_no'));
+  const regions = [...new Set(H.map(e=>e.region||'الرئيسية'))];
+  fill('#hRegion','كل المناطق', regions);
+}
+function hMatchStage(i, s){
+  if(!s) return true;
+  if(s==='incomplete') return i.cls!=='done';
+  if(s==='no_med') return !i.med; if(s==='no_edu') return !i.edu; if(s==='no_balady') return !i.balady;
+  if(s==='action') return !!i.e.card_status; if(s==='notes') return !!i.e.notes;
+  return i.cls===s;
+}
+function filteredHealth(){
+  const q=$('#hSearch').value.trim().toLowerCase(), s=$('#hStage').value, b=$('#hBrand').value, br=$('#hBranch').value, g=$('#hGroup').value, r=$('#hRegion').value;
+  return state.health.filter(e=>{
+    if(b && e.brand!==b) return false; if(br && e.branch!==br) return false; if(g && e.group_no!==g) return false;
+    if(r && (e.region||'الرئيسية')!==r) return false;
+    if(q && ![e.name,e.iqama,e.phone,e.brand,e.branch,e.card_status,e.notes,e.cost_center,e.nationality].join(' ').toLowerCase().includes(q)) return false;
+    return hMatchStage(hInfo(e), s);
+  });
+}
+function renderHealth(){
+  const list = filteredHealth();
+  const done = list.filter(e=>hInfo(e).cls==='done').length;
+  $('#hCount').textContent = `${list.length} موظف — ${done} مكتمل`;
+  $('#hList').innerHTML = list.slice(0,400).map(healthCard).join('') || empty('لا توجد نتائج');
+}
+['#hSearch','#hStage','#hBrand','#hBranch','#hGroup','#hRegion'].forEach(s=>$(s).addEventListener('input',renderHealth));
+function goHealth(stage, extra={}){
+  $('#hStage').value=stage; $('#hSearch').value=extra.q||''; $('#hBrand').value=extra.brand||''; $('#hBranch').value=extra.branch||'';
+  $('#hGroup').value=''; $('#hRegion').value = extra.region ?? (stage ? 'الرئيسية' : '');
+  renderHealth(); go('health','list');
+}
+function renderHealthDash(){
+  const all = state.health.map(hInfo);
+  const M = all.filter(i=>i.e.region!==RUH), R = all.filter(i=>i.e.region===RUH);
+  const n = M.length || 1;
+  const done=M.filter(i=>i.cls==='done'), fail=M.filter(i=>i.cls==='failed'), todo=M.filter(i=>i.cls!=='done');
+  $('#hkAll').textContent = all.length; $('#hkAllN').textContent = R.length ? `${M.length} القائمة الرئيسية + ${R.length} الرياض` : '';
+  $('#hkDone').textContent = done.length; $('#hkDoneN').textContent = Math.round(done.length*100/n)+'% من القائمة';
+  $('#hkTodo').textContent = todo.length; $('#hkTodoN').textContent = 'باقي عليهم خطوة أو أكثر';
+  $('#hkFail').textContent = fail.length; $('#hkFailN').textContent = 'رسبوا ولا نجحوا بعدها';
+  const step = (label, cnt, stageKey) => `<div class="prog-row" onclick="goHealth('${stageKey}')">
+      <div class="lbl"><span>${label}</span><span class="num">${cnt} / ${M.length} — باقي ${M.length-cnt}</span></div>
+      <div class="bar"><i style="width:${Math.round(cnt*100/n)}%"></i></div></div>`;
+  $('#hSteps').innerHTML = step('1. الفحص الطبي', M.filter(i=>i.med).length, 'no_med') +
+    step('2. التثقيف الصحي والاختبار', M.filter(i=>i.edu).length, 'no_edu') +
+    step('3. طلب بلدي', M.filter(i=>i.balady).length, 'no_balady') +
+    `<div class="mini">اضغط على أي خطوة عشان تشوف الموظفين اللي باقي عليهم.${R.length?` موظفين الرياض (${R.length}) مو داخلين في هذي النسب لأن ما عندهم بيانات مراحل.`:''}</div>`;
+  // card status actions
+  const cs = {}; all.filter(i=>i.e.card_status).forEach(i=>{ (cs[i.e.card_status] ||= []).push(i.e); });
+  const csRows = Object.entries(cs).sort((a,b)=>b[1].length-a[1].length);
+  $('#hActions').innerHTML = csRows.length ? csRows.map(([k,list])=>`<div class="item" onclick="goHealth('action',{q:'${esc(k).replace(/'/g,"\\'")}',region:''})">
+      <div class="row"><h3>📌 ${esc(k)}</h3><span class="chip h-training num">${list.length} موظف</span></div>
+      <div class="meta">${list.slice(0,4).map(e=>`<span>${esc(e.name)}</span>`).join('')}${list.length>4?`<span>+${list.length-4}</span>`:''}</div></div>`).join('')
+    : empty('ما فيه إجراءات مسجلة في حالة الكرت');
+  // by brand / branch
+  const table = (key, el, label) => {
+    const g = {}; M.forEach(i=>{ const k=i.e[key]||'غير محدد'; (g[k] ||= []).push(i); });
+    const rows = Object.entries(g).sort((a,b)=>b[1].length-a[1].length);
+    $(el).innerHTML = `<tr><th>${label}</th><th>العدد</th><th>فحص</th><th>تثقيف</th><th>بلدي</th><th>مكتمل</th></tr>` +
+      rows.map(([k,L])=>{ const d=L.filter(i=>i.cls==='done').length; const pct=Math.round(d*100/L.length);
+        return `<tr class="click" onclick="goHealth('',{${key}:'${esc(k==='غير محدد'?'':k)}',region:'الرئيسية'})"><td><b>${esc(k)}</b></td><td class="num">${L.length}</td><td class="num">${L.filter(i=>i.med).length}</td><td class="num">${L.filter(i=>i.edu).length}</td><td class="num">${L.filter(i=>i.balady).length}</td><td class="num"><b style="color:${pct>=80?'var(--green)':pct>=40?'var(--amber)':'var(--red)'}">${d} (${pct}%)</b></td></tr>`; }).join('');
+  };
+  table('brand','#hByBrand','العلامة');
+  table('branch','#hByBranch','الفرع');
+  // expiring training
+  const ex = all.filter(i=>i.e.training_until).sort((a,b)=>a.e.training_until.localeCompare(b.e.training_until)).slice(0,6);
+  $('#hExpiring').innerHTML = ex.length ? ex.map(i=>{ const d=daysTo(i.e.training_until);
+      return `<div class="item" onclick="openHealth('${i.e.id}')"><div class="row"><h3>${esc(i.e.name)}</h3><span class="${d<0?'late':d<=60?'soon':'mini'}">${d<0?`انتهت منذ ${-d} يوم`:`باقي ${d} يوم`}</span></div>
+      <div class="meta"><span>حتى ${esc(fmtH(i.e.training_until_hijri))} هـ (${fmtDate(i.e.training_until)})</span>${i.e.brand?`<span>${esc(i.e.brand)}</span>`:''}${i.e.branch?`<span>📍 ${esc(i.e.branch)}</span>`:''}</div></div>`; }).join('')
+    : empty('ما فيه تواريخ انتهاء مسجلة');
+}
+
+// ----- Employee detail / edit -----
+const H_FIELDS_LABELS = { medical_test:'الفحص الطبي', day1:'اليوم الأول', day2:'اليوم الثاني', exam_date:'الاختبار', exam1:'نتيجة الاختبار 1', exam2:'نتيجة الاختبار 2', exam3:'نتيجة الاختبار 3', balady_request:'طلب بلدي', card_status:'حالة الكرت', training_until_hijri:'التثقيف صالح حتى' };
+const RES = {'':'—', passed:'ناجح', failed:'راسب'};
+function openHealth(id){ openHealthForm(id); }
+function openHealthForm(id){
+  const e = state.health.find(x=>x.id===id) || {name:'',iqama:'',phone:'',nationality:'',brand:'',branch:'',group_no:'',region:'',cost_center:'',medical_test:'',training_until_hijri:'',day1:'',day2:'',exam_date:'',exam1:'',exam2:'',exam3:'',balady_request:'',card_status:'',notes:''};
+  const i = hInfo(e);
+  const ups = id ? state.hupd.filter(u=>u.employee_id===id).slice().reverse() : [];
+  const dl = (idn, f) => `<datalist id="${idn}">${[...new Set(state.health.map(x=>x[f]).filter(Boolean))].map(v=>`<option value="${esc(v)}">`).join('')}</datalist>`;
+  const chk = (idn, label, val) => `<label class="checkline"><input type="checkbox" id="${idn}" ${val?'checked':''}> ${label}${val && val!=='done'?` <span class="mini">(${esc(val)})</span>`:''}</label>`;
+  modal(head(id?esc(e.name):'موظف جديد') + `
+    ${id?`<div class="meta">${e.region===RUH?'<span class="chip auth">الرياض</span>':hStageChip(i)}</div>${hStepChips(i)}`:''}
+    <label>الاسم</label><input class="field" id="fhName" value="${esc(e.name)}">
+    <div class="grid2">
+      <div><label>رقم الإقامة</label><input class="field num" id="fhIqama" value="${esc(e.iqama)}" dir="ltr" inputmode="numeric"></div>
+      <div><label>الجوال</label><input class="field num" id="fhPhone" value="${esc(e.phone)}" dir="ltr" inputmode="tel"></div>
+    </div>
+    <div class="grid2">
+      <div><label>العلامة التجارية</label><input class="field" id="fhBrand" list="dlBrand" value="${esc(e.brand)}">${dl('dlBrand','brand')}</div>
+      <div><label>الفرع</label><input class="field" id="fhBranch" list="dlHBranch" value="${esc(e.branch)}">${dl('dlHBranch','branch')}</div>
+    </div>
+    <div class="grid3">
+      <div><label>المجموعة</label><input class="field" id="fhGroup" list="dlGroup" value="${esc(e.group_no)}">${dl('dlGroup','group_no')}</div>
+      <div><label>الجنسية</label><input class="field" id="fhNat" list="dlNat" value="${esc(e.nationality)}">${dl('dlNat','nationality')}</div>
+      <div><label>المنطقة</label><input class="field" id="fhRegion" list="dlRegion" value="${esc(e.region)}" placeholder="الرئيسية">${dl('dlRegion','region')}</div>
+    </div>
+    ${e.cost_center||e.region===RUH?`<label>مركز التكلفة</label><input class="field" id="fhCost" value="${esc(e.cost_center)}" dir="ltr">`:''}
+
+    <h2>الخطوات</h2>
+    ${chk('fhMed','1. تم الفحص الطبي', e.medical_test)}
+    <div class="mini" style="margin-top:10px;font-weight:700;color:#334155">2. التثقيف الصحي</div>
+    <div class="grid3">
+      <div>${chk('fhD1','اليوم الأول', e.day1)}</div>
+      <div>${chk('fhD2','اليوم الثاني', e.day2)}</div>
+      <div>${chk('fhExam','دخل الاختبار', e.exam_date)}</div>
+    </div>
+    <div class="grid3">
+      <div><label>نتيجة 1</label><select class="field" id="fhR1">${opts(RES,e.exam1)}</select></div>
+      <div><label>نتيجة 2</label><select class="field" id="fhR2">${opts(RES,e.exam2)}</select></div>
+      <div><label>نتيجة 3</label><select class="field" id="fhR3">${opts(RES,e.exam3)}</select></div>
+    </div>
+    <label>شهادة التثقيف صالحة حتى (هجري، مثال 21/03/1449)</label>
+    <input class="field num" id="fhTrain" value="${esc(e.training_until_hijri ? e.training_until_hijri.split('-').reverse().join('/') : '')}" dir="ltr" placeholder="dd/mm/yyyy">
+    ${chk('fhBalady','3. تم طلب بلدي', e.balady_request)}
+
+    <label>حالة الكرت / الإجراء المطلوب</label>
+    <input class="field" id="fhCard" list="dlCard" value="${esc(e.card_status)}" placeholder="مثال: دفع الرسوم، اختبار مرة اخرى">${dl('dlCard','card_status')}
+    <label>ملاحظات</label><textarea class="field" id="fhNotes" style="min-height:60px">${esc(e.notes)}</textarea>
+    <div class="actions">
+      <button class="btn btn-primary" onclick="saveHealth('${id||''}')">حفظ</button>
+      ${id?`<button class="btn btn-danger" onclick="deleteHealth('${id}')">حذف</button>`:''}
+    </div>
+    ${id?`<h2>سجل المتابعة</h2>
+      <textarea class="field" id="uBody" placeholder="وش صار؟ (حجزت له الاختبار، دفع الرسوم، طلع الكرت...)" style="min-height:60px"></textarea>
+      <button class="btn btn-ghost btn-block" style="margin-top:8px" onclick="addHUpdate('${id}')">+ إضافة تحديث</button>
+      <div class="timeline">${ups.map(u=>`<div class="tl"><small>${fmtDT(u.created_at)}</small> <button class="del" onclick="deleteHUpdate('${u.id}','${id}')">حذف</button><div>${esc(u.body)}</div></div>`).join('') || '<div class="tl" style="color:var(--muted)">لا توجد تحديثات</div>'}</div>`:''}`);
+}
+function keepOrDone(checked, old){ return checked ? (old || 'done') : ''; }
+async function saveHealth(id){
+  const old = state.health.find(x=>x.id===id) || {};
+  const train = $('#fhTrain').value.trim();
+  let th='', tg=null;
+  if(train){ const [g,h] = toDate(train); if(!g) return toast('تاريخ التثقيف غير صحيح — اكتبه مثل 21/03/1449'); tg=g; th=h; }
+  const row = {
+    name:$('#fhName').value.trim(), iqama:$('#fhIqama').value.replace(/\D/g,''), phone:$('#fhPhone').value.replace(/[^\d+]/g,''),
+    brand:$('#fhBrand').value.trim(), branch:$('#fhBranch').value.trim(), group_no:$('#fhGroup').value.trim(),
+    nationality:$('#fhNat').value.trim(), region:$('#fhRegion').value.trim()==='الرئيسية'?'':$('#fhRegion').value.trim(),
+    medical_test:keepOrDone($('#fhMed').checked, old.medical_test), day1:keepOrDone($('#fhD1').checked, old.day1),
+    day2:keepOrDone($('#fhD2').checked, old.day2), exam_date:keepOrDone($('#fhExam').checked, old.exam_date),
+    exam1:$('#fhR1').value, exam2:$('#fhR2').value, exam3:$('#fhR3').value,
+    training_until_hijri:th, training_until:tg, balady_request:keepOrDone($('#fhBalady').checked, old.balady_request),
+    card_status:$('#fhCard').value.trim(), notes:$('#fhNotes').value.trim()
+  };
+  if($('#fhCost')) row.cost_center = $('#fhCost').value.trim();
+  if(!row.name) return toast('اكتب اسم الموظف');
+  if(!id) row.source = 'إدخال يدوي';
+  const res = id ? await sb.from('wf_health_employees').update(row).eq('id',id).select().single()
+                 : await sb.from('wf_health_employees').insert(row).select().single();
+  if(res.error) return fail(res.error);
+  if(id){
+    const a=hInfo(old), b=hInfo({...old,...row});
+    const changes = Object.keys(H_FIELDS_LABELS).filter(k=>String(old[k]||'')!==String(row[k]||'')).map(k=>H_FIELDS_LABELS[k]);
+    const msg = (a.stage!==b.stage ? `المرحلة: ${a.stage} ← ${b.stage}` : '') + (changes.length ? `${a.stage!==b.stage?'\n':''}تعديل: ${changes.join('، ')}` : '');
+    if(msg) await sb.from('wf_health_updates').insert({employee_id:id, body:msg});
+  }
+  toast('تم الحفظ'); await loadAll(); openHealthForm(res.data.id);
+}
+async function deleteHealth(id){
+  if(!confirm('حذف الموظف وسجله نهائياً؟')) return;
+  const { error } = await sb.from('wf_health_employees').delete().eq('id',id);
+  if(error) return fail(error);
+  closeModal(); toast('تم الحذف'); loadAll();
+}
+async function addHUpdate(id){
+  const body=$('#uBody').value.trim(); if(!body) return;
+  const { error } = await sb.from('wf_health_updates').insert({employee_id:id, body});
+  if(error) return fail(error);
+  await loadAll(); openHealthForm(id);
+}
+async function deleteHUpdate(uid,id){
+  if(!confirm('حذف هذا التحديث؟')) return;
+  const { error } = await sb.from('wf_health_updates').delete().eq('id',uid);
+  if(error) return fail(error);
+  await loadAll(); openHealthForm(id);
+}
+
+// ----- Health import -----
+const H_IMPORT_FIELDS = ['group_no','seq_no','name','iqama','phone','nationality','brand','branch','region','cost_center','medical_test','training_until_hijri','training_until','day1','day2','exam_date','exam1','exam2','exam3','balady_request','card_status'];
+function hMatch(rows){
+  const byKey = new Map(), byIq = {}, byName = {};
+  state.health.forEach(e=>{ byKey.set(hKey(e), e); if(e.iqama) (byIq[e.iqama] ||= []).push(e); (byName[hNorm(e.name)] ||= []).push(e); });
+  return rows.map(r=>{
+    let e = byKey.get(hKey(r));
+    if(!e && r.iqama && byIq[r.iqama]?.length===1) e = byIq[r.iqama][0];
+    if(!e && !r.iqama && byName[hNorm(r.name)]?.length===1) e = byName[hNorm(r.name)][0];
+    if(!e) return {r, e:null, patch:r};
+    const patch = {};
+    H_IMPORT_FIELDS.forEach(f=>{ const v=r[f]; if(v!=='' && v!=null && String(e[f]??'')!==String(v)) patch[f]=v; });
+    return {r, e, patch};
+  });
+}
+let pendingHealth = [];
+function previewHealthImport(rows, fname){
+  pendingHealth = hMatch(rows);
+  const fresh = pendingHealth.filter(x=>!x.e), changed = pendingHealth.filter(x=>x.e && Object.keys(x.patch).length);
+  const notes = rows.filter(r=>r.notes).length;
+  modal(head('استيراد كروت صحية: '+esc(fname)) + `
+    <dl class="kv"><dt>موظفين في الملف</dt><dd>${rows.length}</dd><dt>موظفين جدد</dt><dd>${fresh.length}</dd>
+    <dt>موجودين وتحدثت بياناتهم</dt><dd>${changed.length}</dd><dt>موجودين بدون تغيير</dt><dd>${rows.length-fresh.length-changed.length}</dd></dl>
+    ${notes?`<div class="warn">${notes} موظف عليه ملاحظة في البيانات (رقم إقامة مكرر أو ناقص، جوال غير صحيح) — بتلاقيها في فلتر "عليه ملاحظة".</div>`:''}
+    <div class="warn" style="background:var(--gray-soft);color:#334155">الخانات الفاضية في الملف ما تمسح شي عندك. بس اللي مكتوب في الملف يتحدث، وملاحظاتك وسجل المتابعة يبقون.</div>
+    <div class="actions"><button class="btn btn-primary" id="doHImport">استيراد</button><button class="btn btn-ghost" onclick="closeModal()">إلغاء</button></div>`);
+  $('#doHImport').onclick = runHealthImport;
+}
+async function runHealthImport(){
+  const btn=$('#doHImport'); btn.disabled=true; btn.textContent='جاري الاستيراد...';
+  const fresh = pendingHealth.filter(x=>!x.e).map(x=>{ const {notes,...r}=x.r; return {...r, notes:notes||''}; });
+  const changed = pendingHealth.filter(x=>x.e && Object.keys(x.patch).length);
+  for(let i=0;i<fresh.length;i+=200){ const { error } = await sb.from('wf_health_employees').insert(fresh.slice(i,i+200)); if(error) return fail(error); }
+  const logs = [];
+  for(let i=0;i<changed.length;i+=8){
+    const part = changed.slice(i,i+8);
+    const res = await Promise.all(part.map(x=>sb.from('wf_health_employees').update(x.patch).eq('id',x.e.id)));
+    const err = res.find(r=>r.error); if(err) return fail(err.error);
+    part.forEach(x=>{ const labels = Object.keys(x.patch).map(k=>H_FIELDS_LABELS[k]).filter(Boolean);
+      const a=hInfo(x.e), b=hInfo({...x.e,...x.patch});
+      if(labels.length || a.stage!==b.stage) logs.push({employee_id:x.e.id, body:`تحديث من ملف إكسل${a.stage!==b.stage?`: ${a.stage} ← ${b.stage}`:''}${labels.length?`\n(${labels.join('، ')})`:''}`}); });
+  }
+  if(logs.length) await sb.from('wf_health_updates').insert(logs);
+  closeModal(); toast(`تم: ${fresh.length} جديد، ${changed.length} تحديث`); await loadAll(); go('health','dash');
+}
+
+// ----- Health export (styled) -----
+const H_ST_COLORS = { done:[C.greenSoft,C.green], failed:[C.redSoft,C.red], training:[C.amberSoft,C.amber], partial:[C.blueSoft,C.blue], none:[C.graySoft,C.gray] };
+const tick = (ok, cell, wip) => { cell.value = ok ? '✓' : (wip ? '⏳' : '✗'); cell.fill = fill(ok?C.greenSoft:(wip?C.amberSoft:C.redSoft)); cell.font={name:FONT,size:11,bold:true,color:{argb: ok?C.green:(wip?C.amber:C.red)}}; };
+const resTxt = v => v==='passed'?'ناجح':v==='failed'?'راسب':'';
+const resStyle = k => (e,c)=>{ if(e[k]==='passed'){ c.fill=fill(C.greenSoft); c.font={name:FONT,size:10,bold:true,color:{argb:C.green}}; } else if(e[k]==='failed'){ c.fill=fill(C.redSoft); c.font={name:FONT,size:10,bold:true,color:{argb:C.red}}; } };
+const dTxt = v => v==='done' ? '✓' : (v||'');
+const HCOLS = [
+  {h:'المجموعة', w:9, get:e=>e.group_no, type:'code'},
+  {h:'م', w:6, get:e=>e.seq_no, type:'num'},
+  {h:'الاسم', w:28, get:e=>e.name, style:(e,c)=>{c.font={name:FONT,size:10,bold:true};}},
+  {h:'رقم الإقامة', w:14, get:e=>e.iqama, type:'code'},
+  {h:'الجوال', w:13, get:e=>e.phone, type:'code'},
+  {h:'الجنسية', w:11, get:e=>e.nationality, type:'code'},
+  {h:'العلامة', w:10, get:e=>e.brand, type:'code'},
+  {h:'الفرع', w:13, get:e=>e.branch, type:'code'},
+  {h:'المنطقة', w:10, get:e=>e.region||'الرئيسية', type:'code'},
+  {h:'مركز التكلفة', w:15, get:e=>e.cost_center, type:'code'},
+  {h:'الفحص الطبي', w:11, get:e=>'', type:'code', style:(e,c)=>tick(!!e.medical_test,c)},
+  {h:'اليوم 1', w:11, get:e=>dTxt(e.day1), type:'code'},
+  {h:'اليوم 2', w:11, get:e=>dTxt(e.day2), type:'code'},
+  {h:'الاختبار', w:11, get:e=>dTxt(e.exam_date), type:'code'},
+  {h:'نتيجة 1', w:9, get:e=>resTxt(e.exam1), type:'code', style:resStyle('exam1')},
+  {h:'نتيجة 2', w:9, get:e=>resTxt(e.exam2), type:'code', style:resStyle('exam2')},
+  {h:'نتيجة 3', w:9, get:e=>resTxt(e.exam3), type:'code', style:resStyle('exam3')},
+  {h:'التثقيف الصحي', w:12, get:e=>'', type:'code', style:(e,c)=>{ const i=hInfo(e); tick(i.edu,c,i.inTraining && !i.failed); }},
+  {h:'التثقيف صالح حتى (هـ)', w:14, get:e=>fmtH(e.training_until_hijri), type:'code'},
+  {h:'طلب بلدي', w:10, get:e=>'', type:'code', style:(e,c)=>tick(!!e.balady_request,c)},
+  {h:'المرحلة', w:24, get:e=>hInfo(e).stage, type:'code', wrap:true, style:(e,c)=>{ const [bg,fg]=H_ST_COLORS[hInfo(e).cls]; c.fill=fill(bg); c.font={name:FONT,size:10,bold:true,color:{argb:fg}}; }},
+  {h:'حالة الكرت', w:20, get:e=>e.card_status, wrap:true, style:(e,c)=>{ if(e.card_status){ c.fill=fill(C.amberSoft); c.font={name:FONT,size:10,bold:true,color:{argb:C.amber}}; } }},
+  {h:'ملاحظات', w:30, get:e=>e.notes, wrap:true, style:(e,c)=>{ if(e.notes) c.font={name:FONT,size:10,color:{argb:C.red}}; }},
+  {h:'آخر تحديث', w:30, get:e=>(state.hupd.filter(u=>u.employee_id===e.id).pop()||{}).body||'', wrap:true},
+];
+function addHealthSheet(wb, name, items, sub, tab){
+  const cols = HCOLS.filter(c => ['الاسم','الفحص الطبي','التثقيف الصحي','طلب بلدي','المرحلة'].includes(c.h) || items.some(e=>{ const x=c.get(e); return x!=='' && x!=null; }));
+  const ws = wb.addWorksheet(safeName(name), { views:[{rightToLeft:true, state:'frozen', ySplit:3, xSplit:3}], properties:{tabColor:{argb:tab||C.teal}} });
+  sheetTitle(ws, name, sub, cols.length);
+  if(!items.length){ ws.getCell(4,1).value='لا توجد بيانات'; return ws; }
+  writeTable(ws, 3, cols, items, false);
+  ws.pageSetup = { orientation:'landscape', fitToPage:true, fitToWidth:1, fitToHeight:0, paperSize:9 };
+  return ws;
+}
+async function buildHealthWorkbook(list, opts={}){
+  await loadExcelJS();
+  const wb = new ExcelJS.Workbook(); wb.creator='Work follow up'; wb.created=new Date();
+  const stamp = 'تاريخ التقرير: ' + new Date().toLocaleDateString('ar-SA-u-ca-gregory-nu-latn',{day:'numeric',month:'long',year:'numeric'});
+  const all = list.map(hInfo), M = all.filter(i=>i.e.region!==RUH), R = all.filter(i=>i.e.region===RUH);
+  if(opts.summary){
+    const ws = wb.addWorksheet('الملخص', { views:[{rightToLeft:true, showGridLines:false}], properties:{tabColor:{argb:C.navy}} });
+    sheetTitle(ws, 'تقرير متابعة الكروت الصحية', stamp, 8);
+    const done=M.filter(i=>i.cls==='done').length, fail=M.filter(i=>i.cls==='failed').length;
+    const k = (r,c,label,val,bg,fg,sub) => { kpi(ws,r,c,label,val,bg,fg,sub); ws.getCell(r+1,c).numFmt='0'; };
+    k(4,1,'إجمالي الموظفين', all.length, C.graySoft, C.navy, R.length?`${M.length} الرئيسية + ${R.length} الرياض`:'');
+    k(4,3,'مكتمل', done, C.greenSoft, C.green, (M.length?Math.round(done*100/M.length):0)+'% من القائمة');
+    k(4,5,'ناقص', M.length-done, C.amberSoft, C.amber, 'باقي عليهم خطوة أو أكثر');
+    k(4,7,'راسب يعيد الاختبار', fail, C.redSoft, C.red, '');
+    ws.getRow(5).height = 30;
+    let r = 8;
+    const sec = (title) => { ws.mergeCells(r,1,r,8); const h=ws.getCell(r,1); h.value=title; h.font={name:FONT,size:13,bold:true,color:{argb:C.navy}}; };
+    sec('تقدّم الخطوات (القائمة الرئيسية)');
+    const steps = [['1. الفحص الطبي', M.filter(i=>i.med).length],['2. التثقيف الصحي والاختبار', M.filter(i=>i.edu).length],['3. طلب بلدي', M.filter(i=>i.balady).length]]
+      .map(([s,n])=>({s, n, left:M.length-n, pct: M.length? n/M.length : 0}));
+    r = writeTable(ws, r+1, [
+      {h:'الخطوة', get:x=>x.s, style:(x,c)=>{c.font={name:FONT,size:10,bold:true};}},
+      {h:'تم', get:x=>x.n, type:'num', style:(x,c)=>{c.font={name:FONT,size:10,bold:true,color:{argb:C.green}};}},
+      {h:'باقي', get:x=>x.left, type:'num', style:(x,c)=>{ if(x.left) c.font={name:FONT,size:10,bold:true,color:{argb:C.red}}; }},
+      {h:'النسبة', get:x=>x.pct, type:'num', style:(x,c)=>{ c.numFmt='0%'; const p=x.pct; c.fill=fill(p>=.8?C.greenSoft:p>=.4?C.amberSoft:C.redSoft); c.font={name:FONT,size:10,bold:true,color:{argb:p>=.8?C.green:p>=.4?C.amber:C.red}}; }},
+    ], steps, false);
+    ws.autoFilter = null;
+    const groupTable = (key, title) => {
+      const g={}; M.forEach(i=>{ const kk=i.e[key]||'غير محدد'; (g[kk] ||= []).push(i); });
+      const rows = Object.entries(g).sort((a,b)=>b[1].length-a[1].length).map(([kk,L])=>({kk, n:L.length, med:L.filter(i=>i.med).length, edu:L.filter(i=>i.edu).length, bal:L.filter(i=>i.balady).length, done:L.filter(i=>i.cls==='done').length}));
+      r += 2; sec(title);
+      r = writeTable(ws, r+1, [
+        {h:title.replace('حسب ',''), get:x=>x.kk, style:(x,c)=>{c.font={name:FONT,size:10,bold:true};}},
+        {h:'العدد', get:x=>x.n, type:'num', total:'sum'}, {h:'فحص طبي', get:x=>x.med, type:'num', total:'sum'},
+        {h:'تثقيف', get:x=>x.edu, type:'num', total:'sum'}, {h:'طلب بلدي', get:x=>x.bal, type:'num', total:'sum'},
+        {h:'مكتمل', get:x=>x.done, type:'num', total:'sum', style:(x,c)=>{c.font={name:FONT,size:10,bold:true,color:{argb:C.green}};}},
+        {h:'نسبة الإكمال', get:x=>x.n?x.done/x.n:0, type:'num', style:(x,c)=>{ c.numFmt='0%'; const p=x.n?x.done/x.n:0; c.fill=fill(p>=.8?C.greenSoft:p>=.4?C.amberSoft:C.redSoft); c.font={name:FONT,size:10,bold:true,color:{argb:p>=.8?C.green:p>=.4?C.amber:C.red}}; }},
+      ], rows, true);
+      ws.autoFilter = null;
+    };
+    groupTable('brand','حسب العلامة');
+    groupTable('branch','حسب الفرع');
+    const cs={}; all.filter(i=>i.e.card_status).forEach(i=>{ cs[i.e.card_status]=(cs[i.e.card_status]||0)+1; });
+    const csRows = Object.entries(cs).sort((a,b)=>b[1]-a[1]).map(([s,n])=>({s,n}));
+    if(csRows.length){ r += 2; sec('حالة الكرت (إجراءات مطلوبة)');
+      r = writeTable(ws, r+1, [{h:'الإجراء', get:x=>x.s, style:(x,c)=>{c.fill=fill(C.amberSoft); c.font={name:FONT,size:10,bold:true,color:{argb:C.amber}};}}, {h:'عدد الموظفين', get:x=>x.n, type:'num', total:'sum'}], csRows, true);
+      ws.autoFilter = null; }
+    [26,12,12,12,12,12,14,12].forEach((w,ix)=>ws.getColumn(ix+1).width=w);
+    ws.pageSetup = { orientation:'portrait', fitToPage:true, fitToWidth:1, fitToHeight:0, paperSize:9 };
+  }
+  const main = opts.summary ? M.map(i=>i.e) : list;
+  addHealthSheet(wb, opts.mainName || 'الموظفين', main, `${stamp} — ${main.length} موظف`, C.navy);
+  if(opts.summary){
+    const todo = M.filter(i=>i.cls!=='done').map(i=>i.e);
+    addHealthSheet(wb, 'يحتاج إجراء', todo, `${stamp} — ${todo.length} موظف باقي عليهم خطوة أو أكثر`, 'FFEA580C');
+    const failed = M.filter(i=>i.cls==='failed').map(i=>i.e);
+    if(failed.length) addHealthSheet(wb, 'راسب يعيد الاختبار', failed, `${stamp} — ${failed.length} موظف`, 'FFDC2626');
+    if(R.length) addHealthSheet(wb, 'موظفين الرياض', R.map(i=>i.e), `${stamp} — ${R.length} موظف`, 'FF7C3AED');
+  }
+  return wb;
+}
+$('#healthExportBtn').onclick = e => withBusy(e.currentTarget, async()=>{
+  const wb = await buildHealthWorkbook(state.health, {summary:true});
+  await downloadWorkbook(wb, `الكروت-الصحية-${today()}.xlsx`);
+});
+$('#healthExportListBtn').onclick = e => withBusy(e.currentTarget, async()=>{
+  const wb = await buildHealthWorkbook(filteredHealth(), {mainName:'الموظفين'});
+  await downloadWorkbook(wb, `الكروت-الصحية-مفلتر-${today()}.xlsx`);
+});
+
 
 document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeModal(); });
 init();
