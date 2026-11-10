@@ -358,6 +358,53 @@ textarea.field{min-height:80px;resize:vertical;line-height:1.6}
       </div>
     </div>
 
+    <!-- ===== HOUSING ===== -->
+    <div id="sec-house" class="hidden">
+      <div class="sec-bar">
+        <h1>🏠 السكنات</h1>
+        <div class="sec-actions">
+          <button class="btn btn-ghost btn-sm" onclick="startImport('house')">⬆ استيراد</button>
+          <button class="btn btn-ghost btn-sm" id="houseExportBtn">⬇ تصدير</button>
+        </div>
+      </div>
+      <div id="house-dash">
+        <div class="stats">
+          <div class="stat" onclick="go('house','units')"><small>السكنات</small><b class="num" id="hsUnits">0</b><em id="hsUnitsN"></em></div>
+          <div class="stat" onclick="goPeople()"><small>الساكنين</small><b class="num" id="hsPeople" style="color:var(--green)">0</b><em id="hsPeopleN"></em></div>
+          <div class="stat" onclick="goPeople({Acc:'__none'})"><small>بدون سكن</small><b class="num" id="hsNone" style="color:var(--red)">0</b></div>
+          <div class="stat" onclick="go('house','units')"><small>عقود منتهية / قريبة</small><b class="num" id="hsExp" style="color:var(--amber)">0</b><em id="hsExpN"></em></div>
+        </div>
+        <h2>تنبيهات</h2>
+        <div class="list" id="hsAlerts"></div>
+        <h2>⏰ عقود منتهية أو تنتهي خلال 90 يوم</h2>
+        <div class="list" id="hsDue"></div>
+        <h2>السكنات</h2>
+        <div class="tbl-wrap"><table class="tbl" id="hsTable"></table></div>
+        <h2>حسب المدينة</h2>
+        <div class="tbl-wrap"><table class="tbl" id="hsCity"></table></div>
+        <h2>حسب العلامة</h2>
+        <div class="tbl-wrap"><table class="tbl" id="hsBrand"></table></div>
+      </div>
+      <div id="house-units" class="hidden">
+        <div class="toolbar"><input id="uSearch" placeholder="بحث: رمز السكن، المؤجر، رقم العقد..."><select id="uCity"><option value="">كل المدن</option></select></div>
+        <div class="list" id="uList"></div>
+        <button class="btn btn-ghost btn-block" style="margin-top:10px" onclick="openContract('')">+ إضافة عقد سكن</button>
+      </div>
+      <div id="house-people" class="hidden">
+        <div class="toolbar"><input id="pSearch" placeholder="بحث: الاسم، الهوية، الرقم الوظيفي..."></div>
+        <div class="toolbar">
+          <select id="pAcc" dir="ltr"><option value="">كل السكنات</option></select>
+          <select id="pCity"><option value="">كل المدن</option></select>
+          <select id="pBrand"><option value="">كل العلامات</option></select>
+          <select id="pNat"><option value="">كل الجنسيات</option></select>
+          <select id="pDept"><option value="">كل الأقسام</option></select>
+          <select id="pFlag"><option value="">الكل</option><option value="notes">بيانات تحتاج تحقق</option><option value="extra">فيه اسم إضافي في الملف</option></select>
+        </div>
+        <div class="result-bar"><span><span id="pCount"></span> <button class="btn btn-danger btn-sm hidden" id="pClear" onclick="clearPeopleFilters()">✕ مسح الفلاتر</button></span><button class="btn btn-ghost btn-sm" id="houseExportListBtn">⬇ تصدير النتائج</button></div>
+        <div class="list" id="pList"></div>
+      </div>
+    </div>
+
     <!-- ===== TOPICS ===== -->
     <div id="sec-topics" class="hidden">
       <div class="sec-bar"><h1>📋 المعاملات</h1></div>
@@ -397,7 +444,7 @@ const AUTHORITIES = ['بلدي','أمانة الرياض','هيئة النقل',
 const TSTATUS = {new:'جديدة',in_progress:'قيد الإجراء',waiting:'بانتظار رد',done:'منتهية'};
 const PRIO = {low:'منخفضة',normal:'عادية',high:'مهمة',urgent:'عاجلة'};
 
-let state = { viol:[], vupd:[], topics:[], tupd:[], health:[], hupd:[], bal:[], bupd:[], section:'home', sub:{viol:'dash', health:'dash', bal:'dash'} };
+let state = { viol:[], vupd:[], topics:[], tupd:[], health:[], hupd:[], bal:[], bupd:[], hunits:[], hpeople:[], hsupd:[], section:'home', sub:{viol:'dash', health:'dash', bal:'dash', house:'dash'} };
 
 // ===== HELPERS =====
 const $ = s => document.querySelector(s);
@@ -460,7 +507,7 @@ async function enterApp(){
 
 // ===== DATA =====
 async function loadAll(){
-  const [v,vu,t,tu,h,hu,bl,bu] = await Promise.all([
+  const [v,vu,t,tu,h,hu,bl,bu,hn,hp,hs] = await Promise.all([
     sb.from('wf_violations').select('*').order('violation_date',{ascending:false,nullsFirst:false}).limit(5000),
     sb.from('wf_violation_updates').select('*').order('created_at'),
     sb.from('wf_topics').select('*').order('created_at',{ascending:false}),
@@ -468,11 +515,14 @@ async function loadAll(){
     sb.from('wf_health_employees').select('*').order('region').order('seq_no',{ascending:true,nullsFirst:false}).order('name').limit(5000),
     sb.from('wf_health_updates').select('*').order('created_at'),
     sb.from('wf_baladiya').select('*').order('brand').order('seq_no',{ascending:true,nullsFirst:false}).limit(5000),
-    sb.from('wf_baladiya_updates').select('*').order('created_at')
+    sb.from('wf_baladiya_updates').select('*').order('created_at'),
+    sb.from('wf_housing_units').select('*').order('code').order('end_date'),
+    sb.from('wf_housing_people').select('*').order('accommodation').order('name').limit(5000),
+    sb.from('wf_housing_updates').select('*').order('created_at')
   ]);
-  for(const r of [v,vu,t,tu,h,hu,bl,bu]) if(r.error) return fail(r.error);
-  state.viol=v.data; state.vupd=vu.data; state.topics=t.data; state.tupd=tu.data; state.health=h.data; state.hupd=hu.data; state.bal=bl.data; state.bupd=bu.data;
-  fillFilters(); fillHealthFilters(); fillBalFilters(); render(); applyRoute();
+  for(const r of [v,vu,t,tu,h,hu,bl,bu,hn,hp,hs]) if(r.error) return fail(r.error);
+  state.viol=v.data; state.vupd=vu.data; state.topics=t.data; state.tupd=tu.data; state.health=h.data; state.hupd=hu.data; state.bal=bl.data; state.bupd=bu.data; state.hunits=hn.data; state.hpeople=hp.data; state.hsupd=hs.data;
+  fillFilters(); fillHealthFilters(); fillBalFilters(); fillHousingFilters(); render(); applyRoute();
 }
 function fillFilters(){
   const auths = [...new Set([...AUTHORITIES.filter(a=>state.viol.some(v=>v.authority===a)), ...state.viol.map(v=>v.authority)])];
@@ -484,7 +534,7 @@ function fillFilters(){
 }
 
 // ===== RENDER =====
-function render(){ renderTiles(); renderViolDash(); renderViol(); renderTopics(); renderHealthDash(); renderHealth(); renderBalDash(); renderBal(); }
+function render(){ renderTiles(); renderViolDash(); renderViol(); renderTopics(); renderHealthDash(); renderHealth(); renderBalDash(); renderBal(); renderHousingDash(); renderUnits(); renderPeople(); }
 
 function violCard(v){
   return `<div class="item" onclick="openViol('${v.id}')">
@@ -588,6 +638,7 @@ const SUBTABS = {
   viol:   [['dash','لوحة المتابعة'],['list','قائمة المخالفات']],
   health: [['dash','لوحة المتابعة'],['list','الموظفين']],
   bal:    [['dash','لوحة المتابعة'],['list','الموظفين']],
+  house:  [['dash','لوحة المتابعة'],['units','السكنات'],['people','الموظفين']],
 };
 function go(section, sub){
   const h = section==='home' ? '' : '#'+section+(sub?'/'+sub:'');
@@ -596,15 +647,15 @@ function go(section, sub){
 }
 function applyRoute(){
   const [sec, sub] = (location.hash.replace('#','')||'home').split('/');
-  const section = ['viol','health','bal','topics'].includes(sec) ? sec : 'home';
+  const section = ['viol','health','bal','house','topics'].includes(sec) ? sec : 'home';
   state.section = section;
   if(sub && SUBTABS[section]?.some(x=>x[0]===sub)) state.sub[section] = sub;
-  ['home','viol','health','bal','topics'].forEach(s=>$('#sec-'+s).classList.toggle('hidden', s!==section));
+  ['home','viol','health','bal','house','topics'].forEach(s=>$('#sec-'+s).classList.toggle('hidden', s!==section));
   $('#backBtn').classList.toggle('hidden', section==='home');
   const nav = $('#subnav'), tabs = SUBTABS[section];
   if(tabs){
     nav.classList.remove('hidden');
-    nav.innerHTML = tabs.map(([k,l])=>`<button class="${state.sub[section]===k?'active':''}" onclick="${k==='list'?({health:'clearHealthFilters();',viol:'clearViolFilters();',bal:'clearBalFilters();'}[section]||''):''}go('${section}','${k}')">${l}</button>`).join('');
+    nav.innerHTML = tabs.map(([k,l])=>`<button class="${state.sub[section]===k?'active':''}" onclick="${k==='list'?({health:'clearHealthFilters();',viol:'clearViolFilters();',bal:'clearBalFilters();'}[section]||''):k==='people'?'clearPeopleFilters();':''}go('${section}','${k}')">${l}</button>`).join('');
     tabs.forEach(([k])=>$(`#${section}-${k}`).classList.toggle('hidden', state.sub[section]!==k));
   } else { nav.classList.add('hidden'); nav.innerHTML=''; }
   $('#fab').classList.toggle('hidden', false);
@@ -613,7 +664,7 @@ function applyRoute(){
 window.addEventListener('hashchange', applyRoute);
 function goViol(status, auth=''){ $('#vStatus').value=status; $('#vAuth').value=auth; $('#vSearch').value=''; renderViol(); go('viol','list'); }
 function goSearch(q){ $('#vStatus').value='open'; $('#vAuth').value=''; $('#vSearch').value=q; renderViol(); go('viol','list'); }
-$('#fab').onclick = () => state.section==='topics' ? openTopic() : state.section==='viol' ? openViolForm() : state.section==='health' ? openHealthForm() : state.section==='bal' ? openBalForm() : openChooser();
+$('#fab').onclick = () => state.section==='topics' ? openTopic() : state.section==='viol' ? openViolForm() : state.section==='health' ? openHealthForm() : state.section==='bal' ? openBalForm() : state.section==='house' ? (state.sub.house==='units'?openContract(''):openPerson('')) : openChooser();
 
 function renderTiles(){
   const V = state.viol, open = V.filter(v=>OPEN.includes(v.status));
@@ -633,6 +684,8 @@ function renderTiles(){
     tile('health','🩺','var(--green-soft)','الكروت الصحية', `${H.length} موظف — ${hDone} مكتمل`, `${hTodo} ناقص${hFail?` • ${hFail} راسب يعيد الاختبار`:''}`, hFail?`${hFail} راسب`:'') +
     (()=>{ const BI=state.bal.map(bInfo), ex=BI.filter(i=>i.state==='expired').length, so=BI.filter(i=>i.state==='soon').length, no=BI.filter(i=>i.state==='none').length;
       return tile('bal','🪪','var(--amber-soft)','البطاقات البلدية', `${BI.length} موظف — ${BI.filter(i=>i.state==='valid').length} سارية`, `${ex} منتهية • ${so} قريبة • ${no} بدون بطاقة`, ex+so?`${ex+so} تجديد`:''); })() +
+    (()=>{ const P=state.hpeople, no=P.filter(p=>!p.accommodation).length, U=state.hunits, ex=U.filter(u=>['expired','soon'].includes(cState(u))).length, G=houseGroups().filter(g=>g.contracts.length).length;
+      return tile('house','🏠','var(--purple-soft, #ede9fe)','السكنات', `${G} سكن — ${P.length-no} ساكن`, `${no} بدون سكن • ${ex} عقد منتهي/قريب`, ex?`${ex} عقد`:''); })() +
     tile('topics','📋','var(--blue-soft)','المعاملات', `${tOpen.length} معاملة مفتوحة`, tLate?`${tLate} متأخرة`:'كل المعاملات في وقتها', tLate?`${tLate} متأخرة`:'') +
     `<div class="tile soon"><div class="ic" style="background:var(--gray-soft)">➕</div><div><h3>أقسام جاية</h3><div class="l2">ارفع ملف القسم الجديد وأجهّزه لك هنا</div></div></div>`;
 }
@@ -646,6 +699,8 @@ function openChooser(){
     <button class="btn btn-primary" onclick="openViolForm()">مخالفة جديدة</button>
     <button class="btn btn-primary" onclick="openHealthForm()">موظف جديد (الكروت الصحية)</button>
     <button class="btn btn-primary" onclick="openBalForm()">موظف جديد (البطاقات البلدية)</button>
+    <button class="btn btn-primary" onclick="openPerson('')">موظف جديد (السكنات)</button>
+    <button class="btn btn-primary" onclick="openContract('')">عقد سكن جديد</button>
     <button class="btn btn-primary" onclick="openTopic()">معاملة / موضوع للمتابعة</button>
     <button class="btn btn-ghost" onclick="closeModal();$('#fileInput').click()">⬆ استيراد ملف إكسل</button></div>`);
 }
@@ -823,6 +878,8 @@ $('#fileInput').onchange = async e => {
   try{
     const wb = XLSX.read(await file.arrayBuffer(), {cellDates:true});
     // detect file type automatically, prefer the section the user is in
+    const hs = parseHousingWorkbook(wb);
+    if(hs.people.length || hs.units.length) return previewHousingImport(hs, file.name);
     const bRows = parseBaladiyaWorkbook(wb);
     if(bRows.length && (importTarget==='bal' || !parseHealthWorkbook(wb).length)) return previewBalImport(bRows, file.name);
     const hRows = parseHealthWorkbook(wb);
@@ -2177,6 +2234,403 @@ $('#balExportListBtn').onclick = e => withBusy(e.currentTarget, async()=>{
   const wb = await buildBalWorkbook(filteredBal(), {mainName:'البطاقات'});
   await downloadWorkbook(wb, `البطاقات-البلدية-مفلتر-${today()}.xlsx`);
 });
+
+// ===== HOUSING: Excel parser =====
+const accCode = s => clean(s).replace(/\s*[–—-]\s*/,' – ').replace(/\s+/g,' ').trim();
+function plainDate(v){
+  if(v instanceof Date && !isNaN(v)) return `${v.getFullYear()}-${pad2(v.getMonth()+1)}-${pad2(v.getDate())}`;
+  const d = bDate(v); return d.date;
+}
+function parseHousingWorkbook(wb){
+  const units=[], people=[];
+  for(const sheetName of wb.SheetNames){
+    const aoa = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], {header:1, raw:true, defval:null});
+    const hi = aoa.findIndex(r => r && (r.some(c=>/contract n/i.test(clean(c))) && r.some(c=>/lea?ss?or|المؤجر/i.test(clean(c)))
+                                    || r.some(c=>/accom+odation|السكن/i.test(clean(c))) && r.some(c=>/id number|iqama|الإقامة|الهوية/i.test(clean(c)))));
+    if(hi<0) continue;
+    const H = aoa[hi].map(c=>hNorm(c)); const find = re => H.findIndex(h=>re.test(h));
+    const named = new Set();
+    const f = re => { const i=find(re); if(i>=0) named.add(i); return i; };
+    if(H.some(h=>/contract n/.test(h))){
+      const c = { sr:f(/^sr|^م$/), cc:f(/cost center|مركز/), city:f(/^city|المدينة/), dist:f(/district|الحي/), type:f(/^type|الوصف/), comp:f(/company|الشركة/),
+                  ptype:f(/property type|نوع العقار/), area:f(/area|المساحة/), no:f(/contract n/), start:f(/start/), end:f(/^end|نهاية/), period:f(/period|المدة/), lessor:f(/lea?ss?or|المؤجر/) };
+      f(/^brand$/);
+      for(const r of aoa.slice(hi+1)){
+        if(!r || !clean(r[c.cc])) continue;
+        const extra = r.map((v,i)=>!named.has(i) && clean(v) && !H[i] ? clean(v) : '').filter(Boolean);
+        const no = r[c.no]; 
+        units.push({ sr: Number.isFinite(+r[c.sr]) && clean(r[c.sr]) ? Math.round(+r[c.sr]) : null, code: accCode(r[c.cc]), city: clean(r[c.city]), district: clean(r[c.dist]),
+          unit_desc: clean(r[c.type]).replace(/\s*-\s*$/,''), company: clean(r[c.comp]).replace(/\s+/g,' '), property_type: clean(r[c.ptype]), unit_area: clean(r[c.area]),
+          contract_no: no==null ? '' : (typeof no==='number' ? String(Math.round(no)) : clean(no)), start_date: plainDate(r[c.start]), end_date: plainDate(r[c.end]),
+          period_years: clean(r[c.period]), lessor: clean(r[c.lessor]), notes: extra.join(' — '), source: clean(sheetName) });
+      }
+    } else {
+      const c = { emp:f(/employ|الرقم الوظيفي/), name:f(/^name$|الاسم/), nat:f(/national|الجنسية/), id:f(/id number|iqama|الإقامة|الهوية/), brand:f(/^brand|العلامة/),
+                  cc:f(/cost center|مركز/), dept:f(/department|القسم|الإدارة/), acc:f(/accom+odation|السكن/) };
+      for(const r of aoa.slice(hi+1)){
+        if(!r) continue; const name = clean(r[c.name]); if(!name) continue;
+        const notes=[]; const extra = r.map((v,i)=>!named.has(i) && clean(v) && !H[i] ? clean(v) : '').filter(Boolean);
+        const idRaw = r[c.id]; const id = hIqama(idRaw); if(!id && clean(idRaw)) notes.push('رقم الهوية في الملف: '+clean(idRaw));
+        const emp = r[c.emp]; let empNo = emp==null ? '' : (typeof emp==='number' ? String(emp) : clean(emp)); if(empNo==='0') empNo='';
+        let nat = r[c.nat]==null || r[c.nat]===0 ? '' : clean(r[c.nat]);
+        people.push({ emp_no: empNo, name, nationality: nat, id_number: id, brand: clean(r[c.brand]), cost_center: clean(r[c.cc]).replace(/\s+/g,' '),
+          department: clean(r[c.dept]), accommodation: r[c.acc] ? accCode(r[c.acc]) : '', extra_name: extra.join(' — '), notes: notes.join(' — '), source: clean(sheetName) });
+      }
+    }
+  }
+  const cnt={}; people.forEach(p=>{ if(p.id_number) cnt[p.id_number]=(cnt[p.id_number]||0)+1; });
+  people.forEach(p=>{ if(p.id_number && p.id_number.length!==10) p.notes=(p.notes?p.notes+' — ':'')+'رقم الهوية مو 10 أرقام — تحقق';
+                      if(p.id_number && cnt[p.id_number]>1) p.notes=(p.notes?p.notes+' — ':'')+'رقم الهوية مكرر — تحقق'; });
+  const codes = new Set(units.map(u=>u.code));
+  people.forEach(p=>{ if(p.accommodation && units.length && !codes.has(p.accommodation)) p.notes=(p.notes?p.notes+' — ':'')+'السكن مو موجود في قائمة العقود'; });
+  return {units, people};
+}
+
+// ===== HOUSING: logic & UI =====
+const H_SOON = 90;
+const NO_ACC = '__none';
+function cState(u){ if(!u.end_date) return 'none'; const d=daysTo(u.end_date); return d<0?'expired':d<=H_SOON?'soon':'valid'; }
+const C_LBL = { expired:'العقد منتهي', soon:`ينتهي خلال ${H_SOON} يوم`, valid:'العقد ساري', none:'بدون تاريخ' };
+const C_CLS = { expired:'h-failed', soon:'h-training', valid:'h-done', none:'h-none' };
+function houseGroups(){
+  const g = new Map();
+  state.hunits.forEach(u=>{ if(!g.has(u.code)) g.set(u.code,{code:u.code, contracts:[], people:[]}); g.get(u.code).contracts.push(u); });
+  state.hpeople.forEach(p=>{ if(!p.accommodation) return; if(!g.has(p.accommodation)) g.set(p.accommodation,{code:p.accommodation, contracts:[], people:[]}); g.get(p.accommodation).people.push(p); });
+  return [...g.values()].map(x=>{
+    const c0 = x.contracts[0]||{};
+    const ends = x.contracts.map(c=>c.end_date).filter(Boolean).sort();
+    const nearest = ends[0] || null;
+    const st = !x.contracts.length ? 'nocontract' : x.contracts.map(cState).sort((a,b)=>['expired','soon','none','valid'].indexOf(a)-['expired','soon','none','valid'].indexOf(b))[0];
+    return {...x, city:c0.city||'', district:c0.district||'', nearest, st};
+  }).sort((a,b)=>a.code.localeCompare(b.code,'en',{numeric:true}));
+}
+const hsChip = st => st==='nocontract' ? `<span class="chip h-failed">ما له عقد مسجل</span>` : `<span class="chip ${C_CLS[st]}">${C_LBL[st]}</span>`;
+const hsDays = d => { if(!d) return ''; const n=daysTo(d); return n<0?`انتهى منذ ${-n} يوم`:`باقي ${n} يوم`; };
+function houseCard(g){
+  return `<div class="item" onclick="openHouse('${esc(g.code)}')">
+    <div class="row"><div><h3 dir="ltr" style="text-align:right">${esc(g.code)}</h3></div>${hsChip(g.st)}</div>
+    <div class="meta">${g.city?`<span>📍 ${esc(g.city)}${g.district?' — '+esc(g.district):''}</span>`:''}<span>👥 ${g.people.length} ساكن</span><span>📄 ${g.contracts.length} عقد</span></div>
+    ${g.nearest?`<div class="meta"><span>أقرب انتهاء: ${fmtDate(g.nearest)} — ${hsDays(g.nearest)}</span></div>`:''}
+  </div>`;
+}
+function personCard(p){
+  return `<div class="item" onclick="openPerson('${p.id}')">
+    <div class="row"><div><h3>${esc(p.name)}</h3></div>${p.accommodation?`<span class="chip c-new" dir="ltr">${esc(p.accommodation)}</span>`:`<span class="chip h-failed">بدون سكن</span>`}</div>
+    <div class="meta">${p.emp_no?`<span class="num">#${esc(p.emp_no)}</span>`:''}${p.id_number?`<span class="num">🪪 ${esc(p.id_number)}</span>`:''}${p.nationality?`<span>${esc(p.nationality)}</span>`:''}
+      ${p.brand?`<span class="chip auth">${esc(p.brand)}</span>`:''}${p.cost_center?`<span>${esc(p.cost_center)}</span>`:''}${p.department?`<span>${esc(p.department)}</span>`:''}</div>
+    ${p.notes?`<div class="meta"><span class="late">⚠ ${esc(p.notes)}</span></div>`:''}
+  </div>`;
+}
+const HS_FILTERS = ['#pSearch','#pAcc','#pBrand','#pNat','#pDept','#pCity','#pFlag'];
+function fillHousingFilters(){
+  const P = state.hpeople;
+  const fill = (sel, label, vals, extra='') => { const cur=$(sel).value; $(sel).innerHTML = `<option value="">${label}</option>${extra}` + vals.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join(''); $(sel).value = cur; };
+  const uniq = f => [...new Set(P.map(e=>e[f]).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'en',{numeric:true}));
+  fill('#pAcc','كل السكنات', houseGroups().map(g=>g.code), `<option value="${NO_ACC}">بدون سكن</option>`);
+  fill('#pBrand','كل العلامات', uniq('brand')); fill('#pNat','كل الجنسيات', uniq('nationality')); fill('#pDept','كل الأقسام', uniq('department'));
+  fill('#pCity','كل المدن', [...new Set(state.hunits.map(u=>u.city).filter(Boolean))]);
+  const cur=$('#uCity').value; $('#uCity').innerHTML = '<option value="">كل المدن</option>' + [...new Set(state.hunits.map(u=>u.city).filter(Boolean))].map(c=>`<option>${esc(c)}</option>`).join(''); $('#uCity').value=cur;
+}
+function cityOf(code){ const u=state.hunits.find(x=>x.code===code); return u?u.city:''; }
+function filteredPeople(){
+  const q=$('#pSearch').value.trim().toLowerCase(), a=$('#pAcc').value, b=$('#pBrand').value, n=$('#pNat').value, d=$('#pDept').value, c=$('#pCity').value, f=$('#pFlag').value;
+  return state.hpeople.filter(p=>{
+    if(a===NO_ACC ? !!p.accommodation : (a && p.accommodation!==a)) return false;
+    if(b && p.brand!==b) return false; if(n && p.nationality!==n) return false; if(d && p.department!==d) return false;
+    if(c && cityOf(p.accommodation)!==c) return false;
+    if(f==='notes' && !p.notes) return false; if(f==='extra' && !p.extra_name) return false;
+    if(q && ![p.name,p.emp_no,p.id_number,p.brand,p.cost_center,p.accommodation,p.notes,p.extra_name].join(' ').toLowerCase().includes(q)) return false;
+    return true;
+  });
+}
+function clearPeopleFilters(){ HS_FILTERS.forEach(s=>$(s).value=''); renderPeople(); }
+function renderPeople(){
+  $('#pClear').classList.toggle('hidden', !HS_FILTERS.some(s=>$(s).value));
+  const L = filteredPeople();
+  $('#pCount').textContent = `${L.length} موظف — ${L.filter(p=>p.accommodation).length} عندهم سكن`;
+  $('#pList').innerHTML = L.slice(0,400).map(personCard).join('') || empty('لا توجد نتائج');
+}
+HS_FILTERS.forEach(s=>$(s).addEventListener('input',renderPeople));
+function renderUnits(){
+  const q=$('#uSearch').value.trim().toLowerCase(), c=$('#uCity').value;
+  const L = houseGroups().filter(g=>(!c||g.city===c) && (!q || [g.code,g.city,g.district,...g.contracts.map(x=>[x.lessor,x.contract_no,x.company].join(' '))].join(' ').toLowerCase().includes(q)));
+  $('#uList').innerHTML = L.map(houseCard).join('') || empty('لا توجد نتائج');
+}
+['#uSearch','#uCity'].forEach(s=>$(s).addEventListener('input',renderUnits));
+function goPeople(extra={}){ HS_FILTERS.forEach(s=>$(s).value=''); Object.entries(extra).forEach(([k,v])=>{ const el=$('#p'+k); if(el) el.value=v; }); renderPeople(); go('house','people'); }
+function renderHousingDash(){
+  const G = houseGroups(), P = state.hpeople, C = state.hunits;
+  const withC = G.filter(g=>g.contracts.length);
+  $('#hsUnits').textContent = withC.length; $('#hsUnitsN').textContent = `${C.length} عقد`;
+  $('#hsPeople').textContent = P.filter(p=>p.accommodation).length; $('#hsPeopleN').textContent = `من ${P.length} موظف`;
+  $('#hsNone').textContent = P.filter(p=>!p.accommodation).length;
+  const exp = C.filter(u=>cState(u)==='expired').length, soon = C.filter(u=>cState(u)==='soon').length;
+  $('#hsExp').textContent = exp+soon; $('#hsExpN').textContent = `${exp} منتهي • ${soon} قريب`;
+  const due = C.filter(u=>['expired','soon'].includes(cState(u))).sort((a,b)=>a.end_date.localeCompare(b.end_date));
+  $('#hsDue').innerHTML = due.map(u=>`<div class="item" onclick="openContract('${u.id}')"><div class="row"><h3 dir="ltr" style="text-align:right">${esc(u.code)}</h3><span class="chip ${C_CLS[cState(u)]}">${C_LBL[cState(u)]}</span></div>
+      <div class="meta"><span>${esc(u.unit_desc)}</span><span>المؤجر: ${esc(u.lessor)}</span></div>
+      <div class="meta"><span>ينتهي ${fmtDate(u.end_date)} — ${hsDays(u.end_date)}</span>${u.contract_no?`<span class="num">عقد ${esc(u.contract_no)}</span>`:''}</div></div>`).join('') || empty(`ما فيه عقود تنتهي خلال ${H_SOON} يوم 👌`);
+  $('#hsTable').innerHTML = `<tr><th>السكن</th><th>المدينة</th><th>الساكنين</th><th>العقود</th><th>أقرب انتهاء</th></tr>` +
+    G.map(g=>`<tr class="click" onclick="openHouse('${esc(g.code)}')"><td dir="ltr" style="text-align:right"><b>${esc(g.code)}</b></td><td>${esc(g.city)||'—'}</td><td class="num"><b>${g.people.length}</b></td><td class="num">${g.contracts.length||'<span class="late">0</span>'}</td>
+      <td class="${g.st==='expired'?'late':g.st==='soon'?'soon':''}">${g.nearest?fmtDate(g.nearest):'—'}</td></tr>`).join('');
+  const cities = {}; G.forEach(g=>{ const k=g.city||'غير محدد'; (cities[k] ||= {u:0,p:0}); cities[k].u += g.contracts.length?1:0; cities[k].p += g.people.length; });
+  $('#hsCity').innerHTML = `<tr><th>المدينة</th><th>السكنات</th><th>الساكنين</th></tr>` + Object.entries(cities).sort((a,b)=>b[1].p-a[1].p).map(([k,x])=>`<tr class="click" onclick="goPeople({City:'${esc(k)}'})"><td><b>${esc(k)}</b></td><td class="num">${x.u}</td><td class="num">${x.p}</td></tr>`).join('');
+  const brands = {}; P.forEach(p=>{ const k=p.brand||'غير محدد'; (brands[k] ||= {n:0,h:0}); brands[k].n++; if(p.accommodation) brands[k].h++; });
+  $('#hsBrand').innerHTML = `<tr><th>العلامة</th><th>الموظفين</th><th>عندهم سكن</th><th>بدون سكن</th></tr>` + Object.entries(brands).sort((a,b)=>b[1].n-a[1].n).map(([k,x])=>`<tr class="click" onclick="goPeople({Brand:'${k==='غير محدد'?'':esc(k)}'})"><td><b>${esc(k)}</b></td><td class="num">${x.n}</td><td class="num" style="color:var(--green)"><b>${x.h}</b></td><td class="num" style="color:var(--red)"><b>${x.n-x.h}</b></td></tr>`).join('');
+  const nc = G.filter(g=>!g.contracts.length);
+  $('#hsAlerts').innerHTML = `
+    <div class="item" onclick="goPeople({Acc:'${NO_ACC}'})"><div class="row"><h3>🚫 موظفين بدون سكن</h3><span class="chip h-failed num">${P.filter(p=>!p.accommodation).length}</span></div></div>
+    ${nc.map(g=>`<div class="item" onclick="openHouse('${esc(g.code)}')"><div class="row"><h3>📄 سكن ما له عقد: <span dir="ltr">${esc(g.code)}</span></h3><span class="chip h-failed num">${g.people.length} ساكن</span></div></div>`).join('')}
+    <div class="item" onclick="goPeople({Flag:'notes'})"><div class="row"><h3>⚠ بيانات تحتاج تحقق</h3><span class="chip h-none num">${P.filter(p=>p.notes).length}</span></div></div>`;
+}
+
+// ----- house detail -----
+function openHouse(code){
+  const g = houseGroups().find(x=>x.code===code); if(!g) return;
+  modal(head(`<span dir="ltr">${esc(code)}</span>`) + `
+    <div class="meta">${hsChip(g.st)}${g.city?`<span>📍 ${esc(g.city)}${g.district?' — '+esc(g.district):''}</span>`:''}<span>👥 ${g.people.length} ساكن</span></div>
+    <h2>العقود</h2>
+    <div class="list">${g.contracts.map(u=>`<div class="item" onclick="openContract('${u.id}')"><div class="row"><h3>${esc(u.unit_desc||'عقد')}</h3><span class="chip ${C_CLS[cState(u)]}">${C_LBL[cState(u)]}</span></div>
+      <div class="meta">${u.contract_no?`<span class="num">رقم العقد ${esc(u.contract_no)}</span>`:''}<span>${fmtDate(u.start_date)} ← ${fmtDate(u.end_date)}</span>${u.end_date?`<span>${hsDays(u.end_date)}</span>`:''}</div>
+      <div class="meta"><span>المؤجر: ${esc(u.lessor)||'—'}</span><span>${esc(u.company)}</span></div></div>`).join('') || empty('ما فيه عقد مسجل لهذا السكن')}</div>
+    <button class="btn btn-ghost btn-block" style="margin-top:8px" onclick="openContract('', '${esc(code).replace(/'/g,"\\'")}')">+ إضافة عقد</button>
+    <h2>الساكنين (${g.people.length})</h2>
+    <div class="tbl-wrap"><table class="tbl">${g.people.length?`<tr><th>الاسم</th><th>الرقم</th><th>العلامة</th><th>الجنسية</th></tr>`+g.people.map(p=>`<tr class="click" onclick="openPerson('${p.id}')"><td><b>${esc(p.name)}</b></td><td class="num">${esc(p.emp_no)}</td><td>${esc(p.brand)}</td><td>${esc(p.nationality)}</td></tr>`).join(''):'<tr><td>لا يوجد</td></tr>'}</table></div>
+    <div class="actions"><button class="btn btn-ghost" onclick="closeModal();goPeople({Acc:'${esc(code).replace(/'/g,"\\'")}'})">فتح القائمة بالفلاتر</button></div>`);
+}
+function openContract(id, code){
+  const u = state.hunits.find(x=>x.id===id) || {code:code||'', city:'', district:'', unit_desc:'', company:'', property_type:'عمارة', unit_area:'', contract_no:'', start_date:'', end_date:'', period_years:'', lessor:'', notes:''};
+  const ups = id ? state.hsupd.filter(x=>x.unit_id===id).slice().reverse() : [];
+  const dl = (idn,f) => `<datalist id="${idn}">${[...new Set(state.hunits.map(x=>x[f]).filter(Boolean))].map(v=>`<option value="${esc(v)}">`).join('')}</datalist>`;
+  modal(head(id?'تفاصيل العقد':'عقد سكن جديد') + `
+    ${id?`<div class="meta"><span class="chip ${C_CLS[cState(u)]}">${C_LBL[cState(u)]}</span>${u.end_date?`<span>${hsDays(u.end_date)}</span>`:''}</div>`:''}
+    <label>رمز السكن (مركز التكلفة)</label><input class="field" id="fuCode" list="dluCode" value="${esc(u.code)}" dir="ltr">${dl('dluCode','code')}
+    <div class="grid2"><div><label>المدينة</label><input class="field" id="fuCity" list="dluCity" value="${esc(u.city)}">${dl('dluCity','city')}</div>
+      <div><label>الحي</label><input class="field" id="fuDist" value="${esc(u.district)}"></div></div>
+    <label>الوصف (عدد الشقق / الأرقام)</label><input class="field" id="fuDesc" value="${esc(u.unit_desc)}">
+    <div class="grid2"><div><label>نوع العقار</label><input class="field" id="fuPType" list="dluPT" value="${esc(u.property_type)}">${dl('dluPT','property_type')}</div>
+      <div><label>المساحة</label><input class="field" id="fuArea" value="${esc(u.unit_area)}" dir="ltr"></div></div>
+    <label>الشركة المستأجرة</label><input class="field" id="fuComp" list="dluComp" value="${esc(u.company)}">${dl('dluComp','company')}
+    <label>المؤجر</label><input class="field" id="fuLessor" value="${esc(u.lessor)}">
+    <div class="grid3"><div><label>رقم العقد</label><input class="field num" id="fuNo" value="${esc(u.contract_no)}" dir="ltr"></div>
+      <div><label>بداية العقد</label><input class="field" type="date" id="fuStart" value="${u.start_date||''}"></div>
+      <div><label>نهاية العقد</label><input class="field" type="date" id="fuEnd" value="${u.end_date||''}"></div></div>
+    <label>المدة (سنوات)</label><input class="field num" id="fuPeriod" value="${esc(u.period_years)}">
+    <label>ملاحظات</label><textarea class="field" id="fuNotes" style="min-height:60px">${esc(u.notes)}</textarea>
+    <div class="actions"><button class="btn btn-primary" onclick="saveContract('${id||''}')">حفظ</button>${id?`<button class="btn btn-danger" onclick="deleteContract('${id}')">حذف</button>`:''}</div>
+    ${id?`<h2>سجل المتابعة</h2><textarea class="field" id="uBody" placeholder="وش صار؟ (تواصلت مع المؤجر، جددنا العقد...)" style="min-height:60px"></textarea>
+      <button class="btn btn-ghost btn-block" style="margin-top:8px" onclick="addHsUpdate('unit','${id}')">+ إضافة تحديث</button>
+      <div class="timeline">${ups.map(x=>`<div class="tl"><small>${fmtDT(x.created_at)}</small> <button class="del" onclick="deleteHsUpdate('${x.id}','unit','${id}')">حذف</button><div>${esc(x.body)}</div></div>`).join('') || '<div class="tl" style="color:var(--muted)">لا توجد تحديثات</div>'}</div>`:''}`);
+}
+async function saveContract(id){
+  const old = state.hunits.find(x=>x.id===id)||{};
+  const row = { code:accCode($('#fuCode').value), city:$('#fuCity').value.trim(), district:$('#fuDist').value.trim(), unit_desc:$('#fuDesc').value.trim(),
+    property_type:$('#fuPType').value.trim(), unit_area:$('#fuArea').value.trim(), company:$('#fuComp').value.trim(), lessor:$('#fuLessor').value.trim(),
+    contract_no:$('#fuNo').value.trim(), start_date:$('#fuStart').value||null, end_date:$('#fuEnd').value||null, period_years:$('#fuPeriod').value.trim(), notes:$('#fuNotes').value.trim() };
+  if(!row.code) return toast('اكتب رمز السكن');
+  if(!id) row.source='إدخال يدوي';
+  const res = id ? await sb.from('wf_housing_units').update(row).eq('id',id).select().single() : await sb.from('wf_housing_units').insert(row).select().single();
+  if(res.error) return fail(res.error);
+  if(id && (old.end_date||'')!==(row.end_date||'')) await sb.from('wf_housing_updates').insert({unit_id:id, body:`نهاية العقد: ${old.end_date||'—'} ← ${row.end_date||'—'}`});
+  if(id && old.code && old.code!==row.code){ await sb.from('wf_housing_people').update({accommodation:row.code}).eq('accommodation',old.code); }
+  toast('تم الحفظ'); await loadAll(); openContract(res.data.id);
+}
+async function deleteContract(id){
+  if(!confirm('حذف العقد؟ الساكنين يبقون مسجلين على نفس رمز السكن.')) return;
+  const { error } = await sb.from('wf_housing_units').delete().eq('id',id); if(error) return fail(error);
+  closeModal(); toast('تم الحذف'); loadAll();
+}
+function openPerson(id){
+  const p = state.hpeople.find(x=>x.id===id) || {emp_no:'',name:'',nationality:'',id_number:'',brand:'',cost_center:'',department:'',accommodation:'',extra_name:'',notes:''};
+  const ups = id ? state.hsupd.filter(x=>x.person_id===id).slice().reverse() : [];
+  const dl = (idn,f) => `<datalist id="${idn}">${[...new Set(state.hpeople.map(x=>x[f]).filter(Boolean))].map(v=>`<option value="${esc(v)}">`).join('')}</datalist>`;
+  const codes = houseGroups().map(g=>g.code);
+  modal(head(id?esc(p.name):'موظف جديد — سكن') + `
+    <label>الاسم</label><input class="field" id="fpName" value="${esc(p.name)}">
+    <div class="grid3"><div><label>الرقم الوظيفي</label><input class="field num" id="fpEmp" value="${esc(p.emp_no)}" dir="ltr"></div>
+      <div><label>رقم الهوية / الإقامة</label><input class="field num" id="fpId" value="${esc(p.id_number)}" dir="ltr" inputmode="numeric"></div>
+      <div><label>الجنسية</label><input class="field" id="fpNat" list="dlpNat" value="${esc(p.nationality)}">${dl('dlpNat','nationality')}</div></div>
+    <div class="grid3"><div><label>العلامة</label><input class="field" id="fpBrand" list="dlpBrand" value="${esc(p.brand)}">${dl('dlpBrand','brand')}</div>
+      <div><label>مركز التكلفة</label><input class="field" id="fpCC" list="dlpCC" value="${esc(p.cost_center)}">${dl('dlpCC','cost_center')}</div>
+      <div><label>القسم</label><input class="field" id="fpDept" list="dlpDept" value="${esc(p.department)}">${dl('dlpDept','department')}</div></div>
+    <label>السكن</label>
+    <select class="field" id="fpAcc" dir="ltr"><option value="">— بدون سكن —</option>${codes.map(c=>`<option ${c===p.accommodation?'selected':''}>${esc(c)}</option>`).join('')}</select>
+    ${p.extra_name?`<label>اسم مكتوب جنبه في الملف (عمود بدون عنوان)</label><input class="field" id="fpExtra" value="${esc(p.extra_name)}">`:''}
+    <label>ملاحظات</label><textarea class="field" id="fpNotes" style="min-height:60px">${esc(p.notes)}</textarea>
+    <div class="actions"><button class="btn btn-primary" onclick="savePerson('${id||''}')">حفظ</button>${id?`<button class="btn btn-danger" onclick="deletePerson('${id}')">حذف</button>`:''}</div>
+    ${id?`<h2>سجل المتابعة</h2><textarea class="field" id="uBody" placeholder="وش صار؟" style="min-height:60px"></textarea>
+      <button class="btn btn-ghost btn-block" style="margin-top:8px" onclick="addHsUpdate('person','${id}')">+ إضافة تحديث</button>
+      <div class="timeline">${ups.map(x=>`<div class="tl"><small>${fmtDT(x.created_at)}</small> <button class="del" onclick="deleteHsUpdate('${x.id}','person','${id}')">حذف</button><div>${esc(x.body)}</div></div>`).join('') || '<div class="tl" style="color:var(--muted)">لا توجد تحديثات</div>'}</div>`:''}`);
+}
+async function savePerson(id){
+  const old = state.hpeople.find(x=>x.id===id)||{};
+  const row = { name:$('#fpName').value.trim(), emp_no:$('#fpEmp').value.trim(), id_number:$('#fpId').value.replace(/\D/g,''), nationality:$('#fpNat').value.trim(),
+    brand:$('#fpBrand').value.trim(), cost_center:$('#fpCC').value.trim(), department:$('#fpDept').value.trim(), accommodation:$('#fpAcc').value, notes:$('#fpNotes').value.trim() };
+  if($('#fpExtra')) row.extra_name = $('#fpExtra').value.trim();
+  if(!row.name) return toast('اكتب الاسم');
+  if(!id) row.source='إدخال يدوي';
+  const res = id ? await sb.from('wf_housing_people').update(row).eq('id',id).select().single() : await sb.from('wf_housing_people').insert(row).select().single();
+  if(res.error) return fail(res.error);
+  if(id && (old.accommodation||'')!==row.accommodation) await sb.from('wf_housing_updates').insert({person_id:id, body:`نقل السكن: ${old.accommodation||'بدون سكن'} ← ${row.accommodation||'بدون سكن'}`});
+  toast('تم الحفظ'); await loadAll(); openPerson(res.data.id);
+}
+async function deletePerson(id){
+  if(!confirm('حذف الموظف من قائمة السكن؟')) return;
+  const { error } = await sb.from('wf_housing_people').delete().eq('id',id); if(error) return fail(error);
+  closeModal(); toast('تم الحذف'); loadAll();
+}
+async function addHsUpdate(kind, id){
+  const body=$('#uBody').value.trim(); if(!body) return;
+  const { error } = await sb.from('wf_housing_updates').insert(kind==='unit'?{unit_id:id, body}:{person_id:id, body});
+  if(error) return fail(error);
+  await loadAll(); kind==='unit' ? openContract(id) : openPerson(id);
+}
+async function deleteHsUpdate(uid, kind, id){
+  if(!confirm('حذف هذا التحديث؟')) return;
+  const { error } = await sb.from('wf_housing_updates').delete().eq('id',uid); if(error) return fail(error);
+  await loadAll(); kind==='unit' ? openContract(id) : openPerson(id);
+}
+
+// ----- import -----
+const HU_FIELDS = ['sr','code','city','district','unit_desc','company','property_type','unit_area','contract_no','start_date','end_date','period_years','lessor'];
+const HP_FIELDS = ['emp_no','name','nationality','id_number','brand','cost_center','department','accommodation','extra_name'];
+function hsMatch({units, people}){
+  const uByNo = {}; state.hunits.forEach(u=>{ if(u.contract_no) uByNo[u.contract_no]=u; });
+  const uByKey = {}; state.hunits.forEach(u=>{ uByKey[u.code+'|'+hNorm(u.unit_desc)]=u; });
+  const um = units.map(r=>{ const e = (r.contract_no && uByNo[r.contract_no]) || uByKey[r.code+'|'+hNorm(r.unit_desc)] || null;
+    if(!e) return {r,e:null,patch:r}; const patch={}; HU_FIELDS.forEach(f=>{ const v=r[f]; if(v!=='' && v!=null && String(e[f]??'')!==String(v)) patch[f]=v; }); return {r,e,patch}; });
+  const byId={}, byEmp={}, byName={};
+  state.hpeople.forEach(p=>{ if(p.id_number) (byId[p.id_number] ||= []).push(p); if(p.emp_no && !/new/i.test(p.emp_no)) (byEmp[p.emp_no] ||= []).push(p); (byName[hNorm(p.name)] ||= []).push(p); });
+  const pm = people.map(r=>{
+    let e = null;
+    if(r.id_number && byId[r.id_number]?.length===1) e = byId[r.id_number][0];
+    else if(r.id_number && byId[r.id_number]?.length>1) e = byId[r.id_number].find(p=>hNorm(p.name)===hNorm(r.name)) || null;
+    if(!e && r.emp_no && !/new/i.test(r.emp_no) && byEmp[r.emp_no]?.length===1) e = byEmp[r.emp_no][0];
+    if(!e && byName[hNorm(r.name)]?.length===1) e = byName[hNorm(r.name)][0];
+    if(!e) return {r,e:null,patch:r};
+    const patch={}; HP_FIELDS.forEach(f=>{ const v=r[f]; if(v!=='' && v!=null && String(e[f]??'')!==String(v)) patch[f]=v; }); return {r,e,patch};
+  });
+  return {um, pm};
+}
+let pendingHs=null;
+function previewHousingImport(data, fname){
+  pendingHs = hsMatch(data);
+  const c = L => ({fresh:L.filter(x=>!x.e).length, changed:L.filter(x=>x.e && Object.keys(x.patch).length).length, total:L.length});
+  const U=c(pendingHs.um), P=c(pendingHs.pm);
+  const moved = pendingHs.pm.filter(x=>x.e && x.patch.accommodation).length;
+  modal(head('استيراد السكنات: '+esc(fname)) + `
+    <table class="tbl"><tr><th></th><th>في الملف</th><th>جديد</th><th>تحدّث</th></tr>
+      <tr><td><b>عقود السكن</b></td><td class="num">${U.total}</td><td class="num">${U.fresh}</td><td class="num">${U.changed}</td></tr>
+      <tr><td><b>الموظفين</b></td><td class="num">${P.total}</td><td class="num">${P.fresh}</td><td class="num">${P.changed}</td></tr></table>
+    ${moved?`<div class="warn">${moved} موظف تغيّر سكنهم في الملف — بيتسجل النقل في سجلهم.</div>`:''}
+    <div class="warn" style="background:var(--gray-soft);color:#334155">الخانات الفاضية في الملف ما تمسح شي (يعني لو موظف طلع من السكن، غيّره من الموقع).</div>
+    <div class="actions"><button class="btn btn-primary" id="doHsImport">استيراد</button><button class="btn btn-ghost" onclick="closeModal()">إلغاء</button></div>`);
+  $('#doHsImport').onclick = runHousingImport;
+}
+async function runHousingImport(){
+  const btn=$('#doHsImport'); btn.disabled=true; btn.textContent='جاري الاستيراد...';
+  const run = async (table, L, logKey, labels) => {
+    const fresh = L.filter(x=>!x.e).map(x=>x.r);
+    for(let i=0;i<fresh.length;i+=200){ const { error } = await sb.from(table).insert(fresh.slice(i,i+200)); if(error) throw error; }
+    const changed = L.filter(x=>x.e && Object.keys(x.patch).length), logs=[];
+    for(let i=0;i<changed.length;i+=8){
+      const part = changed.slice(i,i+8);
+      const res = await Promise.all(part.map(x=>sb.from(table).update(x.patch).eq('id',x.e.id)));
+      const err = res.find(r=>r.error); if(err) throw err.error;
+      part.forEach(x=>{ const ch = Object.keys(x.patch).filter(k=>labels[k]).map(k=>`${labels[k]}: ${x.e[k]||'—'} ← ${x.patch[k]}`); if(ch.length) logs.push({[logKey]:x.e.id, body:'تحديث من ملف إكسل\n'+ch.join('\n')}); });
+    }
+    if(logs.length) await sb.from('wf_housing_updates').insert(logs);
+    return [fresh.length, changed.length];
+  };
+  try{
+    const [uf,uc] = await run('wf_housing_units', pendingHs.um, 'unit_id', {end_date:'نهاية العقد', start_date:'بداية العقد', lessor:'المؤجر', contract_no:'رقم العقد'});
+    const [pf,pc] = await run('wf_housing_people', pendingHs.pm, 'person_id', {accommodation:'السكن', brand:'العلامة', cost_center:'مركز التكلفة', department:'القسم'});
+    closeModal(); toast(`تم: عقود ${uf} جديد/${uc} تحديث — موظفين ${pf} جديد/${pc} تحديث`); await loadAll(); go('house','dash');
+  }catch(e){ fail(e); }
+}
+
+// ----- export -----
+const HSC_COLS = [
+  {h:'رمز السكن', w:26, get:u=>u.code, type:'code', style:(u,c)=>{c.font={name:FONT,size:10,bold:true};}},
+  {h:'المدينة', w:10, get:u=>u.city, type:'code'}, {h:'الحي', w:12, get:u=>u.district, type:'code'},
+  {h:'الوصف', w:26, get:u=>u.unit_desc, wrap:true}, {h:'نوع العقار', w:10, get:u=>u.property_type, type:'code'}, {h:'المساحة', w:14, get:u=>u.unit_area, type:'code'},
+  {h:'الشركة', w:30, get:u=>u.company, wrap:true}, {h:'المؤجر', w:28, get:u=>u.lessor, wrap:true}, {h:'رقم العقد', w:14, get:u=>u.contract_no, type:'code'},
+  {h:'بداية العقد', w:12, get:u=>u.start_date, type:'date'},
+  {h:'نهاية العقد', w:12, get:u=>u.end_date, type:'date', style:(u,c)=>{ const s=cState(u); if(s==='expired'){c.fill=fill(C.redSoft);c.font={name:FONT,size:10,bold:true,color:{argb:C.red}};} else if(s==='soon'){c.fill=fill(C.amberSoft);c.font={name:FONT,size:10,bold:true,color:{argb:C.amber}};} }},
+  {h:'الأيام المتبقية', w:10, get:u=>u.end_date?daysTo(u.end_date):'', type:'num'},
+  {h:'الحالة', w:16, get:u=>C_LBL[cState(u)], type:'code', style:(u,c)=>{ const m={expired:[C.redSoft,C.red],soon:[C.amberSoft,C.amber],valid:[C.greenSoft,C.green],none:[C.graySoft,C.gray]}[cState(u)]; c.fill=fill(m[0]); c.font={name:FONT,size:10,bold:true,color:{argb:m[1]}}; }},
+  {h:'المدة (سنة)', w:8, get:u=>u.period_years, type:'code'},
+  {h:'عدد الساكنين', w:10, get:u=>state.hpeople.filter(p=>p.accommodation===u.code).length, type:'num'},
+  {h:'ملاحظات', w:22, get:u=>u.notes, wrap:true},
+];
+const HSP_COLS = [
+  {h:'الرقم الوظيفي', w:12, get:p=>p.emp_no, type:'code'},
+  {h:'الاسم', w:34, get:p=>p.name, style:(p,c)=>{c.font={name:FONT,size:10,bold:true};}},
+  {h:'الجنسية', w:12, get:p=>p.nationality, type:'code'}, {h:'رقم الهوية', w:13, get:p=>p.id_number, type:'code'},
+  {h:'العلامة', w:10, get:p=>p.brand, type:'code'}, {h:'مركز التكلفة', w:24, get:p=>p.cost_center, type:'code'}, {h:'القسم', w:16, get:p=>p.department, type:'code'},
+  {h:'السكن', w:26, get:p=>p.accommodation||'بدون سكن', type:'code', style:(p,c)=>{ if(!p.accommodation){ c.fill=fill(C.redSoft); c.font={name:FONT,size:10,bold:true,color:{argb:C.red}}; } }},
+  {h:'المدينة', w:10, get:p=>cityOf(p.accommodation), type:'code'},
+  {h:'اسم إضافي في الملف', w:24, get:p=>p.extra_name, wrap:true},
+  {h:'ملاحظات', w:26, get:p=>p.notes, wrap:true, style:(p,c)=>{ if(p.notes) c.font={name:FONT,size:10,color:{argb:C.red}}; }},
+  {h:'آخر تحديث', w:26, get:p=>(state.hsupd.filter(u=>u.person_id===p.id).pop()||{}).body||'', wrap:true},
+];
+function addGenericSheet(wb, name, cols, items, sub, tab, freezeX=0){
+  const keep = cols.slice(0,2).map(c=>c.h);
+  const C2 = cols.filter(c => keep.includes(c.h) || items.some(e=>{ const x=c.get(e); return x!=='' && x!=null; }));
+  const ws = wb.addWorksheet(safeName(name), { views:[{rightToLeft:true, state:'frozen', ySplit:3, xSplit:freezeX}], properties:{tabColor:{argb:tab||C.teal}} });
+  sheetTitle(ws, name, sub, C2.length);
+  if(!items.length){ ws.getCell(4,1).value='لا توجد بيانات'; return ws; }
+  writeTable(ws, 3, C2, items, false);
+  ws.pageSetup = { orientation:'landscape', fitToPage:true, fitToWidth:1, fitToHeight:0, paperSize:9 };
+  return ws;
+}
+async function buildHousingWorkbook(people, opts={}){
+  await loadExcelJS();
+  const wb = new ExcelJS.Workbook(); wb.creator='Work follow up'; wb.created=new Date();
+  const stamp = 'تاريخ التقرير: ' + new Date().toLocaleDateString('ar-SA-u-ca-gregory-nu-latn',{day:'numeric',month:'long',year:'numeric'});
+  const G = houseGroups();
+  if(opts.summary){
+    const ws = wb.addWorksheet('الملخص', { views:[{rightToLeft:true, showGridLines:false}], properties:{tabColor:{argb:C.navy}} });
+    sheetTitle(ws, 'تقرير السكنات', stamp, 8);
+    const P = state.hpeople, U = state.hunits;
+    const k=(c,l,v,bg,fg,s)=>{ kpi(ws,4,c,l,v,bg,fg,s); ws.getCell(5,c).numFmt='0'; };
+    k(1,'السكنات', G.filter(g=>g.contracts.length).length, C.graySoft, C.navy, `${U.length} عقد`);
+    k(3,'الساكنين', P.filter(p=>p.accommodation).length, C.greenSoft, C.green, `من ${P.length} موظف`);
+    k(5,'بدون سكن', P.filter(p=>!p.accommodation).length, C.redSoft, C.red, '');
+    k(7,`عقود منتهية / تنتهي خلال ${H_SOON} يوم`, U.filter(u=>['expired','soon'].includes(cState(u))).length, C.amberSoft, C.amber, '');
+    ws.getRow(5).height=30;
+    let r=8; const sec=t=>{ ws.mergeCells(r,1,r,8); const h=ws.getCell(r,1); h.value=t; h.font={name:FONT,size:13,bold:true,color:{argb:C.navy}}; };
+    sec('السكنات');
+    r = writeTable(ws, r+1, [
+      {h:'السكن', get:g=>g.code, style:(g,c)=>{c.font={name:FONT,size:10,bold:true};}}, {h:'المدينة', get:g=>g.city},
+      {h:'الساكنين', get:g=>g.people.length, type:'num', total:'sum'}, {h:'العقود', get:g=>g.contracts.length, type:'num', total:'sum'},
+      {h:'أقرب انتهاء', get:g=>g.nearest, type:'date', style:(g,c)=>{ if(g.st==='expired'){c.fill=fill(C.redSoft);c.font={name:FONT,size:10,bold:true,color:{argb:C.red}};} else if(g.st==='soon'){c.fill=fill(C.amberSoft);c.font={name:FONT,size:10,bold:true,color:{argb:C.amber}};} }},
+      {h:'الحالة', get:g=>g.st==='nocontract'?'ما له عقد':C_LBL[g.st], type:'code'},
+    ], G, true); ws.autoFilter=null;
+    const cities={}; G.forEach(g=>{ const kk=g.city||'غير محدد'; (cities[kk] ||= {k:kk,u:0,p:0}); cities[kk].u+=g.contracts.length?1:0; cities[kk].p+=g.people.length; });
+    r+=2; sec('حسب المدينة');
+    r = writeTable(ws, r+1, [{h:'المدينة', get:x=>x.k, style:(x,c)=>{c.font={name:FONT,size:10,bold:true};}}, {h:'السكنات', get:x=>x.u, type:'num', total:'sum'}, {h:'الساكنين', get:x=>x.p, type:'num', total:'sum'}], Object.values(cities).sort((a,b)=>b.p-a.p), true); ws.autoFilter=null;
+    const br={}; P.forEach(p=>{ const kk=p.brand||'غير محدد'; (br[kk] ||= {k:kk,n:0,h:0}); br[kk].n++; if(p.accommodation) br[kk].h++; });
+    r+=2; sec('حسب العلامة');
+    writeTable(ws, r+1, [{h:'العلامة', get:x=>x.k, style:(x,c)=>{c.font={name:FONT,size:10,bold:true};}}, {h:'الموظفين', get:x=>x.n, type:'num', total:'sum'},
+      {h:'عندهم سكن', get:x=>x.h, type:'num', total:'sum', style:(x,c)=>{c.font={name:FONT,size:10,bold:true,color:{argb:C.green}};}},
+      {h:'بدون سكن', get:x=>x.n-x.h, type:'num', total:'sum', style:(x,c)=>{ if(x.n-x.h){c.fill=fill(C.redSoft);c.font={name:FONT,size:10,bold:true,color:{argb:C.red}};} }}], Object.values(br).sort((a,b)=>b.n-a.n), true); ws.autoFilter=null;
+    [30,12,12,12,14,16,12,12].forEach((w,i)=>ws.getColumn(i+1).width=w);
+    ws.pageSetup = { orientation:'portrait', fitToPage:true, fitToWidth:1, fitToHeight:0, paperSize:9 };
+    addGenericSheet(wb, 'العقود', HSC_COLS, state.hunits.slice().sort((a,b)=>(a.end_date||'9').localeCompare(b.end_date||'9')), `${stamp} — ${state.hunits.length} عقد`, 'FFEA580C', 1);
+  }
+  const sorted = people.slice().sort((a,b)=>(a.accommodation||'zzz').localeCompare(b.accommodation||'zzz','en',{numeric:true}) || a.name.localeCompare(b.name));
+  addGenericSheet(wb, opts.mainName||'كل الموظفين', HSP_COLS, sorted, `${stamp} — ${sorted.length} موظف`, C.navy, 2);
+  if(opts.summary){
+    const none = sorted.filter(p=>!p.accommodation);
+    addGenericSheet(wb, 'بدون سكن', HSP_COLS, none, `${stamp} — ${none.length} موظف`, 'FFDC2626', 2);
+    const tabs=['FF2563EB','FF16A34A','FF7C3AED','FFDB2777','FF0891B2','FFEA580C'];
+    G.filter(g=>g.people.length).forEach((g,i)=>addGenericSheet(wb, g.code.replace(/^\d+\s*–\s*/,''), HSP_COLS, g.people.slice().sort((a,b)=>a.name.localeCompare(b.name)), `${g.code} — ${g.city} — ${g.people.length} ساكن`, tabs[i%tabs.length], 2));
+  }
+  return wb;
+}
+$('#houseExportBtn').onclick = e => withBusy(e.currentTarget, async()=>{ const wb = await buildHousingWorkbook(state.hpeople, {summary:true}); await downloadWorkbook(wb, `السكنات-${today()}.xlsx`); });
+$('#houseExportListBtn').onclick = e => withBusy(e.currentTarget, async()=>{ const wb = await buildHousingWorkbook(filteredPeople(), {mainName:'الموظفين'}); await downloadWorkbook(wb, `السكنات-مفلتر-${today()}.xlsx`); });
 
 
 document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeModal(); });
