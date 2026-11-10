@@ -880,6 +880,7 @@ $('#fileInput').onchange = async e => {
     // detect file type automatically, prefer the section the user is in
     const hs = parseHousingWorkbook(wb);
     if(hs.people.length || hs.units.length) return previewHousingImport(hs, file.name);
+    if(importTarget==='house'){ toast('هذا الملف مو بنفس صيغة ملف السكنات — أرسله لي في المحادثة وأجهّز قراءته'); return; }
     const bRows = parseBaladiyaWorkbook(wb);
     if(bRows.length && (importTarget==='bal' || !parseHealthWorkbook(wb).length)) return previewBalImport(bRows, file.name);
     const hRows = parseHealthWorkbook(wb);
@@ -972,6 +973,7 @@ function parseWorkbook(wb){
       const [vno] = numText(g('violation_no')), [inv, invNote] = numText(g('invoice_no'));
       const branch = clean(g('branch')), reason = clean(g('reason')), category = clean(g('category'));
       if(!vno && !inv && !branch && !reason && !category) continue; // total rows
+      if(!vno && !inv && !(Number(String(g('amount')??'0').replace(/[^\d.]/g,''))>0)) continue; // not a violation row
       let authority = normAuthority(g('authority')) || sheetAuth;
       const branchIsAuth = !!branch && /هيئة|وزارة|أمانة|امانة/.test(branch) && AUTHORITIES.includes(normAuthority(branch));
       if(branchIsAuth) authority = normAuthority(branch);
