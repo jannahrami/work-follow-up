@@ -2809,6 +2809,7 @@ async function saveLease(id){
   const log=[]; if(id && (old.end_date||'')!==(row.end_date||'')) log.push(`تاريخ الانتهاء: ${old.end_date||'—'} ← ${row.end_date||'—'}`);
   if(id && old.status!==row.status) log.push(`المتابعة: ${L_STATUS[old.status]||'—'} ← ${L_STATUS[row.status]}`);
   if(log.length) await sb.from('wf_lease_updates').insert({lease_id:id, body:log.join('\n')});
+  if(id) try{ await syncHouseFromLease(old.contract_no, row, 'تحديث من قسم عقود الإيجار'); }catch(e){ fail(e); }
   toast('تم الحفظ'); await loadAll(); openLease(res.data.id);
 }
 async function deleteLease(id){
@@ -2825,6 +2826,17 @@ async function deleteLeaseUpdate(uid, id){
   if(!confirm('حذف هذا التحديث؟')) return;
   const { error } = await sb.from('wf_lease_updates').delete().eq('id',uid); if(error) return fail(error);
   await loadAll(); openLease(id);
+}
+// keep the linked housing contract in step with the lease file (the lease file is the source of updates)
+async function syncHouseFromLease(oldNo, l, why){
+  const u = oldNo && state.hunits.find(x=>x.contract_no===oldNo); if(!u) return;
+  const patch={}, ch=[];
+  if(l.contract_no && l.contract_no!==u.contract_no){ patch.contract_no=l.contract_no; ch.push(`رقم العقد: ${u.contract_no} ← ${l.contract_no}`); }
+  if(l.end_date && l.end_date!==u.end_date){ patch.end_date=l.end_date; ch.push(`نهاية العقد: ${u.end_date||'—'} ← ${l.end_date}`); }
+  if(l.lessor && l.lessor!==u.lessor && patch.contract_no){ patch.lessor=l.lessor; ch.push(`المؤجر: ${u.lessor||'—'} ← ${l.lessor}`); }
+  if(!ch.length) return;
+  const { error } = await sb.from('wf_housing_units').update(patch).eq('id',u.id); if(error) throw error;
+  await sb.from('wf_housing_updates').insert({unit_id:u.id, body:why+'\n'+ch.join('\n')});
 }
 // ----- import -----
 const L_FIELDS = ['seq_no','contract_no','lessor','tenant','branch','end_date','auto_renew','email','phone','file_notes'];
@@ -2865,6 +2877,7 @@ async function runLeaseImport(){
       part.forEach(x=>{ const c=Object.keys(x.patch).filter(k=>LB[k]).map(k=>`${LB[k]}: ${x.e[k]||'—'} ← ${x.patch[k]}`); if(c.length) logs.push({lease_id:x.e.id, body:'تحديث من ملف إكسل\n'+c.join('\n')}); });
     }
     if(logs.length) await sb.from('wf_lease_updates').insert(logs);
+    for(const x of ch) if(x.patch.end_date || x.patch.contract_no) await syncHouseFromLease(x.e.contract_no, {...x.e, ...x.patch}, 'تحديث من ملف عقود الإيجار');
     closeModal(); toast(`تم: ${fresh.length} جديد — ${ch.length} تحديث`); await loadAll(); go('lease','dash');
   }catch(e){ fail(e); }
 }
