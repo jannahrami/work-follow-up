@@ -118,6 +118,26 @@ textarea.field{min-height:80px;resize:vertical;line-height:1.6}
 .warn{background:var(--amber-soft);color:var(--amber);border-radius:10px;padding:10px 12px;font-size:13px;margin-top:10px}
 
 .top-left{display:flex;align-items:center;gap:8px;min-width:0}
+.dash-head{display:flex;justify-content:space-between;align-items:flex-end;margin:4px 2px 12px}
+.dash-head h1{font-size:22px;margin:0}
+h2 small{font-size:12px;color:var(--muted);font-weight:700}
+.kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+@media(min-width:760px){.kpis{grid-template-columns:repeat(3,1fr)}}
+@media(min-width:1100px){.kpis{grid-template-columns:repeat(6,1fr)}}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px 14px;cursor:pointer;position:relative;overflow:hidden}
+.kpi::before{content:'';position:absolute;inset-inline-start:0;top:0;bottom:0;width:4px;background:var(--k,var(--line))}
+.kpi .t{font-size:12px;color:var(--muted);font-weight:700;display:flex;gap:6px;align-items:center}
+.kpi b{display:block;font-size:24px;margin-top:4px;color:var(--k,var(--ink))}
+.kpi em{font-style:normal;font-size:11.5px;color:var(--muted)}
+.kpi.ok b{color:var(--green)}
+.feed{display:flex;gap:10px;align-items:center}
+.feed .fi{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;font-size:18px;flex:none}
+.feed .fb{flex:1;min-width:0}
+.feed .fb h3{margin:0;font-size:14.5px}
+.feed .fb .meta{margin-top:3px}
+.dchip{flex:none;font-size:12px;font-weight:800;padding:5px 9px;border-radius:999px;white-space:nowrap}
+.dchip.late{background:var(--red-soft);color:var(--red)} .dchip.near{background:var(--amber-soft);color:var(--amber)} .dchip.far{background:var(--gray-soft);color:var(--muted)}
+.more{background:none;border:0;color:var(--teal,#0f766e);font-weight:800;padding:8px 4px;cursor:pointer;font-family:inherit}
 .hello{font-size:15px;color:var(--muted);font-weight:700;margin:6px 2px 12px}
 .tiles{display:grid;grid-template-columns:1fr;gap:12px}
 @media(min-width:640px){.tiles{grid-template-columns:repeat(2,1fr)}}
@@ -180,7 +200,7 @@ textarea.field{min-height:80px;resize:vertical;line-height:1.6}
 <header>
     <div class="top">
       <div class="top-left">
-        <button class="icon-btn hidden" id="backBtn" onclick="go('home')">‹ الأقسام</button>
+        <button class="icon-btn hidden" id="backBtn" onclick="go('home')">‹ الرئيسية</button>
         <div class="logo" id="logoHome" onclick="go('home')" style="cursor:pointer">Work <span>follow up</span></div>
       </div>
       <div class="top-actions">
@@ -195,7 +215,13 @@ textarea.field{min-height:80px;resize:vertical;line-height:1.6}
   <main>
     <!-- ===== HOME: section tiles ===== -->
     <div id="sec-home">
-      <div class="hello">الأقسام</div>
+      <div class="dash-head"><div><h1>لوحة المتابعة</h1><div class="hello" id="dDate" style="margin:2px 0 0"></div></div></div>
+      <div class="kpis" id="dKpis"></div>
+      <h2>🔴 يحتاج إجراء الآن <small id="dNowN"></small></h2>
+      <div class="list" id="dNow"></div>
+      <h2>🗓️ خلال 30 يوم <small id="dSoonN"></small></h2>
+      <div class="list" id="dSoon"></div>
+      <div class="hello" style="margin-top:22px">الأقسام</div>
       <div class="tiles" id="tiles"></div>
     </div>
 
@@ -582,7 +608,7 @@ function fillFilters(){
 }
 
 // ===== RENDER =====
-function render(){ renderTiles(); renderViolDash(); renderViol(); renderTopics(); renderHealthDash(); renderHealth(); renderBalDash(); renderBal(); renderHousingDash(); renderUnits(); renderPeople(); renderLeaseDash(); renderLeases(); }
+function render(){ renderTiles(); renderHomeDash(); renderViolDash(); renderViol(); renderTopics(); renderHealthDash(); renderHealth(); renderBalDash(); renderBal(); renderHousingDash(); renderUnits(); renderPeople(); renderLeaseDash(); renderLeases(); }
 
 function violCard(v){
   return `<div class="item" onclick="openViol('${v.id}')">
@@ -739,6 +765,60 @@ function renderTiles(){
       return tile('lease','📄','var(--blue-soft)','عقود الإيجار', `${L.filter(l=>l.status!=='closed').length} عقد`, `${ex} منتهي • ${so} ينتهي خلال 90 يوم`, ex+so?`${ex+so} تجديد`:''); })() +
     tile('topics','📋','var(--blue-soft)','المعاملات', `${tOpen.length} معاملة مفتوحة`, tLate?`${tLate} متأخرة`:'كل المعاملات في وقتها', tLate?`${tLate} متأخرة`:'') +
     `<div class="tile soon"><div class="ic" style="background:var(--gray-soft)">➕</div><div><h3>أقسام جاية</h3><div class="l2">ارفع ملف القسم الجديد وأجهّزه لك هنا</div></div></div>`;
+}
+
+
+// ===== MAIN DASHBOARD =====
+let dashAll = {now:false, soon:false};
+function dChip(d){ if(d==null) return ''; return d<0 ? `<span class="dchip late">متأخر ${-d} يوم</span>` : d===0 ? `<span class="dchip late">اليوم</span>` : d<=7 ? `<span class="dchip near">باقي ${d} يوم</span>` : `<span class="dchip far">باقي ${d} يوم</span>`; }
+const SEC_IC = { lease:['📄','var(--blue-soft)'], house:['🏠','var(--purple-soft, #ede9fe)'], viol:['🚨','var(--red-soft)'], bal:['🪪','var(--amber-soft)'], health:['🩺','var(--green-soft)'], topics:['📋','var(--blue-soft)'] };
+function dashItems(){
+  const it = [], add = (sec, d, title, sub, click) => it.push({sec, d, title, sub, click});
+  // leases (source of truth for contracts)
+  state.leases.forEach(l=>{ const s=lState(l); if(!['expired','soon'].includes(s)) return; const u=lHouse(l);
+    add('lease', daysTo(l.end_date), `عقد إيجار: ${esc(l.branch)}`, `${esc(l.kind)} • ${esc(l.tenant)}${u?` • 👥 ${state.hpeople.filter(p=>p.accommodation===u.code).length} ساكن`:''}${l.status==='renewing'?' • <b>جاري التجديد</b>':''}${l.file_notes||l.notes?` • 📝 ${esc(l.notes||l.file_notes)}`:''}`, `openLease('${l.id}')`); });
+  // housing contracts not covered by the lease list
+  state.hunits.forEach(u=>{ const s=cState(u); if(!['expired','soon'].includes(s) || lUnit(u)) return;
+    add('house', daysTo(u.end_date), `عقد سكن: <span dir="ltr">${esc(u.code)}</span>`, `${esc(u.city)} • 👥 ${state.hpeople.filter(p=>p.accommodation===u.code).length} ساكن`, `openContract('${u.id}')`); });
+  // violations: objection deadlines
+  state.viol.filter(v=>['due','objection_prep'].includes(v.status) && v.objection_deadline).forEach(v=>{ const d=daysTo(v.objection_deadline); if(d<-14||d>30) return;
+    add('viol', d, `آخر موعد اعتراض: ${esc(v.authority)}`, `${esc(v.branch||v.company)} • ${money(v.amount)}`, `openViol('${v.id}')`); });
+  // baladiya: individual cards expiring within 30 days (expired ones are grouped below)
+  state.bal.map(bInfo).filter(i=>i.d!=null && i.d>=0 && i.d<=30).forEach(i=>add('bal', i.d, `بطاقة بلدية: ${esc(i.e.name)}`, `${esc(i.e.brand||'')} ${esc(i.e.location||'')}`, `openBal('${i.e.id}')`));
+  // topics
+  state.topics.filter(t=>t.status!=='done' && t.due_date).forEach(t=>{ const d=daysTo(t.due_date); if(d>30) return;
+    add('topics', d, `معاملة: ${esc(t.title)}`, esc(t.category||t.party||''), `openTopic('${t.id}')`); });
+  return it.sort((a,b)=>a.d-b.d);
+}
+function feedRow(x){ const [ic,bg]=SEC_IC[x.sec]; return `<div class="item feed" onclick="${x.click}"><div class="fi" style="background:${bg}">${ic}</div><div class="fb"><h3>${x.title}</h3><div class="meta"><span>${x.sub}</span></div></div>${dChip(x.d)}</div>`; }
+function groupRow(sec, title, n, sub, click){ const [ic,bg]=SEC_IC[sec]; return `<div class="item feed" onclick="${click}"><div class="fi" style="background:${bg}">${ic}</div><div class="fb"><h3>${title}</h3>${sub?`<div class="meta"><span>${sub}</span></div>`:''}</div><span class="dchip late num">${n}</span></div>`; }
+function renderHomeDash(){
+  $('#dDate').textContent = new Date().toLocaleDateString('ar-SA-u-ca-gregory-nu-latn',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  const L=state.leases, lDue=L.filter(l=>['expired','soon'].includes(lState(l))), lExp=L.filter(l=>lState(l)==='expired');
+  const V=state.viol, vDue=V.filter(v=>v.status==='due'||v.status==='rejected');
+  const BI=state.bal.map(bInfo), bExp=BI.filter(i=>i.state==='expired'), bSoon=BI.filter(i=>i.state==='soon'), bNone=BI.filter(i=>i.state==='none');
+  const P=state.hpeople, pNone=P.filter(p=>!p.accommodation);
+  const HM=state.health.filter(e=>e.active!==false).map(hInfo).filter(x=>x.e.region!=='الرياض'), hTodo=HM.filter(x=>x.cls!=='done'), hFail=HM.filter(x=>x.cls==='failed');
+  const T=state.topics.filter(t=>t.status!=='done'), tLate=T.filter(t=>t.due_date && t.due_date<today());
+  const k=(color,ic,t,v,em,click)=>`<div class="kpi" style="--k:${color}" onclick="${click}"><div class="t">${ic} ${t}</div><b class="num">${v}</b><em>${em}</em></div>`;
+  $('#dKpis').innerHTML =
+    k(lDue.length?'var(--red)':'var(--green)','📄','عقود تحتاج تجديد', lDue.length, `${lExp.length} منتهي • ${lDue.length-lExp.length} خلال 90 يوم`, "goLease('due')") +
+    k(vDue.length?'var(--red)':'var(--green)','🚨','مخالفات واجبة السداد', Number(sum(vDue)).toLocaleString('en-US'), `ر.س • ${vDue.length} مخالفة • ${V.filter(v=>OPEN.includes(v.status)).length} مفتوحة`, "goViol('dueish')") +
+    k(bExp.length?'var(--red)':'var(--green)','🪪','بطاقات بلدية منتهية', bExp.length, `${bSoon.length} قريبة • ${bNone.length} بدون بطاقة`, "goBal('expired')") +
+    k(pNone.length?'var(--amber)':'var(--green)','🏠','موظفين بدون سكن', pNone.length, `${P.length-pNone.length} ساكن في ${houseGroups().filter(g=>g.contracts.length).length} سكن`, "goPeople({Acc:'__none'})") +
+    k(hTodo.length?'var(--amber)':'var(--green)','🩺','كروت صحية ناقصة', hTodo.length, `${hFail.length} راسب • من ${HM.length}`, "goHealth('incomplete')") +
+    k(tLate.length?'var(--red)':'var(--blue)','📋','معاملات مفتوحة', T.length, tLate.length?`${tLate.length} متأخرة`:'كلها في وقتها', "go('topics')");
+  const items=dashItems(), now=items.filter(x=>x.d<=7), soon=items.filter(x=>x.d>7 && x.d<=30);
+  const groups = [
+    bExp.length && groupRow('bal', 'بطاقات بلدية منتهية', bExp.length, `${bNone.length} موظف بدون بطاقة`, "goBal('expired')"),
+    hFail.length && groupRow('health', 'كروت صحية: راسبين لازم يعيدون الاختبار', hFail.length, '', "goHealth('failed')"),
+    pNone.length && groupRow('house', 'موظفين بدون سكن', pNone.length, '', "goPeople({Acc:'__none'})"),
+  ].filter(Boolean);
+  const N=8, cut=(arr,key)=>{ const all=dashAll[key]; return arr.slice(0, all?arr.length:N).map(feedRow).join('') + (arr.length>N ? `<button class="more" onclick="dashAll.${key}=!dashAll.${key};renderHomeDash()">${all?'عرض أقل ▲':`عرض الكل (${arr.length}) ▼`}</button>` : ''); };
+  $('#dNowN').textContent = now.length ? `(${now.length})` : '';
+  $('#dNow').innerHTML = (cut(now,'now') + groups.join('')) || empty('ما فيه شي مستعجل 👌');
+  $('#dSoonN').textContent = soon.length ? `(${soon.length})` : '';
+  $('#dSoon').innerHTML = cut(soon,'soon') || empty('ما فيه مواعيد خلال 30 يوم');
 }
 
 // ===== MODAL =====
