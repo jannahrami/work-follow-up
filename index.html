@@ -305,6 +305,59 @@ textarea.field{min-height:80px;resize:vertical;line-height:1.6}
       </div>
     </div>
 
+    <!-- ===== BALADIYA CARDS ===== -->
+    <div id="sec-bal" class="hidden">
+      <div class="sec-bar">
+        <h1>🪪 البطاقات البلدية</h1>
+        <div class="sec-actions">
+          <button class="btn btn-ghost btn-sm" onclick="startImport('bal')">⬆ استيراد</button>
+          <button class="btn btn-ghost btn-sm" id="balExportBtn">⬇ تصدير</button>
+        </div>
+      </div>
+      <div id="bal-dash">
+        <div class="stats">
+          <div class="stat" onclick="goBal('')"><small>الإجمالي</small><b class="num" id="bkAll">0</b><em id="bkAllN"></em></div>
+          <div class="stat" onclick="goBal('valid')"><small>سارية</small><b class="num" id="bkValid" style="color:var(--green)">0</b></div>
+          <div class="stat" onclick="goBal('soon')"><small>تنتهي خلال 60 يوم</small><b class="num" id="bkSoon" style="color:var(--amber)">0</b></div>
+          <div class="stat" onclick="goBal('expired')"><small>منتهية</small><b class="num" id="bkExp" style="color:var(--red)">0</b></div>
+          <div class="stat" onclick="goBal('none')"><small>بدون بطاقة</small><b class="num" id="bkNone">0</b></div>
+        </div>
+        <h2>تنبيهات</h2>
+        <div class="list" id="bAlerts"></div>
+        <h2>⏰ تنتهي خلال 60 يوم</h2>
+        <div class="list" id="bSoon"></div>
+        <h2>حسب العلامة</h2>
+        <div class="tbl-wrap"><table class="tbl" id="bByBrand"></table></div>
+        <h2>التحديث</h2>
+        <div class="list" id="bUpdList"></div>
+        <h2>📌 الإجراء المطلوب</h2>
+        <div class="list" id="bActList"></div>
+      </div>
+      <div id="bal-list" class="hidden">
+        <div class="toolbar"><input id="bSearch" placeholder="بحث: الاسم، الإقامة، الرقم الوظيفي..."></div>
+        <div class="toolbar">
+          <select id="bState">
+            <option value="">كل الحالات</option>
+            <option value="needs">يحتاج إجراء (غير سارية أو عليه إجراء)</option>
+            <option value="expired">منتهية</option>
+            <option value="soon">تنتهي خلال 60 يوم</option>
+            <option value="none">بدون بطاقة</option>
+            <option value="valid">سارية</option>
+            <option value="iq">إقامة منتهية / قريبة</option>
+            <option value="train">تثقيف منتهي / قريب</option>
+            <option value="notes">بيانات تحتاج تحقق</option>
+          </select>
+          <select id="bBrand"><option value="">كل العلامات</option></select>
+          <select id="bLoc"><option value="">كل المواقع</option></select>
+          <select id="bSponsor"><option value="">كل الكفلاء</option></select>
+          <select id="bUpd"><option value="">كل التحديثات</option></select>
+          <select id="bAct"><option value="">كل الإجراءات</option></select>
+        </div>
+        <div class="result-bar"><span><span id="bCount"></span> <button class="btn btn-danger btn-sm hidden" id="bClear" onclick="clearBalFilters()">✕ مسح الفلاتر</button></span><button class="btn btn-ghost btn-sm" id="balExportListBtn">⬇ تصدير النتائج</button></div>
+        <div class="list" id="bList"></div>
+      </div>
+    </div>
+
     <!-- ===== TOPICS ===== -->
     <div id="sec-topics" class="hidden">
       <div class="sec-bar"><h1>📋 المعاملات</h1></div>
@@ -344,7 +397,7 @@ const AUTHORITIES = ['بلدي','أمانة الرياض','هيئة النقل',
 const TSTATUS = {new:'جديدة',in_progress:'قيد الإجراء',waiting:'بانتظار رد',done:'منتهية'};
 const PRIO = {low:'منخفضة',normal:'عادية',high:'مهمة',urgent:'عاجلة'};
 
-let state = { viol:[], vupd:[], topics:[], tupd:[], health:[], hupd:[], section:'home', sub:{viol:'dash', health:'dash'} };
+let state = { viol:[], vupd:[], topics:[], tupd:[], health:[], hupd:[], bal:[], bupd:[], section:'home', sub:{viol:'dash', health:'dash', bal:'dash'} };
 
 // ===== HELPERS =====
 const $ = s => document.querySelector(s);
@@ -407,17 +460,19 @@ async function enterApp(){
 
 // ===== DATA =====
 async function loadAll(){
-  const [v,vu,t,tu,h,hu] = await Promise.all([
+  const [v,vu,t,tu,h,hu,bl,bu] = await Promise.all([
     sb.from('wf_violations').select('*').order('violation_date',{ascending:false,nullsFirst:false}).limit(5000),
     sb.from('wf_violation_updates').select('*').order('created_at'),
     sb.from('wf_topics').select('*').order('created_at',{ascending:false}),
     sb.from('wf_topic_updates').select('*').order('created_at'),
     sb.from('wf_health_employees').select('*').order('region').order('seq_no',{ascending:true,nullsFirst:false}).order('name').limit(5000),
-    sb.from('wf_health_updates').select('*').order('created_at')
+    sb.from('wf_health_updates').select('*').order('created_at'),
+    sb.from('wf_baladiya').select('*').order('brand').order('seq_no',{ascending:true,nullsFirst:false}).limit(5000),
+    sb.from('wf_baladiya_updates').select('*').order('created_at')
   ]);
-  for(const r of [v,vu,t,tu,h,hu]) if(r.error) return fail(r.error);
-  state.viol=v.data; state.vupd=vu.data; state.topics=t.data; state.tupd=tu.data; state.health=h.data; state.hupd=hu.data;
-  fillFilters(); fillHealthFilters(); render(); applyRoute();
+  for(const r of [v,vu,t,tu,h,hu,bl,bu]) if(r.error) return fail(r.error);
+  state.viol=v.data; state.vupd=vu.data; state.topics=t.data; state.tupd=tu.data; state.health=h.data; state.hupd=hu.data; state.bal=bl.data; state.bupd=bu.data;
+  fillFilters(); fillHealthFilters(); fillBalFilters(); render(); applyRoute();
 }
 function fillFilters(){
   const auths = [...new Set([...AUTHORITIES.filter(a=>state.viol.some(v=>v.authority===a)), ...state.viol.map(v=>v.authority)])];
@@ -429,7 +484,7 @@ function fillFilters(){
 }
 
 // ===== RENDER =====
-function render(){ renderTiles(); renderViolDash(); renderViol(); renderTopics(); renderHealthDash(); renderHealth(); }
+function render(){ renderTiles(); renderViolDash(); renderViol(); renderTopics(); renderHealthDash(); renderHealth(); renderBalDash(); renderBal(); }
 
 function violCard(v){
   return `<div class="item" onclick="openViol('${v.id}')">
@@ -532,6 +587,7 @@ function renderTopics(){
 const SUBTABS = {
   viol:   [['dash','لوحة المتابعة'],['list','قائمة المخالفات']],
   health: [['dash','لوحة المتابعة'],['list','الموظفين']],
+  bal:    [['dash','لوحة المتابعة'],['list','الموظفين']],
 };
 function go(section, sub){
   const h = section==='home' ? '' : '#'+section+(sub?'/'+sub:'');
@@ -540,15 +596,15 @@ function go(section, sub){
 }
 function applyRoute(){
   const [sec, sub] = (location.hash.replace('#','')||'home').split('/');
-  const section = ['viol','health','topics'].includes(sec) ? sec : 'home';
+  const section = ['viol','health','bal','topics'].includes(sec) ? sec : 'home';
   state.section = section;
   if(sub && SUBTABS[section]?.some(x=>x[0]===sub)) state.sub[section] = sub;
-  ['home','viol','health','topics'].forEach(s=>$('#sec-'+s).classList.toggle('hidden', s!==section));
+  ['home','viol','health','bal','topics'].forEach(s=>$('#sec-'+s).classList.toggle('hidden', s!==section));
   $('#backBtn').classList.toggle('hidden', section==='home');
   const nav = $('#subnav'), tabs = SUBTABS[section];
   if(tabs){
     nav.classList.remove('hidden');
-    nav.innerHTML = tabs.map(([k,l])=>`<button class="${state.sub[section]===k?'active':''}" onclick="${k==='list'?(section==='health'?'clearHealthFilters();':'clearViolFilters();'):''}go('${section}','${k}')">${l}</button>`).join('');
+    nav.innerHTML = tabs.map(([k,l])=>`<button class="${state.sub[section]===k?'active':''}" onclick="${k==='list'?({health:'clearHealthFilters();',viol:'clearViolFilters();',bal:'clearBalFilters();'}[section]||''):''}go('${section}','${k}')">${l}</button>`).join('');
     tabs.forEach(([k])=>$(`#${section}-${k}`).classList.toggle('hidden', state.sub[section]!==k));
   } else { nav.classList.add('hidden'); nav.innerHTML=''; }
   $('#fab').classList.toggle('hidden', false);
@@ -557,7 +613,7 @@ function applyRoute(){
 window.addEventListener('hashchange', applyRoute);
 function goViol(status, auth=''){ $('#vStatus').value=status; $('#vAuth').value=auth; $('#vSearch').value=''; renderViol(); go('viol','list'); }
 function goSearch(q){ $('#vStatus').value='open'; $('#vAuth').value=''; $('#vSearch').value=q; renderViol(); go('viol','list'); }
-$('#fab').onclick = () => state.section==='topics' ? openTopic() : state.section==='viol' ? openViolForm() : state.section==='health' ? openHealthForm() : openChooser();
+$('#fab').onclick = () => state.section==='topics' ? openTopic() : state.section==='viol' ? openViolForm() : state.section==='health' ? openHealthForm() : state.section==='bal' ? openBalForm() : openChooser();
 
 function renderTiles(){
   const V = state.viol, open = V.filter(v=>OPEN.includes(v.status));
@@ -575,6 +631,8 @@ function renderTiles(){
   $('#tiles').innerHTML =
     tile('viol','🚨','var(--red-soft)','المخالفات', `${open.length} مخالفة مفتوحة`, `واجبة السداد: ${money(dueAmt)}`, soon?`${soon} موعد قريب`:'') +
     tile('health','🩺','var(--green-soft)','الكروت الصحية', `${H.length} موظف — ${hDone} مكتمل`, `${hTodo} ناقص${hFail?` • ${hFail} راسب يعيد الاختبار`:''}`, hFail?`${hFail} راسب`:'') +
+    (()=>{ const BI=state.bal.map(bInfo), ex=BI.filter(i=>i.state==='expired').length, so=BI.filter(i=>i.state==='soon').length, no=BI.filter(i=>i.state==='none').length;
+      return tile('bal','🪪','var(--amber-soft)','البطاقات البلدية', `${BI.length} موظف — ${BI.filter(i=>i.state==='valid').length} سارية`, `${ex} منتهية • ${so} قريبة • ${no} بدون بطاقة`, ex+so?`${ex+so} تجديد`:''); })() +
     tile('topics','📋','var(--blue-soft)','المعاملات', `${tOpen.length} معاملة مفتوحة`, tLate?`${tLate} متأخرة`:'كل المعاملات في وقتها', tLate?`${tLate} متأخرة`:'') +
     `<div class="tile soon"><div class="ic" style="background:var(--gray-soft)">➕</div><div><h3>أقسام جاية</h3><div class="l2">ارفع ملف القسم الجديد وأجهّزه لك هنا</div></div></div>`;
 }
@@ -587,6 +645,7 @@ function openChooser(){
   modal(head('إضافة جديد')+`<div class="actions" style="flex-direction:column">
     <button class="btn btn-primary" onclick="openViolForm()">مخالفة جديدة</button>
     <button class="btn btn-primary" onclick="openHealthForm()">موظف جديد (الكروت الصحية)</button>
+    <button class="btn btn-primary" onclick="openBalForm()">موظف جديد (البطاقات البلدية)</button>
     <button class="btn btn-primary" onclick="openTopic()">معاملة / موضوع للمتابعة</button>
     <button class="btn btn-ghost" onclick="closeModal();$('#fileInput').click()">⬆ استيراد ملف إكسل</button></div>`);
 }
@@ -764,6 +823,8 @@ $('#fileInput').onchange = async e => {
   try{
     const wb = XLSX.read(await file.arrayBuffer(), {cellDates:true});
     // detect file type automatically, prefer the section the user is in
+    const bRows = parseBaladiyaWorkbook(wb);
+    if(bRows.length && (importTarget==='bal' || !parseHealthWorkbook(wb).length)) return previewBalImport(bRows, file.name);
     const hRows = parseHealthWorkbook(wb);
     const vRows = hRows.length && importTarget==='health' ? [] : parseWorkbook(wb);
     if(importTarget==='health' && hRows.length) return previewHealthImport(hRows, file.name);
@@ -1182,7 +1243,8 @@ function parseHealthWorkbook(wb){
   const map = new Map(); const order = [];
   for(const sheetName of wb.SheetNames){
     const aoa = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], {header:1, raw:true, defval:null});
-    const hi = aoa.findIndex(r => r && r.some(c=>/^(name|اسم الموظف)$/i.test(clean(c))) && r.some(c=>/igama|iqama|اقامة|الإقامة|الاقامة/i.test(clean(c))));
+    const hi = aoa.findIndex(r => r && r.some(c=>/^(name|اسم الموظف)$/i.test(clean(c))) && r.some(c=>/igama|iqama|اقامة|الإقامة|الاقامة/i.test(clean(c)))
+      && r.some(c=>/group|training up|balady request|test res|مركز تكلف|الفحص/i.test(clean(c))) && !r.some(c=>/baladi(a|ya) |baladia number/i.test(clean(c))));
     if(hi<0) continue;
     const H = aoa[hi].map(c=>hNorm(c));
     const find = re => H.findIndex(h=>re.test(h));
@@ -1628,6 +1690,492 @@ $('#healthExportBtn').onclick = e => withBusy(e.currentTarget, async()=>{
 $('#healthExportListBtn').onclick = e => withBusy(e.currentTarget, async()=>{
   const wb = await buildHealthWorkbook(filteredHealth(), {mainName:'الموظفين'});
   await downloadWorkbook(wb, `الكروت-الصحية-مفلتر-${today()}.xlsx`);
+});
+
+
+// ===== BALADIYA CARDS: Excel parser =====
+const B_BRAND = { sayakh:'Sayakh', shefs:'Chefs', chefs:'Chefs', jazzar:'Jazzar' };
+const pad2 = n => String(n).padStart(2,'0');
+const isoD = (y,m,d) => { if(y<100) y+=2000; if(m<1||m>12||d<1||d>31||y<1990||y>2100) return null; const dt=new Date(Date.UTC(y,m-1,d)); return dt.getUTCMonth()===m-1 ? `${y}-${pad2(m)}-${pad2(d)}` : null; };
+// Excel (US locale) turned "dd/mm/yyyy" typed text into real dates with day & month swapped,
+// so a Date cell is read back as day=month and month=day. hint = gregorian date from a Hijri column, if any.
+function bDate(v, hint){
+  if(v==null || v==='') return {date:null, hijri:'', raw:''};
+  if(v instanceof Date && !isNaN(v)){
+    const y=v.getFullYear(), m=v.getMonth()+1, d=v.getDate();
+    const asIs = isoD(y,m,d), swapped = d<=12 ? isoD(y,d,m) : null;
+    let pick = swapped || asIs;
+    if(hint && swapped && asIs){ const dist = s => Math.abs(new Date(s)-new Date(hint)); pick = dist(asIs) < dist(swapped) ? asIs : swapped; }
+    return {date:pick, hijri:'', raw:''};
+  }
+  let s = clean(v).replace(/\\/g,'/');
+  if(/^\d{5}$/.test(s) && +s>40000 && +s<60000){ const d=new Date(Date.UTC(1899,11,30)+(+s)*864e5); return {date:d.toISOString().slice(0,10), hijri:'', raw:''}; }
+  if(!s) return {date:null, hijri:'', raw:''};
+  let m = s.match(/^(\d{1,4})[\/.-](\d{1,2})[\/.-](\d{1,4})/);
+  if(m){
+    let a=+m[1], b=+m[2], c=+m[3];
+    if(a>1300 && a<1600) return {date:hijriToGreg(a,b,c), hijri:`${a}-${pad2(b)}-${pad2(c)}`, raw:''};
+    if(c>1300 && c<1600) return {date:hijriToGreg(c,b,a), hijri:`${c}-${pad2(b)}-${pad2(a)}`, raw:''};
+    if(a>1900) { const d=isoD(a,b,c); if(d) return {date:d, hijri:'', raw:''}; }
+    const d = isoD(c,b,a); if(d) return {date:d, hijri:'', raw: /[a-z]/i.test(s) ? s : ''};
+  }
+  const t = Date.parse(s.replace(/\./g,''));
+  if(!isNaN(t) && /\d{4}/.test(s)){ const dt=new Date(t); return {date:isoD(dt.getFullYear(),dt.getMonth()+1,dt.getDate()), hijri:'', raw:''}; }
+  return {date:null, hijri:'', raw:s};
+}
+function bYes(v){
+  const s = clean(v).toLowerCase(); if(!s) return '';
+  if(/^(yes|y|done|تم|نعم|passed|pass)$/.test(s) || /^\d+$/.test(s)&&+s>0 && false) return 'yes';
+  if(/^(no|n|لا|ليس)$/.test(s)) return 'no';
+  if(/valid/.test(s)) return 'valid';
+  return s;
+}
+function bKey(r){ return r.brand+'|'+(r.iqama || ('E'+(r.emp_no||'')) + '|' + hNorm(r.name).replace(/[^a-z؀-ۿ0-9]/g,'') + '|' + hNorm(r.location)); }
+function parseBaladiyaWorkbook(wb){
+  const out=[];
+  for(const sheetName of wb.SheetNames){
+    const aoa = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], {header:1, raw:true, defval:null});
+    const hi = aoa.findIndex(r => r && r.filter(c=>clean(c)).length>=4 && r.some(c=>/name/i.test(clean(c))) && r.some(c=>/baladi(a|ya)|balasiya|card exp/i.test(clean(c))));
+    if(hi<0) continue;
+    const H = aoa[hi].map(c=>hNorm(c));
+    const find = re => H.findIndex(h=>re.test(h));
+    const c = {
+      seq:find(/^no\.?$|^s num/), emp:find(/employee (id|number)/), name:find(/^name$|full name|first name|^الاسم/), sponsor:find(/sponsor/),
+      loc:find(/department|^branch/), iqama:find(/^iqama( number)?\s*$|iqama number/), iqExp:find(/iqama exp/), baladiaNo:find(/baladia number|baladiya number/),
+      cardEn:find(/baladia expiration english|card expiration date|date in english|card\)?\s*$/), cardHi:find(/baladia expiration arabic|card expiry\/hijri/),
+      trHi:find(/training (date )?expir.*(hijri)?$|training expire\/hijri/), trEn:find(/training expire\/english/),
+      med:find(/^medical/), school:find(/schooling/), exam:find(/^examination \(yes/), attempts:find(/attempt/), result:find(/passed or failed/),
+      byAli:find(/issued by/), status:find(/^status/), upd:find(/^تحديث/), action:find(/الاجراء|الإجراء/)
+    };
+    if(c.trEn>=0 && c.trHi===c.trEn) c.trHi=-1;
+    if(c.trHi>=0 && /english/.test(H[c.trHi])) c.trHi=-1;
+    const named = new Set(Object.values(c).filter(i=>i>=0));
+    const brand = B_BRAND[sheetName.trim().toLowerCase()] || titleCase(clean(sheetName));
+    for(const r of aoa.slice(hi+1)){
+      if(!r) continue;
+      const g = i => i>=0 ? r[i] : null;
+      const name = clean(g(c.name)); if(!name || /^name$/i.test(name)) continue;
+      const notes=[];
+      // The date / iqama columns are not always in the same order (some rows are shifted),
+      // so classify each cell by its content instead of trusting the column.
+      const P = i => i>=0 ? {i, v:g(i), p:bDate(g(i))} : null;
+      const cardCells = [P(c.cardEn), P(c.cardHi)].filter(Boolean);
+      const hintCard = cardCells.map(x=>x.p).find(p=>p.hijri)?.date || null;
+      cardCells.forEach(x=>{ if(x.v instanceof Date) x.p = bDate(x.v, hintCard); });
+      const cardG = cardCells.find(x=>x.p.date && !x.p.hijri), cardH = cardCells.find(x=>x.p.hijri);
+      let cardDate = cardG?.p.date || cardH?.p.date || null;
+      if(cardG && cardH && Math.abs(new Date(cardG.p.date)-new Date(cardH.p.date)) > 20*864e5){
+        notes.push(`تاريخ البطاقة مختلف بين الميلادي (${cardG.p.date}) والهجري (${cardH.p.hijri}) — اعتمدت الأبكر، تحقق`);
+        cardDate = cardG.p.date < cardH.p.date ? cardG.p.date : cardH.p.date;
+      }
+      const cardRaw = cardDate ? '' : (cardCells.map(x=>x.p.raw).find(Boolean) || '');
+      cardCells.forEach(x=>{ if(x.p.date && x!==cardG && x!==cardH) notes.push('تاريخ إضافي في الملف: '+x.p.date); });
+      const trCells = [P(c.trEn), P(c.trHi)].filter(Boolean);
+      const hintTr = trCells.map(x=>x.p).find(p=>p.hijri)?.date || null;
+      trCells.forEach(x=>{ if(x.v instanceof Date) x.p = bDate(x.v, hintTr); });
+      const trG = trCells.find(x=>x.p.date && !x.p.hijri), trH = trCells.find(x=>x.p.hijri);
+      const trDate = trG?.p.date || trH?.p.date || null;
+      const trRaw = trCells.map(x=>x.p.raw).find(Boolean) || '';
+      // iqama number + iqama expiry: look in the iqama columns and any un-named extra columns
+      const extraIdx = r.map((v,i)=>i).filter(i=>!named.has(i) && i>c.name && !H[i] && clean(r[i]));
+      let iqama = '', iqx = null, iqxH = null; const iqRaw = [];
+      [c.iqama, c.iqExp, ...extraIdx].filter(i=>i>=0).forEach(i=>{
+        const v = g(i); if(v==null || clean(v)==='') return;
+        const num = hIqama(v);
+        if(num && num.length>=9 && num.length<=11 && !/[\/\\-]/.test(String(v))){ if(!iqama) iqama = num; return; }
+        const p = bDate(v);
+        if(p.date){ if(p.hijri){ if(!iqxH) iqxH = p.date; } else if(!iqx) iqx = p.date; return; }
+        if(/^\d{5}$/.test(clean(v)) && +v>40000 && +v<60000){ const d=new Date(Date.UTC(1899,11,30)+(+v)*864e5); if(!iqx) iqx=d.toISOString().slice(0,10); return; }
+        iqRaw.push(clean(v));
+      });
+      const iqxDate = iqx || iqxH;
+      if(!iqama && clean(g(c.iqama)) && !hIqama(g(c.iqama))) {}
+      const iqxRaw = iqRaw.filter(s=>!/^(n\/?a|vac)$/i.test(s));
+      iqRaw.forEach(s=>notes.push(s));
+      const emp = g(c.emp); const empNo = emp==null ? '' : (typeof emp==='number' ? String(emp) : clean(emp));
+      const rec = {
+        brand, seq_no: Number.isFinite(+g(c.seq)) && clean(g(c.seq)) ? Math.round(+g(c.seq)) : null,
+        emp_no: empNo, name, sponsor: clean(g(c.sponsor)).toUpperCase(), location: clean(g(c.loc)),
+        iqama, iqama_expiry: iqxDate, iqama_expiry_raw: iqxDate ? '' : (iqxRaw[0]||''),
+        baladia_no: g(c.baladiaNo)==null ? '' : String(typeof g(c.baladiaNo)==='number' ? Math.round(g(c.baladiaNo)) : clean(g(c.baladiaNo))),
+        card_expiry: cardDate, card_expiry_hijri: cardH?.p.hijri || '', card_raw: cardRaw,
+        training_expiry: trDate, training_expiry_hijri: trH?.p.hijri || '', training_raw: trRaw,
+        medical: bYes(g(c.med)), schooling: bYes(g(c.school)), exam: bYes(g(c.exam)),
+        exam_attempts: clean(g(c.attempts)), exam_result: clean(g(c.result)).toUpperCase(),
+        card_by_ali: bYes(g(c.byAli)), status_note: clean(g(c.status)),
+        update_cat: clean(g(c.upd)), action: clean(g(c.action)),
+        notes: notes.join(' — '), source: clean(sheetName)
+      };
+      if(rec.exam_attempts && /^(no|yes)$/i.test(rec.exam_attempts)) rec.exam_attempts = '';
+      if(/valid/i.test(rec.exam_attempts)) rec.exam_attempts='';
+      if(/^(NO|YES)$/.test(rec.exam_result)) rec.exam_result = rec.exam_result==='YES' ? 'PASSED' : '';
+      if(/VALID/.test(rec.exam_result)) rec.exam_result='';
+      out.push(rec);
+    }
+  }
+  const cnt={}; out.forEach(r=>{ if(r.iqama) cnt[r.iqama]=(cnt[r.iqama]||0)+1; });
+  out.forEach(r=>{ if(r.iqama && r.iqama.length!==10) r.notes = (r.notes?r.notes+' — ':'') + 'رقم الإقامة مو 10 أرقام — تحقق';
+                   if(r.iqama && cnt[r.iqama]>1) r.notes = (r.notes?r.notes+' — ':'') + 'رقم الإقامة مكرر — تحقق'; });
+  return out;
+}
+
+// ===== BALADIYA CARDS: logic & UI =====
+const B_SOON = 60;
+const BSTATE = { expired:'منتهية', soon:`تنتهي خلال ${B_SOON} يوم`, valid:'سارية', none:'بدون بطاقة' };
+const B_CLS = { expired:'h-failed', soon:'h-training', valid:'h-done', none:'h-none' };
+const YN = {'':'—', yes:'نعم', no:'لا', valid:'عنده بطاقة سارية'};
+function bInfo(e){
+  const d = e.card_expiry ? daysTo(e.card_expiry) : null;
+  const state = d===null ? 'none' : d<0 ? 'expired' : d<=B_SOON ? 'soon' : 'valid';
+  const td = e.training_expiry ? daysTo(e.training_expiry) : null;
+  const tState = td===null ? '' : td<0 ? 'expired' : td<=B_SOON ? 'soon' : 'valid';
+  const iqd = e.iqama_expiry ? daysTo(e.iqama_expiry) : null;
+  const iqState = iqd===null ? '' : iqd<0 ? 'expired' : iqd<=30 ? 'soon' : 'valid';
+  const needs = state!=='valid' || !!e.action;
+  return { e, d, state, td, tState, iqd, iqState, needs };
+}
+const dLabel = (d) => d<0 ? `منتهية منذ ${-d} يوم` : d===0 ? 'تنتهي اليوم' : `باقي ${d} يوم`;
+function bStateChip(i){
+  const e=i.e;
+  if(i.state==='none') return `<span class="chip h-none">بدون بطاقة${e.card_raw?` — ${esc(e.card_raw)}`:''}</span>`;
+  return `<span class="chip ${B_CLS[i.state]}">${BSTATE[i.state]}</span>`;
+}
+function balCard(e){
+  const i = bInfo(e);
+  const sc = s => s==='expired'?'bad':s==='soon'?'wip':s==='valid'?'ok':'no';
+  return `<div class="item" onclick="openBal('${e.id}')">
+    <div class="row"><div><h3>${esc(e.name)}</h3></div>${bStateChip(i)}</div>
+    <div class="meta">
+      ${e.emp_no?`<span class="num">#${esc(e.emp_no)}</span>`:''}${e.iqama?`<span class="num">🪪 ${esc(e.iqama)}</span>`:''}
+      <span class="chip auth">${esc(e.brand)}</span>${e.location?`<span>📍 ${esc(e.location)}</span>`:''}${e.sponsor?`<span>${esc(e.sponsor)}</span>`:''}
+    </div>
+    <div class="stepchips">
+      ${e.card_expiry?`<span class="sc ${sc(i.state)}">البطاقة: ${fmtDate(e.card_expiry)} — ${dLabel(i.d)}</span>`:''}
+      ${e.training_expiry?`<span class="sc ${sc(i.tState)}">التثقيف: ${i.tState==='expired'?'منتهي':fmtDate(e.training_expiry)}</span>`:(e.training_raw?`<span class="sc no">التثقيف: ${esc(e.training_raw.slice(0,40))}</span>`:'')}
+      ${i.iqState==='expired'||i.iqState==='soon'?`<span class="sc bad">الإقامة: ${i.iqState==='expired'?'منتهية':dLabel(i.iqd)}</span>`:''}
+      ${e.exam_result?`<span class="sc ${e.exam_result==='PASSED'?'ok':'bad'}">الاختبار: ${e.exam_result==='PASSED'?'ناجح':'راسب'}${e.exam_attempts?` (${esc(e.exam_attempts)} محاولة)`:''}</span>`:''}
+    </div>
+    ${e.update_cat||e.action||e.notes?`<div class="meta">${e.update_cat?`<span class="chip c-new">${esc(e.update_cat)}</span>`:''}${e.action?`<span class="chip h-training">📌 ${esc(e.action)}</span>`:''}${e.notes?`<span class="late">⚠ ${esc(e.notes.slice(0,90))}</span>`:''}</div>`:''}
+  </div>`;
+}
+function fillBalFilters(){
+  const B = state.bal;
+  const fill = (sel, label, vals) => { const cur=$(sel).value; $(sel).innerHTML = `<option value="">${label}</option>` + vals.map(v=>`<option>${esc(v)}</option>`).join(''); $(sel).value = cur; };
+  const uniq = f => [...new Set(B.map(e=>e[f]).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ar',{numeric:true}));
+  fill('#bBrand','كل العلامات', uniq('brand'));
+  fill('#bLoc','كل المواقع', uniq('location'));
+  fill('#bUpd','كل التحديثات', uniq('update_cat'));
+  fill('#bAct','كل الإجراءات', uniq('action'));
+  fill('#bSponsor','كل الكفلاء', uniq('sponsor'));
+}
+const B_FILTERS = ['#bSearch','#bState','#bBrand','#bLoc','#bUpd','#bAct','#bSponsor'];
+function bMatchState(i, s){
+  if(!s) return true;
+  if(s==='needs') return i.needs;
+  if(s==='iq') return i.iqState==='expired'||i.iqState==='soon';
+  if(s==='train') return i.tState==='expired'||i.tState==='soon';
+  if(s==='notes') return !!i.e.notes;
+  return i.state===s;
+}
+function filteredBal(){
+  const q=$('#bSearch').value.trim().toLowerCase(), s=$('#bState').value, b=$('#bBrand').value, l=$('#bLoc').value, u=$('#bUpd').value, a=$('#bAct').value, sp=$('#bSponsor').value;
+  return state.bal.filter(e=>{
+    if(b && e.brand!==b) return false; if(l && e.location!==l) return false; if(u && e.update_cat!==u) return false;
+    if(a && e.action!==a) return false; if(sp && e.sponsor!==sp) return false;
+    if(q && ![e.name,e.iqama,e.emp_no,e.baladia_no,e.location,e.sponsor,e.update_cat,e.action,e.notes,e.card_raw,e.status_note].join(' ').toLowerCase().includes(q)) return false;
+    return bMatchState(bInfo(e), s);
+  }).sort((x,y)=>{ const a=bInfo(x), b2=bInfo(y); const rank={expired:0,soon:1,none:2,valid:3};
+    return (rank[a.state]-rank[b2.state]) || ((x.card_expiry||'9')<(y.card_expiry||'9')?-1:1); });
+}
+function clearBalFilters(){ B_FILTERS.forEach(s=>$(s).value=''); renderBal(); }
+function renderBal(){
+  $('#bClear').classList.toggle('hidden', !B_FILTERS.some(s=>$(s).value));
+  const list = filteredBal();
+  $('#bCount').textContent = `${list.length} موظف`;
+  $('#bList').innerHTML = list.slice(0,400).map(balCard).join('') || empty('لا توجد نتائج');
+}
+B_FILTERS.forEach(s=>$(s).addEventListener('input',renderBal));
+function goBal(st, extra={}){
+  B_FILTERS.forEach(s=>$(s).value='');
+  $('#bState').value = st||''; if(extra.brand) $('#bBrand').value=extra.brand; if(extra.upd) $('#bUpd').value=extra.upd;
+  if(extra.act) $('#bAct').value=extra.act; if(extra.loc) $('#bLoc').value=extra.loc;
+  renderBal(); go('bal','list');
+}
+function renderBalDash(){
+  const I = state.bal.map(bInfo);
+  const c = s => I.filter(i=>i.state===s).length;
+  $('#bkAll').textContent = I.length; $('#bkAllN').textContent = [...new Set(state.bal.map(e=>e.brand))].join(' • ');
+  $('#bkValid').textContent = c('valid'); $('#bkSoon').textContent = c('soon'); $('#bkExp').textContent = c('expired'); $('#bkNone').textContent = c('none');
+  const iq = I.filter(i=>i.iqState==='expired'||i.iqState==='soon').length, tr = I.filter(i=>i.tState==='expired'||i.tState==='soon').length;
+  $('#bAlerts').innerHTML = `
+    <div class="item" onclick="goBal('iq')"><div class="row"><h3>🪪 إقامات منتهية أو تنتهي خلال 30 يوم</h3><span class="chip h-failed num">${iq}</span></div></div>
+    <div class="item" onclick="goBal('train')"><div class="row"><h3>📚 شهادات تثقيف منتهية أو تنتهي خلال ${B_SOON} يوم</h3><span class="chip h-training num">${tr}</span></div></div>
+    <div class="item" onclick="goBal('notes')"><div class="row"><h3>⚠ بيانات تحتاج تحقق</h3><span class="chip h-none num">${I.filter(i=>i.e.notes).length}</span></div></div>`;
+  const soon = I.filter(i=>i.state==='soon').sort((a,b)=>a.d-b.d);
+  $('#bSoon').innerHTML = soon.map(i=>balCard(i.e)).join('') || empty(`ما فيه بطاقات تنتهي خلال ${B_SOON} يوم 👌`);
+  // by brand
+  const g={}; I.forEach(i=>{ (g[i.e.brand] ||= []).push(i); });
+  $('#bByBrand').innerHTML = `<tr><th>العلامة</th><th>العدد</th><th>سارية</th><th>قريبة</th><th>منتهية</th><th>بدون</th></tr>` +
+    Object.entries(g).sort((a,b)=>b[1].length-a[1].length).map(([k,L])=>{ const n=s=>L.filter(i=>i.state===s).length;
+      return `<tr class="click" onclick="goBal('',{brand:'${esc(k)}'})"><td><b>${esc(k)}</b></td><td class="num">${L.length}</td><td class="num" style="color:var(--green)"><b>${n('valid')}</b></td><td class="num" style="color:var(--amber)"><b>${n('soon')}</b></td><td class="num" style="color:var(--red)"><b>${n('expired')}</b></td><td class="num">${n('none')}</td></tr>`; }).join('');
+  // update categories & actions
+  const grp = (f, el, key, cls) => {
+    const m={}; state.bal.filter(e=>e[f]).forEach(e=>{ m[e[f]]=(m[e[f]]||0)+1; });
+    const rows = Object.entries(m).sort((a,b)=>b[1]-a[1]);
+    $(el).innerHTML = rows.length ? rows.map(([k,n])=>`<div class="item" onclick="goBal('',{${key}:'${esc(k).replace(/'/g,"\\'")}'})"><div class="row"><h3>${esc(k)}</h3><span class="chip ${cls} num">${n}</span></div></div>`).join('') : empty('لا يوجد');
+  };
+  grp('update_cat','#bUpdList','upd','c-new');
+  grp('action','#bActList','act','h-training');
+}
+
+// ----- detail / edit -----
+const B_LABELS = { card_expiry:'انتهاء البطاقة', card_raw:'حالة البطاقة', training_expiry:'انتهاء التثقيف', training_raw:'حالة التثقيف', iqama_expiry:'انتهاء الإقامة', medical:'الفحص الطبي', schooling:'التثقيف', exam:'الاختبار', exam_attempts:'عدد المحاولات', exam_result:'نتيجة الاختبار', card_by_ali:'استلام البطاقة', update_cat:'التحديث', action:'الإجراء', status_note:'الحالة' };
+function openBal(id){ openBalForm(id); }
+function openBalForm(id){
+  const e = state.bal.find(x=>x.id===id) || {brand:'',name:'',emp_no:'',iqama:'',iqama_expiry:'',sponsor:'',location:'',baladia_no:'',card_expiry:'',card_expiry_hijri:'',card_raw:'',training_expiry:'',training_expiry_hijri:'',training_raw:'',medical:'',schooling:'',exam:'',exam_attempts:'',exam_result:'',card_by_ali:'',status_note:'',update_cat:'',action:'',notes:''};
+  const i = bInfo(e);
+  const ups = id ? state.bupd.filter(u=>u.card_id===id).slice().reverse() : [];
+  const dl = (idn, f) => `<datalist id="${idn}">${[...new Set(state.bal.map(x=>x[f]).filter(Boolean))].map(v=>`<option value="${esc(v)}">`).join('')}</datalist>`;
+  const RESB = {'':'—', PASSED:'ناجح', FAILED:'راسب'};
+  modal(head(id?esc(e.name):'موظف جديد — بطاقة بلدية') + `
+    ${id?`<div class="meta">${bStateChip(i)}${e.card_expiry?`<span>${dLabel(i.d)}</span>`:''}</div>`:''}
+    <label>الاسم</label><input class="field" id="fbName" value="${esc(e.name)}">
+    <div class="grid3">
+      <div><label>العلامة</label><input class="field" id="fbBrand" list="dlbBrand" value="${esc(e.brand)}">${dl('dlbBrand','brand')}</div>
+      <div><label>الرقم الوظيفي</label><input class="field num" id="fbEmp" value="${esc(e.emp_no)}" dir="ltr"></div>
+      <div><label>الكفيل / الشركة</label><input class="field" id="fbSponsor" list="dlbSp" value="${esc(e.sponsor)}">${dl('dlbSp','sponsor')}</div>
+    </div>
+    <label>الموقع / الفرع</label><input class="field" id="fbLoc" list="dlbLoc" value="${esc(e.location)}">${dl('dlbLoc','location')}
+    <div class="grid2">
+      <div><label>رقم الإقامة</label><input class="field num" id="fbIqama" value="${esc(e.iqama)}" dir="ltr" inputmode="numeric"></div>
+      <div><label>انتهاء الإقامة</label><input class="field" type="date" id="fbIqExp" value="${e.iqama_expiry||''}"></div>
+    </div>
+    <h2>البطاقة البلدية</h2>
+    <div class="grid2">
+      <div><label>تاريخ انتهاء البطاقة</label><input class="field" type="date" id="fbCard" value="${e.card_expiry||''}">${e.card_expiry_hijri?`<div class="mini">بالهجري في الملف: ${esc(fmtH(e.card_expiry_hijri))}</div>`:''}</div>
+      <div><label>رقم البطاقة البلدية</label><input class="field num" id="fbBalNo" value="${esc(e.baladia_no)}" dir="ltr"></div>
+    </div>
+    <label>حالة البطاقة (لو ما فيه تاريخ)</label><input class="field" id="fbCardRaw" list="dlbCR" value="${esc(e.card_raw)}" placeholder="PENDING CARD, WAITING FOR CARD...">${dl('dlbCR','card_raw')}
+    <div class="grid2">
+      <div><label>انتهاء شهادة التثقيف</label><input class="field" type="date" id="fbTrain" value="${e.training_expiry||''}"></div>
+      <div><label>حالة التثقيف</label><input class="field" id="fbTrainRaw" value="${esc(e.training_raw)}"></div>
+    </div>
+    <div class="grid3">
+      <div><label>الفحص الطبي</label><select class="field" id="fbMed">${opts(YN,e.medical)}</select></div>
+      <div><label>التثقيف</label><select class="field" id="fbSchool">${opts(YN,e.schooling)}</select></div>
+      <div><label>الاختبار</label><select class="field" id="fbExam">${opts(YN,e.exam)}</select></div>
+    </div>
+    <div class="grid3">
+      <div><label>عدد المحاولات</label><input class="field num" id="fbAtt" value="${esc(e.exam_attempts)}" inputmode="numeric"></div>
+      <div><label>النتيجة</label><select class="field" id="fbRes">${opts(RESB,e.exam_result)}</select></div>
+      <div><label>استلم البطاقة</label><select class="field" id="fbAli">${opts(YN,e.card_by_ali)}</select></div>
+    </div>
+    <h2>المتابعة</h2>
+    <div class="grid2">
+      <div><label>التحديث</label><input class="field" id="fbUpd" list="dlbUpd" value="${esc(e.update_cat)}">${dl('dlbUpd','update_cat')}</div>
+      <div><label>الإجراء</label><input class="field" id="fbAct" list="dlbAct" value="${esc(e.action)}">${dl('dlbAct','action')}</div>
+    </div>
+    <label>الحالة (ملاحظة الملف)</label><input class="field" id="fbStatus" value="${esc(e.status_note)}">
+    <label>ملاحظات</label><textarea class="field" id="fbNotes" style="min-height:60px">${esc(e.notes)}</textarea>
+    <div class="actions">
+      <button class="btn btn-primary" onclick="saveBal('${id||''}')">حفظ</button>
+      ${id?`<button class="btn btn-danger" onclick="deleteBal('${id}')">حذف</button>`:''}
+    </div>
+    ${id?`<h2>سجل المتابعة</h2>
+      <textarea class="field" id="uBody" placeholder="وش صار؟ (جددنا البطاقة، دفع الرسوم، حجزنا الاختبار...)" style="min-height:60px"></textarea>
+      <button class="btn btn-ghost btn-block" style="margin-top:8px" onclick="addBUpdate('${id}')">+ إضافة تحديث</button>
+      <div class="timeline">${ups.map(u=>`<div class="tl"><small>${fmtDT(u.created_at)}</small> <button class="del" onclick="deleteBUpdate('${u.id}','${id}')">حذف</button><div>${esc(u.body)}</div></div>`).join('') || '<div class="tl" style="color:var(--muted)">لا توجد تحديثات</div>'}</div>`:''}`);
+}
+async function saveBal(id){
+  const old = state.bal.find(x=>x.id===id) || {};
+  const row = {
+    name:$('#fbName').value.trim(), brand:$('#fbBrand').value.trim(), emp_no:$('#fbEmp').value.trim(), sponsor:$('#fbSponsor').value.trim().toUpperCase(),
+    location:$('#fbLoc').value.trim(), iqama:$('#fbIqama').value.replace(/\D/g,''), iqama_expiry:$('#fbIqExp').value||null,
+    card_expiry:$('#fbCard').value||null, baladia_no:$('#fbBalNo').value.trim(), card_raw:$('#fbCardRaw').value.trim(),
+    training_expiry:$('#fbTrain').value||null, training_raw:$('#fbTrainRaw').value.trim(),
+    medical:$('#fbMed').value, schooling:$('#fbSchool').value, exam:$('#fbExam').value, exam_attempts:$('#fbAtt').value.trim(),
+    exam_result:$('#fbRes').value, card_by_ali:$('#fbAli').value, update_cat:$('#fbUpd').value.trim(), action:$('#fbAct').value.trim(),
+    status_note:$('#fbStatus').value.trim(), notes:$('#fbNotes').value.trim()
+  };
+  if(old.card_expiry !== row.card_expiry) row.card_expiry_hijri = '';
+  if(old.training_expiry !== row.training_expiry) row.training_expiry_hijri = '';
+  if(!row.name) return toast('اكتب اسم الموظف');
+  if(!id) row.source='إدخال يدوي';
+  const res = id ? await sb.from('wf_baladiya').update(row).eq('id',id).select().single() : await sb.from('wf_baladiya').insert(row).select().single();
+  if(res.error) return fail(res.error);
+  if(id){
+    const ch = Object.keys(B_LABELS).filter(k=>String(old[k]??'')!==String(row[k]??'')).map(k=>`${B_LABELS[k]}: ${old[k]||'—'} ← ${row[k]||'—'}`);
+    if(ch.length) await sb.from('wf_baladiya_updates').insert({card_id:id, body:ch.join('\n')});
+  }
+  toast('تم الحفظ'); await loadAll(); openBalForm(res.data.id);
+}
+async function deleteBal(id){
+  if(!confirm('حذف الموظف وسجله نهائياً؟')) return;
+  const { error } = await sb.from('wf_baladiya').delete().eq('id',id);
+  if(error) return fail(error);
+  closeModal(); toast('تم الحذف'); loadAll();
+}
+async function addBUpdate(id){
+  const body=$('#uBody').value.trim(); if(!body) return;
+  const { error } = await sb.from('wf_baladiya_updates').insert({card_id:id, body});
+  if(error) return fail(error);
+  await loadAll(); openBalForm(id);
+}
+async function deleteBUpdate(uid,id){
+  if(!confirm('حذف هذا التحديث؟')) return;
+  const { error } = await sb.from('wf_baladiya_updates').delete().eq('id',uid);
+  if(error) return fail(error);
+  await loadAll(); openBalForm(id);
+}
+
+// ----- import -----
+const B_IMPORT_FIELDS = ['brand','seq_no','emp_no','name','sponsor','location','iqama','iqama_expiry','iqama_expiry_raw','baladia_no','card_expiry','card_expiry_hijri','card_raw','training_expiry','training_expiry_hijri','training_raw','medical','schooling','exam','exam_attempts','exam_result','card_by_ali','status_note','update_cat','action'];
+function bMatch(rows){
+  const byKey=new Map(), byIq={}, byEmp={}, byName={};
+  state.bal.forEach(e=>{ byKey.set(bKey(e),e); if(e.iqama) (byIq[e.brand+'|'+e.iqama] ||= []).push(e);
+    if(e.emp_no && !/new/i.test(e.emp_no)) (byEmp[e.brand+'|'+e.emp_no] ||= []).push(e); (byName[e.brand+'|'+hNorm(e.name)] ||= []).push(e); });
+  return rows.map(r=>{
+    let e = byKey.get(bKey(r));
+    if(!e && r.iqama && byIq[r.brand+'|'+r.iqama]?.length===1) e = byIq[r.brand+'|'+r.iqama][0];
+    if(!e && r.emp_no && !/new/i.test(r.emp_no) && byEmp[r.brand+'|'+r.emp_no]?.length===1) e = byEmp[r.brand+'|'+r.emp_no][0];
+    if(!e && byName[r.brand+'|'+hNorm(r.name)]?.length===1) e = byName[r.brand+'|'+hNorm(r.name)][0];
+    if(!e) return {r, e:null, patch:r};
+    const patch={}; B_IMPORT_FIELDS.forEach(f=>{ const v=r[f]; if(v!=='' && v!=null && String(e[f]??'')!==String(v)) patch[f]=v; });
+    return {r, e, patch};
+  });
+}
+let pendingBal=[];
+function previewBalImport(rows, fname){
+  pendingBal = bMatch(rows);
+  const fresh = pendingBal.filter(x=>!x.e), changed = pendingBal.filter(x=>x.e && Object.keys(x.patch).length);
+  const byB={}; rows.forEach(r=>byB[r.brand]=(byB[r.brand]||0)+1);
+  modal(head('استيراد بطاقات بلدية: '+esc(fname)) + `
+    <table class="tbl"><tr><th>العلامة</th><th>العدد</th></tr>${Object.entries(byB).map(([k,n])=>`<tr><td>${esc(k)}</td><td class="num">${n}</td></tr>`).join('')}</table>
+    <dl class="kv"><dt>موظفين جدد</dt><dd>${fresh.length}</dd><dt>موجودين وتحدثت بياناتهم</dt><dd>${changed.length}</dd><dt>بدون تغيير</dt><dd>${rows.length-fresh.length-changed.length}</dd></dl>
+    <div class="warn" style="background:var(--gray-soft);color:#334155">الخانات الفاضية في الملف ما تمسح شي. التواريخ اللي قلبها الإكسل (اليوم والشهر) تتصحح تلقائياً.</div>
+    <div class="actions"><button class="btn btn-primary" id="doBImport">استيراد</button><button class="btn btn-ghost" onclick="closeModal()">إلغاء</button></div>`);
+  $('#doBImport').onclick = runBalImport;
+}
+async function runBalImport(){
+  const btn=$('#doBImport'); btn.disabled=true; btn.textContent='جاري الاستيراد...';
+  const fresh = pendingBal.filter(x=>!x.e).map(x=>x.r);
+  const changed = pendingBal.filter(x=>x.e && Object.keys(x.patch).length);
+  for(let i=0;i<fresh.length;i+=200){ const { error } = await sb.from('wf_baladiya').insert(fresh.slice(i,i+200)); if(error) return fail(error); }
+  const logs=[];
+  for(let i=0;i<changed.length;i+=8){
+    const part=changed.slice(i,i+8);
+    const res = await Promise.all(part.map(x=>sb.from('wf_baladiya').update(x.patch).eq('id',x.e.id)));
+    const err=res.find(r=>r.error); if(err) return fail(err.error);
+    part.forEach(x=>{ const ch=Object.keys(x.patch).filter(k=>B_LABELS[k]).map(k=>`${B_LABELS[k]}: ${x.e[k]||'—'} ← ${x.patch[k]}`); if(ch.length) logs.push({card_id:x.e.id, body:'تحديث من ملف إكسل\n'+ch.join('\n')}); });
+  }
+  if(logs.length) await sb.from('wf_baladiya_updates').insert(logs);
+  closeModal(); toast(`تم: ${fresh.length} جديد، ${changed.length} تحديث`); await loadAll(); go('bal','dash');
+}
+
+// ----- export -----
+const B_ST_COLORS = { expired:[C.redSoft,C.red], soon:[C.amberSoft,C.amber], valid:[C.greenSoft,C.green], none:[C.graySoft,C.gray] };
+const bDateStyle = (getD) => (e,c)=>{ const d=getD(e); if(d===null||d===undefined) return; if(d<0){ c.fill=fill(C.redSoft); c.font={name:FONT,size:10,bold:true,color:{argb:C.red}}; } else if(d<=B_SOON){ c.fill=fill(C.amberSoft); c.font={name:FONT,size:10,bold:true,color:{argb:C.amber}}; } };
+const ynTxt = v => v==='yes'?'نعم':v==='no'?'لا':v==='valid'?'سارية':(v||'');
+const ynStyle = k => (e,c)=>{ if(e[k]==='yes'||e[k]==='valid'){ c.font={name:FONT,size:10,bold:true,color:{argb:C.green}}; } else if(e[k]==='no'){ c.font={name:FONT,size:10,bold:true,color:{argb:C.red}}; } };
+const BCOLS = [
+  {h:'العلامة', w:10, get:e=>e.brand, type:'code'},
+  {h:'م', w:6, get:e=>e.seq_no, type:'num'},
+  {h:'الرقم الوظيفي', w:11, get:e=>e.emp_no, type:'code'},
+  {h:'الاسم', w:28, get:e=>e.name, style:(e,c)=>{c.font={name:FONT,size:10,bold:true};}},
+  {h:'الكفيل', w:10, get:e=>e.sponsor, type:'code'},
+  {h:'الموقع / الفرع', w:22, get:e=>e.location, type:'code'},
+  {h:'رقم الإقامة', w:13, get:e=>e.iqama, type:'code'},
+  {h:'انتهاء الإقامة', w:12, get:e=>e.iqama_expiry, type:'date', style:(e,c)=>{ const d=e.iqama_expiry?daysTo(e.iqama_expiry):null; if(d!==null && d<=30){ c.fill=fill(C.redSoft); c.font={name:FONT,size:10,bold:true,color:{argb:C.red}}; } }},
+  {h:'رقم البطاقة البلدية', w:15, get:e=>e.baladia_no, type:'code'},
+  {h:'انتهاء البطاقة', w:12, get:e=>e.card_expiry, type:'date', style:bDateStyle(e=>e.card_expiry?daysTo(e.card_expiry):null)},
+  {h:'انتهاء البطاقة (هـ)', w:12, get:e=>fmtH(e.card_expiry_hijri), type:'code'},
+  {h:'الأيام المتبقية', w:10, get:e=>e.card_expiry?daysTo(e.card_expiry):'', type:'num', style:bDateStyle(e=>e.card_expiry?daysTo(e.card_expiry):null)},
+  {h:'حالة البطاقة', w:18, get:e=>bInfo(e).state==='none' ? ('بدون بطاقة'+(e.card_raw?' — '+e.card_raw:'')) : BSTATE[bInfo(e).state], type:'code', wrap:true, style:(e,c)=>{ const [bg,fg]=B_ST_COLORS[bInfo(e).state]; c.fill=fill(bg); c.font={name:FONT,size:10,bold:true,color:{argb:fg}}; }},
+  {h:'انتهاء التثقيف', w:12, get:e=>e.training_expiry, type:'date', style:bDateStyle(e=>e.training_expiry?daysTo(e.training_expiry):null)},
+  {h:'حالة التثقيف', w:20, get:e=>e.training_raw, wrap:true},
+  {h:'الفحص الطبي', w:9, get:e=>ynTxt(e.medical), type:'code', style:ynStyle('medical')},
+  {h:'التثقيف', w:9, get:e=>ynTxt(e.schooling), type:'code', style:ynStyle('schooling')},
+  {h:'الاختبار', w:9, get:e=>ynTxt(e.exam), type:'code', style:ynStyle('exam')},
+  {h:'المحاولات', w:9, get:e=>e.exam_attempts, type:'code'},
+  {h:'النتيجة', w:9, get:e=>e.exam_result==='PASSED'?'ناجح':e.exam_result==='FAILED'?'راسب':'', type:'code', style:(e,c)=>{ if(e.exam_result==='PASSED'){c.fill=fill(C.greenSoft);c.font={name:FONT,size:10,bold:true,color:{argb:C.green}};} else if(e.exam_result==='FAILED'){c.fill=fill(C.redSoft);c.font={name:FONT,size:10,bold:true,color:{argb:C.red}};} }},
+  {h:'استلم البطاقة', w:10, get:e=>ynTxt(e.card_by_ali), type:'code', style:ynStyle('card_by_ali')},
+  {h:'الحالة', w:16, get:e=>e.status_note, wrap:true},
+  {h:'التحديث', w:20, get:e=>e.update_cat, wrap:true, style:(e,c)=>{ if(e.update_cat){ c.fill=fill(C.blueSoft); c.font={name:FONT,size:10,bold:true,color:{argb:C.blue}}; } }},
+  {h:'الإجراء', w:20, get:e=>e.action, wrap:true, style:(e,c)=>{ if(e.action){ c.fill=fill(C.amberSoft); c.font={name:FONT,size:10,bold:true,color:{argb:C.amber}}; } }},
+  {h:'ملاحظات', w:30, get:e=>e.notes, wrap:true, style:(e,c)=>{ if(e.notes) c.font={name:FONT,size:10,color:{argb:C.red}}; }},
+  {h:'آخر تحديث', w:30, get:e=>(state.bupd.filter(u=>u.card_id===e.id).pop()||{}).body||'', wrap:true},
+];
+function addBalSheet(wb, name, items, sub, tab){
+  const keep = ['الاسم','انتهاء البطاقة','حالة البطاقة'];
+  const cols = BCOLS.filter(c => keep.includes(c.h) || items.some(e=>{ const x=c.get(e); return x!=='' && x!=null; }));
+  const ws = wb.addWorksheet(safeName(name), { views:[{rightToLeft:true, state:'frozen', ySplit:3, xSplit:4}], properties:{tabColor:{argb:tab||C.teal}} });
+  sheetTitle(ws, name, sub, cols.length);
+  if(!items.length){ ws.getCell(4,1).value='لا توجد بيانات'; return ws; }
+  writeTable(ws, 3, cols, items, false);
+  ws.pageSetup = { orientation:'landscape', fitToPage:true, fitToWidth:1, fitToHeight:0, paperSize:9 };
+  return ws;
+}
+async function buildBalWorkbook(list, opts={}){
+  await loadExcelJS();
+  const wb = new ExcelJS.Workbook(); wb.creator='Work follow up'; wb.created=new Date();
+  const stamp = 'تاريخ التقرير: ' + new Date().toLocaleDateString('ar-SA-u-ca-gregory-nu-latn',{day:'numeric',month:'long',year:'numeric'});
+  const sorted = list.slice().sort((a,b)=>{ const r={expired:0,soon:1,none:2,valid:3}; const x=bInfo(a), y=bInfo(b); return (r[x.state]-r[y.state]) || ((a.card_expiry||'9')<(b.card_expiry||'9')?-1:1); });
+  const I = sorted.map(bInfo);
+  if(opts.summary){
+    const ws = wb.addWorksheet('الملخص', { views:[{rightToLeft:true, showGridLines:false}], properties:{tabColor:{argb:C.navy}} });
+    sheetTitle(ws, 'تقرير البطاقات البلدية', stamp, 10);
+    const n = s => I.filter(i=>i.state===s).length;
+    const k = (c,label,val,bg,fg,sub) => { kpi(ws,4,c,label,val,bg,fg,sub); ws.getCell(5,c).numFmt='0'; };
+    k(1,'الإجمالي', I.length, C.graySoft, C.navy, '');
+    k(3,'سارية', n('valid'), C.greenSoft, C.green, '');
+    k(5,`تنتهي خلال ${B_SOON} يوم`, n('soon'), C.amberSoft, C.amber, '');
+    k(7,'منتهية', n('expired'), C.redSoft, C.red, '');
+    k(9,'بدون بطاقة', n('none'), C.graySoft, C.gray, '');
+    ws.getRow(5).height = 30;
+    let r = 8;
+    const sec = t => { ws.mergeCells(r,1,r,10); const h=ws.getCell(r,1); h.value=t; h.font={name:FONT,size:13,bold:true,color:{argb:C.navy}}; };
+    sec('حسب العلامة');
+    const g={}; I.forEach(i=>{ (g[i.e.brand] ||= []).push(i); });
+    r = writeTable(ws, r+1, [
+      {h:'العلامة', get:x=>x.k, style:(x,c)=>{c.font={name:FONT,size:10,bold:true};}},
+      {h:'العدد', get:x=>x.n, type:'num', total:'sum'},
+      {h:'سارية', get:x=>x.valid, type:'num', total:'sum', style:(x,c)=>{c.font={name:FONT,size:10,bold:true,color:{argb:C.green}};}},
+      {h:'قريبة', get:x=>x.soon, type:'num', total:'sum', style:(x,c)=>{ if(x.soon){c.fill=fill(C.amberSoft);c.font={name:FONT,size:10,bold:true,color:{argb:C.amber}};} }},
+      {h:'منتهية', get:x=>x.expired, type:'num', total:'sum', style:(x,c)=>{ if(x.expired){c.fill=fill(C.redSoft);c.font={name:FONT,size:10,bold:true,color:{argb:C.red}};} }},
+      {h:'بدون بطاقة', get:x=>x.none, type:'num', total:'sum'},
+      {h:'نسبة السارية', get:x=>x.n?x.valid/x.n:0, type:'num', style:(x,c)=>{ c.numFmt='0%'; const p=x.n?x.valid/x.n:0; c.fill=fill(p>=.8?C.greenSoft:p>=.5?C.amberSoft:C.redSoft); c.font={name:FONT,size:10,bold:true,color:{argb:p>=.8?C.green:p>=.5?C.amber:C.red}}; }},
+    ], Object.entries(g).map(([kk,L])=>({k:kk, n:L.length, valid:L.filter(i=>i.state==='valid').length, soon:L.filter(i=>i.state==='soon').length, expired:L.filter(i=>i.state==='expired').length, none:L.filter(i=>i.state==='none').length})), true);
+    ws.autoFilter = null;
+    const countTable = (f, title, color) => {
+      const m={}; sorted.filter(e=>e[f]).forEach(e=>{ m[e[f]]=(m[e[f]]||0)+1; });
+      const rows = Object.entries(m).sort((a,b)=>b[1]-a[1]).map(([s,n])=>({s,n})); if(!rows.length) return;
+      r += 2; sec(title);
+      r = writeTable(ws, r+1, [{h:title, get:x=>x.s, style:(x,c)=>{c.fill=fill(color[0]); c.font={name:FONT,size:10,bold:true,color:{argb:color[1]}};}}, {h:'العدد', get:x=>x.n, type:'num', total:'sum'}], rows, true);
+      ws.autoFilter = null;
+    };
+    countTable('update_cat','التحديث',[C.blueSoft,C.blue]);
+    countTable('action','الإجراء المطلوب',[C.amberSoft,C.amber]);
+    [24,10,10,10,10,12,12,10,10,10].forEach((w,ix)=>ws.getColumn(ix+1).width=w);
+    ws.pageSetup = { orientation:'portrait', fitToPage:true, fitToWidth:1, fitToHeight:0, paperSize:9 };
+  }
+  addBalSheet(wb, opts.mainName || 'كل الموظفين', sorted, `${stamp} — ${sorted.length} موظف`, C.navy);
+  if(opts.summary){
+    const needs = I.filter(i=>i.state!=='valid').map(i=>i.e);
+    addBalSheet(wb, 'يحتاج تجديد أو إصدار', needs, `${stamp} — ${needs.length} موظف (منتهية، قريبة، أو بدون بطاقة)`, 'FFDC2626');
+    const iq = I.filter(i=>i.iqState==='expired'||i.iqState==='soon').map(i=>i.e);
+    if(iq.length) addBalSheet(wb, 'إقامات تنتهي', iq, `${stamp} — ${iq.length} موظف`, 'FF7C3AED');
+    const tabs=['FFEA580C','FF2563EB','FF16A34A','FFDB2777'];
+    [...new Set(sorted.map(e=>e.brand))].forEach((b,ix)=>{ const L=sorted.filter(e=>e.brand===b); addBalSheet(wb, b, L, `${stamp} — ${L.length} موظف`, tabs[ix%tabs.length]); });
+  }
+  return wb;
+}
+$('#balExportBtn').onclick = e => withBusy(e.currentTarget, async()=>{
+  const wb = await buildBalWorkbook(state.bal, {summary:true});
+  await downloadWorkbook(wb, `البطاقات-البلدية-${today()}.xlsx`);
+});
+$('#balExportListBtn').onclick = e => withBusy(e.currentTarget, async()=>{
+  const wb = await buildBalWorkbook(filteredBal(), {mainName:'البطاقات'});
+  await downloadWorkbook(wb, `البطاقات-البلدية-مفلتر-${today()}.xlsx`);
 });
 
 
