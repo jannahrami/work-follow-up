@@ -405,6 +405,52 @@ textarea.field{min-height:80px;resize:vertical;line-height:1.6}
       </div>
     </div>
 
+    <!-- ===== LEASES ===== -->
+    <div id="sec-lease" class="hidden">
+      <div class="sec-bar">
+        <h1>📄 عقود الإيجار</h1>
+        <div class="sec-actions">
+          <button class="btn btn-ghost btn-sm" onclick="startImport('lease')">⬆ استيراد</button>
+          <button class="btn btn-ghost btn-sm" id="leaseExportBtn">⬇ تصدير</button>
+        </div>
+      </div>
+      <div id="lease-dash">
+        <div class="stats">
+          <div class="stat" onclick="goLease('')"><small>العقود</small><b class="num" id="lkAll">0</b><em id="lkAllN"></em></div>
+          <div class="stat" onclick="goLease('expired')"><small>منتهية</small><b class="num" id="lkExp" style="color:var(--red)">0</b></div>
+          <div class="stat" onclick="goLease('soon')"><small>تنتهي خلال 90 يوم</small><b class="num" id="lkSoon" style="color:var(--amber)">0</b></div>
+          <div class="stat" onclick="goLease('renewing')"><small>جاري التجديد</small><b class="num" id="lkRen" style="color:var(--purple)">0</b></div>
+        </div>
+        <h2>تنبيهات</h2>
+        <div class="list" id="lAlerts"></div>
+        <h2>⏰ منتهية أو تنتهي خلال 90 يوم</h2>
+        <div class="list" id="lDue"></div>
+        <h2>حسب النوع</h2>
+        <div class="tbl-wrap"><table class="tbl" id="lByKind"></table></div>
+        <h2>حسب المستأجر</h2>
+        <div class="tbl-wrap"><table class="tbl" id="lByTenant"></table></div>
+      </div>
+      <div id="lease-list" class="hidden">
+        <div class="toolbar"><input id="lSearch" placeholder="بحث: الفرع، المؤجر، رقم العقد، الجوال..."></div>
+        <div class="toolbar">
+          <select id="lState">
+            <option value="">كل الحالات</option>
+            <option value="due">تحتاج تجديد (منتهي أو قريب)</option>
+            <option value="expired">منتهية</option>
+            <option value="soon">تنتهي خلال 90 يوم</option>
+            <option value="renewing">جاري التجديد</option>
+            <option value="valid">سارية</option>
+            <option value="closed">مقفل / تم الإخلاء</option>
+            <option value="nohouse">عقود سكن مو مربوطة بسكن</option>
+          </select>
+          <select id="lKind"><option value="">كل الأنواع</option></select>
+          <select id="lTenant"><option value="">كل الشركات</option></select>
+        </div>
+        <div class="result-bar"><span><span id="lCount"></span> <button class="btn btn-danger btn-sm hidden" id="lClear" onclick="clearLeaseFilters()">✕ مسح الفلاتر</button></span><button class="btn btn-ghost btn-sm" id="leaseExportListBtn">⬇ تصدير النتائج</button></div>
+        <div class="list" id="lList"></div>
+      </div>
+    </div>
+
     <!-- ===== TOPICS ===== -->
     <div id="sec-topics" class="hidden">
       <div class="sec-bar"><h1>📋 المعاملات</h1></div>
@@ -444,7 +490,7 @@ const AUTHORITIES = ['بلدي','أمانة الرياض','هيئة النقل',
 const TSTATUS = {new:'جديدة',in_progress:'قيد الإجراء',waiting:'بانتظار رد',done:'منتهية'};
 const PRIO = {low:'منخفضة',normal:'عادية',high:'مهمة',urgent:'عاجلة'};
 
-let state = { viol:[], vupd:[], topics:[], tupd:[], health:[], hupd:[], bal:[], bupd:[], hunits:[], hpeople:[], hsupd:[], section:'home', sub:{viol:'dash', health:'dash', bal:'dash', house:'dash'} };
+let state = { viol:[], vupd:[], topics:[], tupd:[], health:[], hupd:[], bal:[], bupd:[], hunits:[], hpeople:[], hsupd:[], leases:[], lupd:[], section:'home', sub:{viol:'dash', health:'dash', bal:'dash', house:'dash', lease:'dash'} };
 
 // ===== HELPERS =====
 const $ = s => document.querySelector(s);
@@ -507,7 +553,7 @@ async function enterApp(){
 
 // ===== DATA =====
 async function loadAll(){
-  const [v,vu,t,tu,h,hu,bl,bu,hn,hp,hs] = await Promise.all([
+  const [v,vu,t,tu,h,hu,bl,bu,hn,hp,hs,ls,lu] = await Promise.all([
     sb.from('wf_violations').select('*').order('violation_date',{ascending:false,nullsFirst:false}).limit(5000),
     sb.from('wf_violation_updates').select('*').order('created_at'),
     sb.from('wf_topics').select('*').order('created_at',{ascending:false}),
@@ -518,11 +564,13 @@ async function loadAll(){
     sb.from('wf_baladiya_updates').select('*').order('created_at'),
     sb.from('wf_housing_units').select('*').order('code').order('end_date'),
     sb.from('wf_housing_people').select('*').order('accommodation').order('name').limit(5000),
-    sb.from('wf_housing_updates').select('*').order('created_at')
+    sb.from('wf_housing_updates').select('*').order('created_at'),
+    sb.from('wf_leases').select('*').order('end_date',{nullsFirst:false}),
+    sb.from('wf_lease_updates').select('*').order('created_at')
   ]);
-  for(const r of [v,vu,t,tu,h,hu,bl,bu,hn,hp,hs]) if(r.error) return fail(r.error);
-  state.viol=v.data; state.vupd=vu.data; state.topics=t.data; state.tupd=tu.data; state.health=h.data; state.hupd=hu.data; state.bal=bl.data; state.bupd=bu.data; state.hunits=hn.data; state.hpeople=hp.data; state.hsupd=hs.data;
-  fillFilters(); fillHealthFilters(); fillBalFilters(); fillHousingFilters(); render(); applyRoute();
+  for(const r of [v,vu,t,tu,h,hu,bl,bu,hn,hp,hs,ls,lu]) if(r.error) return fail(r.error);
+  state.viol=v.data; state.vupd=vu.data; state.topics=t.data; state.tupd=tu.data; state.health=h.data; state.hupd=hu.data; state.bal=bl.data; state.bupd=bu.data; state.hunits=hn.data; state.hpeople=hp.data; state.hsupd=hs.data; state.leases=ls.data; state.lupd=lu.data;
+  fillFilters(); fillHealthFilters(); fillBalFilters(); fillHousingFilters(); fillLeaseFilters(); render(); applyRoute();
 }
 function fillFilters(){
   const auths = [...new Set([...AUTHORITIES.filter(a=>state.viol.some(v=>v.authority===a)), ...state.viol.map(v=>v.authority)])];
@@ -534,7 +582,7 @@ function fillFilters(){
 }
 
 // ===== RENDER =====
-function render(){ renderTiles(); renderViolDash(); renderViol(); renderTopics(); renderHealthDash(); renderHealth(); renderBalDash(); renderBal(); renderHousingDash(); renderUnits(); renderPeople(); }
+function render(){ renderTiles(); renderViolDash(); renderViol(); renderTopics(); renderHealthDash(); renderHealth(); renderBalDash(); renderBal(); renderHousingDash(); renderUnits(); renderPeople(); renderLeaseDash(); renderLeases(); }
 
 function violCard(v){
   return `<div class="item" onclick="openViol('${v.id}')">
@@ -639,6 +687,7 @@ const SUBTABS = {
   health: [['dash','لوحة المتابعة'],['list','الموظفين']],
   bal:    [['dash','لوحة المتابعة'],['list','الموظفين']],
   house:  [['dash','لوحة المتابعة'],['units','السكنات'],['people','الموظفين']],
+  lease:  [['dash','لوحة المتابعة'],['list','العقود']],
 };
 function go(section, sub){
   const h = section==='home' ? '' : '#'+section+(sub?'/'+sub:'');
@@ -647,15 +696,15 @@ function go(section, sub){
 }
 function applyRoute(){
   const [sec, sub] = (location.hash.replace('#','')||'home').split('/');
-  const section = ['viol','health','bal','house','topics'].includes(sec) ? sec : 'home';
+  const section = ['viol','health','bal','house','lease','topics'].includes(sec) ? sec : 'home';
   state.section = section;
   if(sub && SUBTABS[section]?.some(x=>x[0]===sub)) state.sub[section] = sub;
-  ['home','viol','health','bal','house','topics'].forEach(s=>$('#sec-'+s).classList.toggle('hidden', s!==section));
+  ['home','viol','health','bal','house','lease','topics'].forEach(s=>$('#sec-'+s).classList.toggle('hidden', s!==section));
   $('#backBtn').classList.toggle('hidden', section==='home');
   const nav = $('#subnav'), tabs = SUBTABS[section];
   if(tabs){
     nav.classList.remove('hidden');
-    nav.innerHTML = tabs.map(([k,l])=>`<button class="${state.sub[section]===k?'active':''}" onclick="${k==='list'?({health:'clearHealthFilters();',viol:'clearViolFilters();',bal:'clearBalFilters();'}[section]||''):k==='people'?'clearPeopleFilters();':''}go('${section}','${k}')">${l}</button>`).join('');
+    nav.innerHTML = tabs.map(([k,l])=>`<button class="${state.sub[section]===k?'active':''}" onclick="${k==='list'?({health:'clearHealthFilters();',viol:'clearViolFilters();',bal:'clearBalFilters();',lease:'clearLeaseFilters();'}[section]||''):k==='people'?'clearPeopleFilters();':''}go('${section}','${k}')">${l}</button>`).join('');
     tabs.forEach(([k])=>$(`#${section}-${k}`).classList.toggle('hidden', state.sub[section]!==k));
   } else { nav.classList.add('hidden'); nav.innerHTML=''; }
   $('#fab').classList.toggle('hidden', false);
@@ -664,7 +713,7 @@ function applyRoute(){
 window.addEventListener('hashchange', applyRoute);
 function goViol(status, auth=''){ $('#vStatus').value=status; $('#vAuth').value=auth; $('#vSearch').value=''; renderViol(); go('viol','list'); }
 function goSearch(q){ $('#vStatus').value='open'; $('#vAuth').value=''; $('#vSearch').value=q; renderViol(); go('viol','list'); }
-$('#fab').onclick = () => state.section==='topics' ? openTopic() : state.section==='viol' ? openViolForm() : state.section==='health' ? openHealthForm() : state.section==='bal' ? openBalForm() : state.section==='house' ? (state.sub.house==='units'?openContract(''):openPerson('')) : openChooser();
+$('#fab').onclick = () => state.section==='topics' ? openTopic() : state.section==='viol' ? openViolForm() : state.section==='health' ? openHealthForm() : state.section==='bal' ? openBalForm() : state.section==='lease' ? openLease('') : state.section==='house' ? (state.sub.house==='units'?openContract(''):openPerson('')) : openChooser();
 
 function renderTiles(){
   const V = state.viol, open = V.filter(v=>OPEN.includes(v.status));
@@ -686,6 +735,8 @@ function renderTiles(){
       return tile('bal','🪪','var(--amber-soft)','البطاقات البلدية', `${BI.length} موظف — ${BI.filter(i=>i.state==='valid').length} سارية`, `${ex} منتهية • ${so} قريبة • ${no} بدون بطاقة`, ex+so?`${ex+so} تجديد`:''); })() +
     (()=>{ const P=state.hpeople, no=P.filter(p=>!p.accommodation).length, U=state.hunits, ex=U.filter(u=>['expired','soon'].includes(cState(u))).length, G=houseGroups().filter(g=>g.contracts.length).length;
       return tile('house','🏠','var(--purple-soft, #ede9fe)','السكنات', `${G} سكن — ${P.length-no} ساكن`, `${no} بدون سكن • ${ex} عقد منتهي/قريب`, ex?`${ex} عقد`:''); })() +
+    (()=>{ const L=state.leases, ex=L.filter(l=>lState(l)==='expired').length, so=L.filter(l=>lState(l)==='soon').length;
+      return tile('lease','📄','var(--blue-soft)','عقود الإيجار', `${L.filter(l=>l.status!=='closed').length} عقد`, `${ex} منتهي • ${so} ينتهي خلال 90 يوم`, ex+so?`${ex+so} تجديد`:''); })() +
     tile('topics','📋','var(--blue-soft)','المعاملات', `${tOpen.length} معاملة مفتوحة`, tLate?`${tLate} متأخرة`:'كل المعاملات في وقتها', tLate?`${tLate} متأخرة`:'') +
     `<div class="tile soon"><div class="ic" style="background:var(--gray-soft)">➕</div><div><h3>أقسام جاية</h3><div class="l2">ارفع ملف القسم الجديد وأجهّزه لك هنا</div></div></div>`;
 }
@@ -701,6 +752,7 @@ function openChooser(){
     <button class="btn btn-primary" onclick="openBalForm()">موظف جديد (البطاقات البلدية)</button>
     <button class="btn btn-primary" onclick="openPerson('')">موظف جديد (السكنات)</button>
     <button class="btn btn-primary" onclick="openContract('')">عقد سكن جديد</button>
+    <button class="btn btn-primary" onclick="openLease('')">عقد إيجار جديد</button>
     <button class="btn btn-primary" onclick="openTopic()">معاملة / موضوع للمتابعة</button>
     <button class="btn btn-ghost" onclick="closeModal();$('#fileInput').click()">⬆ استيراد ملف إكسل</button></div>`);
 }
@@ -878,6 +930,8 @@ $('#fileInput').onchange = async e => {
   try{
     const wb = XLSX.read(await file.arrayBuffer(), {cellDates:true});
     // detect file type automatically, prefer the section the user is in
+    const lRows = parseLeaseWorkbook(wb);
+    if(lRows.length) return previewLeaseImport(lRows, file.name);
     const hs = parseHousingWorkbook(wb);
     if(hs.people.length || hs.units.length) return previewHousingImport(hs, file.name);
     if(importTarget==='house'){ toast('هذا الملف مو بنفس صيغة ملف السكنات — أرسله لي في المحادثة وأجهّز قراءته'); return; }
@@ -2406,6 +2460,7 @@ function openContract(id, code){
   const dl = (idn,f) => `<datalist id="${idn}">${[...new Set(state.hunits.map(x=>x[f]).filter(Boolean))].map(v=>`<option value="${esc(v)}">`).join('')}</datalist>`;
   modal(head(id?'تفاصيل العقد':'عقد سكن جديد') + `
     ${id?`<div class="meta"><span class="chip ${C_CLS[cState(u)]}">${C_LBL[cState(u)]}</span>${u.end_date?`<span>${hsDays(u.end_date)}</span>`:''}</div>`:''}
+    ${(()=>{ const l=id&&lUnit(u); return l?`<div class="item" style="margin-top:10px" onclick="openLease('${l.id}')"><div class="row"><h3>📄 في عقود الإيجار: ${esc(l.branch)}</h3><span class="chip ${L_CLS[lState(l)]}">${L_LBL[lState(l)]}</span></div><div class="meta">${telLink(l.phone)}${l.end_date!==u.end_date?`<span class="late">تاريخ الانتهاء هناك ${fmtDate(l.end_date)}</span>`:''}${l.file_notes?`<span>📝 ${esc(l.file_notes)}</span>`:''}</div></div>`:''; })()}
     <label>رمز السكن (مركز التكلفة)</label><input class="field" id="fuCode" list="dluCode" value="${esc(u.code)}" dir="ltr">${dl('dluCode','code')}
     <div class="grid2"><div><label>المدينة</label><input class="field" id="fuCity" list="dluCity" value="${esc(u.city)}">${dl('dluCity','city')}</div>
       <div><label>الحي</label><input class="field" id="fuDist" value="${esc(u.district)}"></div></div>
@@ -2634,6 +2689,235 @@ async function buildHousingWorkbook(people, opts={}){
 $('#houseExportBtn').onclick = e => withBusy(e.currentTarget, async()=>{ const wb = await buildHousingWorkbook(state.hpeople, {summary:true}); await downloadWorkbook(wb, `السكنات-${today()}.xlsx`); });
 $('#houseExportListBtn').onclick = e => withBusy(e.currentTarget, async()=>{ const wb = await buildHousingWorkbook(filteredPeople(), {mainName:'الموظفين'}); await downloadWorkbook(wb, `السكنات-مفلتر-${today()}.xlsx`); });
 
+
+// ===== LEASES: Excel parser =====
+function leaseKind(b){ const s=clean(b); if(/سكن/.test(s)) return 'سكن'; if(/مستودع|مكتب|ارض|أرض|معمل/.test(s)) return 'مستودع / مكتب / أرض'; if(/^خاص$|عقد ايجار/.test(s)) return 'أخرى'; return 'فرع'; }
+function parseLeaseWorkbook(wb){
+  const out=[];
+  for(const name of wb.SheetNames){
+    const aoa = XLSX.utils.sheet_to_json(wb.Sheets[name], {header:1, raw:true, defval:null});
+    const hi = aoa.findIndex(r=>r && r.some(c=>/رقم العقد/.test(hdr(c))) && r.some(c=>/المؤجر/.test(hdr(c))) && r.some(c=>/انتهاء/.test(hdr(c))));
+    if(hi<0) continue;
+    const col = re => aoa[hi].findIndex(c=>re.test(hdr(c)));
+    const C = { seq:col(/^رقم$/), no:col(/رقم العقد/), lessor:col(/المؤجر/), tenant:col(/المستأجر/), branch:col(/الفرع|الموقع|العقار/), end:col(/انتهاء/), auto:col(/التجديد/), email:col(/ايميل|إيميل|البريد/), phone:col(/رقم التواصل|الجوال|الهاتف/), notes:col(/ملاحظات/) };
+    const g = (r,k) => C[k]<0 ? null : r[C[k]];
+    for(const r of aoa.slice(hi+1)){
+      if(!r) continue;
+      const no = numText(g(r,'no'))[0], lessor = clean(g(r,'lessor')), branch = clean(g(r,'branch'));
+      if(!no && !lessor && !branch) continue;
+      let ph = clean(g(r,'phone')).replace(/\D/g,''); if(/^5\d{8}$/.test(ph)) ph='0'+ph;
+      out.push({ seq_no: Number(g(r,'seq'))||null, contract_no:no, lessor, tenant:clean(g(r,'tenant')), branch, kind:leaseKind(branch),
+        end_date: plainDate(g(r,'end')), auto_renew:clean(g(r,'auto')), email:clean(g(r,'email')).replace(/\s*\/\s*/g,' / '), phone:ph, file_notes:clean(g(r,'notes')), source:clean(name) });
+    }
+  }
+  return out;
+}
+
+// ===== LEASES: logic & UI =====
+const L_SOON = 90;
+const L_STATUS = { active:'متابعة عادية', renewing:'جاري التجديد', closed:'منتهي / تم الإخلاء' };
+function lState(l){ if(l.status==='closed') return 'closed'; if(!l.end_date) return 'none'; const d=daysTo(l.end_date); return d<0?'expired':d<=L_SOON?'soon':'valid'; }
+const L_LBL = { expired:'العقد منتهي', soon:`ينتهي خلال ${L_SOON} يوم`, valid:'ساري', none:'بدون تاريخ', closed:'مقفل / تم الإخلاء' };
+const L_CLS = { expired:'h-failed', soon:'h-training', valid:'h-done', none:'h-none', closed:'h-none' };
+const lHouse = l => l.contract_no ? state.hunits.find(u=>u.contract_no===l.contract_no) : null;
+const lUnit = u => u.contract_no ? state.leases.find(l=>l.contract_no===u.contract_no) : null;
+const telLink = p => p ? `<a href="tel:${esc(p)}" onclick="event.stopPropagation()" class="num" dir="ltr">📞 ${esc(p)}</a>` : '';
+function leaseCard(l){
+  const s=lState(l), u=lHouse(l);
+  return `<div class="item" onclick="openLease('${l.id}')">
+    <div class="row"><div><h3>${esc(l.branch)||'—'}</h3></div><span class="chip ${L_CLS[s]}">${L_LBL[s]}</span></div>
+    <div class="meta"><span class="chip auth">${esc(l.kind)}</span><span>${esc(l.tenant)}</span>${l.status==='renewing'?`<span class="chip c-waiting">جاري التجديد</span>`:''}${u?`<span class="chip c-new" dir="ltr">${esc(u.code)}</span>`:''}</div>
+    <div class="meta"><span>المؤجر: ${esc(l.lessor)}</span></div>
+    <div class="meta"><span>ينتهي ${fmtDate(l.end_date)}${l.end_date && s!=='closed'?' — '+hsDays(l.end_date):''}</span>${telLink(l.phone)}</div>
+    ${l.file_notes||l.notes?`<div class="meta"><span class="late">📝 ${esc([l.file_notes,l.notes].filter(Boolean).join(' — '))}</span></div>`:''}
+  </div>`;
+}
+const L_FILTERS = ['#lSearch','#lState','#lKind','#lTenant'];
+function fillLeaseFilters(){
+  const fill=(sel,label,vals)=>{ const cur=$(sel).value; $(sel).innerHTML=`<option value="">${label}</option>`+vals.map(v=>`<option>${esc(v)}</option>`).join(''); $(sel).value=cur; };
+  fill('#lKind','كل الأنواع',[...new Set(state.leases.map(l=>l.kind).filter(Boolean))]);
+  fill('#lTenant','كل الشركات',[...new Set(state.leases.map(l=>l.tenant).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ar')));
+}
+function filteredLeases(){
+  const q=$('#lSearch').value.trim().toLowerCase(), st=$('#lState').value, k=$('#lKind').value, t=$('#lTenant').value;
+  return state.leases.filter(l=>{
+    const s=lState(l);
+    if(st==='due' ? !['expired','soon'].includes(s) : st==='renewing' ? l.status!=='renewing' : st==='nohouse' ? !(l.kind==='سكن' && !lHouse(l)) : (st && s!==st)) return false;
+    if(k && l.kind!==k) return false; if(t && l.tenant!==t) return false;
+    if(q && ![l.branch,l.lessor,l.contract_no,l.phone,l.email,l.notes,l.file_notes,l.tenant].join(' ').toLowerCase().includes(q)) return false;
+    return true;
+  }).sort((a,b)=>(a.end_date||'9').localeCompare(b.end_date||'9'));
+}
+function clearLeaseFilters(){ L_FILTERS.forEach(s=>$(s).value=''); renderLeases(); }
+function renderLeases(){
+  $('#lClear').classList.toggle('hidden', !L_FILTERS.some(s=>$(s).value));
+  const L=filteredLeases(); $('#lCount').textContent=`${L.length} عقد`;
+  $('#lList').innerHTML = L.map(leaseCard).join('') || empty('لا توجد نتائج');
+}
+L_FILTERS.forEach(s=>$(s).addEventListener('input',renderLeases));
+function goLease(st='', kind=''){ L_FILTERS.forEach(s=>$(s).value=''); $('#lState').value=st; $('#lKind').value=kind; renderLeases(); go('lease','list'); }
+function renderLeaseDash(){
+  const L=state.leases, n=s=>L.filter(l=>lState(l)===s).length;
+  $('#lkAll').textContent=L.filter(l=>l.status!=='closed').length; $('#lkAllN').textContent=`من ${L.length} عقد`;
+  $('#lkExp').textContent=n('expired'); $('#lkSoon').textContent=n('soon'); $('#lkRen').textContent=L.filter(l=>l.status==='renewing').length;
+  const due=L.filter(l=>['expired','soon'].includes(lState(l))).sort((a,b)=>a.end_date.localeCompare(b.end_date));
+  $('#lDue').innerHTML = due.map(leaseCard).join('') || empty(`ما فيه عقود تنتهي خلال ${L_SOON} يوم 👌`);
+  const kinds={}; L.forEach(l=>{ const k=l.kind||'غير محدد'; (kinds[k] ||= {n:0,e:0,s:0}); kinds[k].n++; const s=lState(l); if(s==='expired') kinds[k].e++; if(s==='soon') kinds[k].s++; });
+  $('#lByKind').innerHTML = `<tr><th>النوع</th><th>العقود</th><th>منتهي</th><th>قريب</th></tr>`+Object.entries(kinds).sort((a,b)=>b[1].n-a[1].n).map(([k,x])=>`<tr class="click" onclick="goLease('','${esc(k)}')"><td><b>${esc(k)}</b></td><td class="num">${x.n}</td><td class="num" style="color:var(--red)"><b>${x.e||''}</b></td><td class="num" style="color:var(--amber)"><b>${x.s||''}</b></td></tr>`).join('');
+  const ten={}; L.forEach(l=>{ const k=l.tenant||'غير محدد'; (ten[k] ||= {n:0,d:0}); ten[k].n++; if(['expired','soon'].includes(lState(l))) ten[k].d++; });
+  $('#lByTenant').innerHTML = `<tr><th>المستأجر</th><th>العقود</th><th>تحتاج تجديد</th></tr>`+Object.entries(ten).sort((a,b)=>b[1].n-a[1].n).map(([k,x])=>`<tr class="click" onclick="L_FILTERS.forEach(s=>$(s).value='');$('#lTenant').value='${esc(k)}';renderLeases();go('lease','list')"><td><b>${esc(k)}</b></td><td class="num">${x.n}</td><td class="num" style="color:var(--red)"><b>${x.d||''}</b></td></tr>`).join('');
+  const nohouse=L.filter(l=>l.kind==='سكن' && !lHouse(l)).length;
+  const auto=L.filter(l=>/الغاء/.test(l.auto_renew)).length;
+  $('#lAlerts').innerHTML = `
+    ${auto?`<div class="item" onclick="goLease('due')"><div class="row"><h3>🔁 التجديد التلقائي ملغي في ${auto} عقد — لازم تجديد يدوي قبل الانتهاء</h3></div></div>`:''}
+    ${nohouse?`<div class="item" onclick="goLease('nohouse')"><div class="row"><h3>🏠 عقود سكن مو مربوطة بسكن في قسم السكنات</h3><span class="chip h-none num">${nohouse}</span></div></div>`:''}`;
+}
+function openLease(id){
+  const l = state.leases.find(x=>x.id===id) || {contract_no:'',lessor:'',tenant:'',branch:'',kind:'فرع',end_date:'',auto_renew:'',email:'',phone:'',file_notes:'',notes:'',status:'active'};
+  const ups = id ? state.lupd.filter(x=>x.lease_id===id).slice().reverse() : [];
+  const u = id ? lHouse(l) : null, s = lState(l);
+  const dl=(idn,f)=>`<datalist id="${idn}">${[...new Set(state.leases.map(x=>x[f]).filter(Boolean))].map(v=>`<option value="${esc(v)}">`).join('')}</datalist>`;
+  modal(head(id?esc(l.branch):'عقد إيجار جديد') + `
+    ${id?`<div class="meta"><span class="chip ${L_CLS[s]}">${L_LBL[s]}</span>${l.end_date&&s!=='closed'?`<span>${hsDays(l.end_date)}</span>`:''}${telLink(l.phone)}${l.email?`<a href="mailto:${esc(l.email.split(' / ')[0])}" dir="ltr">✉️ ${esc(l.email)}</a>`:''}</div>`:''}
+    ${u?`<div class="item" style="margin-top:10px" onclick="openHouse('${esc(u.code)}')"><div class="row"><h3>🏠 مربوط بسكن <span dir="ltr">${esc(u.code)}</span></h3><span class="chip c-new">${state.hpeople.filter(p=>p.accommodation===u.code).length} ساكن</span></div></div>`:''}
+    ${l.file_notes?`<div class="warn">ملاحظة الملف: ${esc(l.file_notes)}</div>`:''}
+    <label>الفرع / العقار</label><input class="field" id="flBranch" value="${esc(l.branch)}">
+    <div class="grid2"><div><label>النوع</label><input class="field" id="flKind" list="dllKind" value="${esc(l.kind)}">${dl('dllKind','kind')}</div>
+      <div><label>المستأجر</label><input class="field" id="flTenant" list="dllTen" value="${esc(l.tenant)}">${dl('dllTen','tenant')}</div></div>
+    <label>المؤجر</label><input class="field" id="flLessor" value="${esc(l.lessor)}">
+    <div class="grid2"><div><label>رقم العقد</label><input class="field num" id="flNo" value="${esc(l.contract_no)}" dir="ltr"></div>
+      <div><label>تاريخ الانتهاء</label><input class="field" type="date" id="flEnd" value="${l.end_date||''}"></div></div>
+    <div class="grid2"><div><label>رقم التواصل</label><input class="field num" id="flPhone" value="${esc(l.phone)}" dir="ltr" inputmode="tel"></div>
+      <div><label>الإيميل</label><input class="field" id="flEmail" value="${esc(l.email)}" dir="ltr"></div></div>
+    <div class="grid2"><div><label>المتابعة</label><select class="field" id="flStatus">${opts(L_STATUS,l.status)}</select></div>
+      <div><label>التجديد التلقائي</label><input class="field" id="flAuto" list="dllAuto" value="${esc(l.auto_renew)}">${dl('dllAuto','auto_renew')}</div></div>
+    <label>ملاحظاتي</label><textarea class="field" id="flNotes" style="min-height:60px">${esc(l.notes)}</textarea>
+    <div class="actions"><button class="btn btn-primary" onclick="saveLease('${id||''}')">حفظ</button>${id?`<button class="btn btn-danger" onclick="deleteLease('${id}')">حذف</button>`:''}</div>
+    ${id?`<h2>سجل المتابعة</h2><textarea class="field" id="uBody" placeholder="وش صار؟ (تواصلت مع المؤجر، اتفقنا على التجديد...)" style="min-height:60px"></textarea>
+      <button class="btn btn-ghost btn-block" style="margin-top:8px" onclick="addLeaseUpdate('${id}')">+ إضافة تحديث</button>
+      <div class="timeline">${ups.map(x=>`<div class="tl"><small>${fmtDT(x.created_at)}</small> <button class="del" onclick="deleteLeaseUpdate('${x.id}','${id}')">حذف</button><div>${esc(x.body)}</div></div>`).join('') || '<div class="tl" style="color:var(--muted)">لا توجد تحديثات</div>'}</div>`:''}`);
+}
+async function saveLease(id){
+  const old = state.leases.find(x=>x.id===id)||{};
+  const row = { branch:$('#flBranch').value.trim(), kind:$('#flKind').value.trim(), tenant:$('#flTenant').value.trim(), lessor:$('#flLessor').value.trim(),
+    contract_no:$('#flNo').value.trim(), end_date:$('#flEnd').value||null, phone:$('#flPhone').value.trim(), email:$('#flEmail').value.trim(),
+    status:$('#flStatus').value, auto_renew:$('#flAuto').value.trim(), notes:$('#flNotes').value.trim() };
+  if(!row.branch && !row.contract_no) return toast('اكتب اسم الفرع أو رقم العقد');
+  if(!id) row.source='إدخال يدوي';
+  const res = id ? await sb.from('wf_leases').update(row).eq('id',id).select().single() : await sb.from('wf_leases').insert(row).select().single();
+  if(res.error) return fail(res.error);
+  const log=[]; if(id && (old.end_date||'')!==(row.end_date||'')) log.push(`تاريخ الانتهاء: ${old.end_date||'—'} ← ${row.end_date||'—'}`);
+  if(id && old.status!==row.status) log.push(`المتابعة: ${L_STATUS[old.status]||'—'} ← ${L_STATUS[row.status]}`);
+  if(log.length) await sb.from('wf_lease_updates').insert({lease_id:id, body:log.join('\n')});
+  toast('تم الحفظ'); await loadAll(); openLease(res.data.id);
+}
+async function deleteLease(id){
+  if(!confirm('حذف عقد الإيجار؟')) return;
+  const { error } = await sb.from('wf_leases').delete().eq('id',id); if(error) return fail(error);
+  closeModal(); toast('تم الحذف'); loadAll();
+}
+async function addLeaseUpdate(id){
+  const body=$('#uBody').value.trim(); if(!body) return;
+  const { error } = await sb.from('wf_lease_updates').insert({lease_id:id, body}); if(error) return fail(error);
+  await loadAll(); openLease(id);
+}
+async function deleteLeaseUpdate(uid, id){
+  if(!confirm('حذف هذا التحديث؟')) return;
+  const { error } = await sb.from('wf_lease_updates').delete().eq('id',uid); if(error) return fail(error);
+  await loadAll(); openLease(id);
+}
+// ----- import -----
+const L_FIELDS = ['seq_no','contract_no','lessor','tenant','branch','end_date','auto_renew','email','phone','file_notes'];
+function leaseMatch(rows){
+  const byNo={}; state.leases.forEach(l=>{ if(l.contract_no) byNo[l.contract_no]=l; });
+  const byBr={}; state.leases.forEach(l=>{ (byBr[hNorm(l.branch)] ||= []).push(l); });
+  return rows.map(r=>{
+    let e = (r.contract_no && byNo[r.contract_no]) || null;
+    if(!e && byBr[hNorm(r.branch)]?.length===1 && !byNo[r.contract_no]) e = byBr[hNorm(r.branch)][0]; // renewed contract with new number
+    if(!e) return {r,e:null,patch:r};
+    const patch={}; L_FIELDS.forEach(f=>{ const v=r[f]; if(v!=='' && v!=null && String(e[f]??'')!==String(v)) patch[f]=v; });
+    if(e.status==='closed' && patch.end_date && daysTo(patch.end_date)>=0) patch.status='active';
+    return {r,e,patch};
+  });
+}
+let pendingLease=null;
+function previewLeaseImport(rows, fname){
+  pendingLease = leaseMatch(rows);
+  const fresh=pendingLease.filter(x=>!x.e).length, ch=pendingLease.filter(x=>x.e && Object.keys(x.patch).length).length;
+  const ren=pendingLease.filter(x=>x.e && x.patch.end_date).length;
+  modal(head('استيراد عقود الإيجار: '+esc(fname)) + `
+    <table class="tbl"><tr><td>عقود في الملف</td><td class="num"><b>${rows.length}</b></td></tr><tr><td>جديدة</td><td class="num"><b>${fresh}</b></td></tr><tr><td>بتتحدث</td><td class="num"><b>${ch}</b></td></tr></table>
+    ${ren?`<div class="warn">${ren} عقد تغيّر تاريخ انتهائه (تجديد) — بيتسجل في سجل العقد.</div>`:''}
+    <div class="warn" style="background:var(--gray-soft);color:#334155">ملاحظاتك وحالة المتابعة وسجل المتابعة ما يتأثرون. الخانات الفاضية في الملف ما تمسح شي.</div>
+    <div class="actions"><button class="btn btn-primary" id="doLeaseImport">استيراد</button><button class="btn btn-ghost" onclick="closeModal()">إلغاء</button></div>`);
+  $('#doLeaseImport').onclick = runLeaseImport;
+}
+async function runLeaseImport(){
+  const btn=$('#doLeaseImport'); btn.disabled=true; btn.textContent='جاري الاستيراد...';
+  try{
+    const fresh=pendingLease.filter(x=>!x.e).map(x=>({...x.r, kind:x.r.kind}));
+    if(fresh.length){ const { error } = await sb.from('wf_leases').insert(fresh); if(error) throw error; }
+    const ch=pendingLease.filter(x=>x.e && Object.keys(x.patch).length), logs=[];
+    const LB={end_date:'تاريخ الانتهاء', contract_no:'رقم العقد', lessor:'المؤجر', phone:'رقم التواصل', file_notes:'ملاحظة الملف', auto_renew:'التجديد التلقائي'};
+    for(let i=0;i<ch.length;i+=8){
+      const part=ch.slice(i,i+8); const res=await Promise.all(part.map(x=>sb.from('wf_leases').update(x.patch).eq('id',x.e.id)));
+      const err=res.find(r=>r.error); if(err) throw err.error;
+      part.forEach(x=>{ const c=Object.keys(x.patch).filter(k=>LB[k]).map(k=>`${LB[k]}: ${x.e[k]||'—'} ← ${x.patch[k]}`); if(c.length) logs.push({lease_id:x.e.id, body:'تحديث من ملف إكسل\n'+c.join('\n')}); });
+    }
+    if(logs.length) await sb.from('wf_lease_updates').insert(logs);
+    closeModal(); toast(`تم: ${fresh.length} جديد — ${ch.length} تحديث`); await loadAll(); go('lease','dash');
+  }catch(e){ fail(e); }
+}
+// ----- export -----
+const LCOLS = [
+  {h:'#', w:5, get:l=>l.seq_no, type:'num'},
+  {h:'الفرع / العقار', w:24, get:l=>l.branch, style:(l,c)=>{c.font={name:FONT,size:10,bold:true};}},
+  {h:'النوع', w:14, get:l=>l.kind, type:'code'}, {h:'المستأجر', w:16, get:l=>l.tenant, type:'code'},
+  {h:'المؤجر', w:34, get:l=>l.lessor, wrap:true}, {h:'رقم العقد', w:14, get:l=>l.contract_no, type:'code'},
+  {h:'تاريخ الانتهاء', w:12, get:l=>l.end_date, type:'date', style:(l,c)=>{ const s=lState(l); if(s==='expired'){c.fill=fill(C.redSoft);c.font={name:FONT,size:10,bold:true,color:{argb:C.red}};} else if(s==='soon'){c.fill=fill(C.amberSoft);c.font={name:FONT,size:10,bold:true,color:{argb:C.amber}};} }},
+  {h:'الأيام المتبقية', w:10, get:l=>l.end_date?daysTo(l.end_date):'', type:'num'},
+  {h:'الحالة', w:16, get:l=>L_LBL[lState(l)], type:'code', style:(l,c)=>{ const m={expired:[C.redSoft,C.red],soon:[C.amberSoft,C.amber],valid:[C.greenSoft,C.green],none:[C.graySoft,C.gray],closed:[C.graySoft,C.gray]}[lState(l)]; c.fill=fill(m[0]); c.font={name:FONT,size:10,bold:true,color:{argb:m[1]}}; }},
+  {h:'المتابعة', w:14, get:l=>L_STATUS[l.status]||'', type:'code'},
+  {h:'التجديد التلقائي', w:18, get:l=>l.auto_renew, type:'code'},
+  {h:'رقم التواصل', w:13, get:l=>l.phone, type:'code'}, {h:'الإيميل', w:26, get:l=>l.email, wrap:true},
+  {h:'السكن المربوط', w:22, get:l=>(lHouse(l)||{}).code||'', type:'code'},
+  {h:'ملاحظات', w:28, get:l=>[l.file_notes,l.notes].filter(Boolean).join(' — '), wrap:true},
+  {h:'آخر تحديث', w:28, get:l=>(state.lupd.filter(u=>u.lease_id===l.id).pop()||{}).body||'', wrap:true},
+];
+async function buildLeaseWorkbook(items, opts={}){
+  await loadExcelJS();
+  const wb=new ExcelJS.Workbook(); wb.creator='Work follow up'; wb.created=new Date();
+  const stamp='تاريخ التقرير: '+new Date().toLocaleDateString('ar-SA-u-ca-gregory-nu-latn',{day:'numeric',month:'long',year:'numeric'});
+  const sorted=items.slice().sort((a,b)=>(a.end_date||'9').localeCompare(b.end_date||'9'));
+  if(opts.summary){
+    const ws=wb.addWorksheet('الملخص',{views:[{rightToLeft:true,showGridLines:false}],properties:{tabColor:{argb:C.navy}}});
+    sheetTitle(ws,'تقرير عقود الإيجار',stamp,8);
+    const n=s=>sorted.filter(l=>lState(l)===s).length;
+    const k=(c,l,v,bg,fg,s)=>{ kpi(ws,4,c,l,v,bg,fg,s); ws.getCell(5,c).numFmt='0'; };
+    k(1,'العقود',sorted.filter(l=>l.status!=='closed').length,C.graySoft,C.navy,`من ${sorted.length}`);
+    k(3,'منتهية',n('expired'),C.redSoft,C.red,''); k(5,`تنتهي خلال ${L_SOON} يوم`,n('soon'),C.amberSoft,C.amber,''); k(7,'سارية',n('valid'),C.greenSoft,C.green,'');
+    ws.getRow(5).height=30;
+    let r=8; const sec=t=>{ ws.mergeCells(r,1,r,8); const h=ws.getCell(r,1); h.value=t; h.font={name:FONT,size:13,bold:true,color:{argb:C.navy}}; };
+    sec(`تحتاج تجديد (منتهية أو خلال ${L_SOON} يوم)`);
+    const due=sorted.filter(l=>['expired','soon'].includes(lState(l)));
+    r = due.length ? writeTable(ws,r+1,LCOLS.filter(c=>['الفرع / العقار','المستأجر','تاريخ الانتهاء','الأيام المتبقية','رقم التواصل','ملاحظات'].includes(c.h)),due,false) : r+2; ws.autoFilter=null;
+    const kinds={}; sorted.forEach(l=>{ const kk=l.kind||'غير محدد'; (kinds[kk] ||= {k:kk,n:0,e:0,s:0}); kinds[kk].n++; const s=lState(l); if(s==='expired') kinds[kk].e++; if(s==='soon') kinds[kk].s++; });
+    r+=2; sec('حسب النوع');
+    writeTable(ws,r+1,[{h:'النوع',get:x=>x.k,style:(x,c)=>{c.font={name:FONT,size:10,bold:true};}},{h:'العقود',get:x=>x.n,type:'num',total:'sum'},
+      {h:'منتهية',get:x=>x.e,type:'num',total:'sum',style:(x,c)=>{ if(x.e){c.fill=fill(C.redSoft);c.font={name:FONT,size:10,bold:true,color:{argb:C.red}};} }},
+      {h:'قريبة',get:x=>x.s,type:'num',total:'sum',style:(x,c)=>{ if(x.s){c.fill=fill(C.amberSoft);c.font={name:FONT,size:10,bold:true,color:{argb:C.amber}};} }}],Object.values(kinds).sort((a,b)=>b.n-a.n),true); ws.autoFilter=null;
+    [24,16,14,12,14,30,12,12].forEach((w,i)=>ws.getColumn(i+1).width=w);
+    ws.pageSetup={orientation:'portrait',fitToPage:true,fitToWidth:1,fitToHeight:0,paperSize:9};
+  }
+  addGenericSheet(wb, opts.mainName||'كل العقود', LCOLS, sorted, `${stamp} — ${sorted.length} عقد`, C.teal, 2);
+  if(opts.summary){
+    const tabs={'سكن':'FF7C3AED','فرع':'FF2563EB'};
+    [...new Set(sorted.map(l=>l.kind))].forEach(k=>addGenericSheet(wb, k.replace(/\//g,'-'), LCOLS, sorted.filter(l=>l.kind===k), `${stamp} — ${sorted.filter(l=>l.kind===k).length} عقد`, tabs[k]||'FF0891B2', 2));
+  }
+  return wb;
+}
+$('#leaseExportBtn').onclick = e => withBusy(e.currentTarget, async()=>{ const wb=await buildLeaseWorkbook(state.leases,{summary:true}); await downloadWorkbook(wb,`عقود-الإيجار-${today()}.xlsx`); });
+$('#leaseExportListBtn').onclick = e => withBusy(e.currentTarget, async()=>{ const wb=await buildLeaseWorkbook(filteredLeases(),{mainName:'العقود'}); await downloadWorkbook(wb,`عقود-الإيجار-مفلتر-${today()}.xlsx`); });
 
 document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeModal(); });
 init();
