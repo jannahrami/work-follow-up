@@ -24,7 +24,7 @@ button,input,select,textarea{font-family:inherit;font-size:15px}
 .hidden{display:none!important}
 .num{font-variant-numeric:tabular-nums}
 
-#login{min-height:100vh;display:grid;place-items:center;padding:24px}
+#login{min-height:calc(100vh / var(--z,1));display:grid;place-items:center;padding:24px}
 .login-box{background:var(--card);border-radius:20px;padding:28px;width:100%;max-width:380px;box-shadow:0 10px 30px rgba(15,23,42,.08)}
 .logo{font-weight:800;font-size:26px;letter-spacing:.3px;direction:ltr;text-align:center}
 .logo span{color:var(--brand)}
@@ -115,7 +115,7 @@ textarea.field{min-height:80px;resize:vertical;line-height:1.6}
 
 .overlay{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:50;display:flex;align-items:flex-end;justify-content:center}
 @media(min-width:700px){.overlay{align-items:center}}
-.sheet{background:#fff;width:100%;max-width:600px;max-height:92vh;overflow:auto;border-radius:20px 20px 0 0;padding:20px 18px calc(20px + env(safe-area-inset-bottom))}
+.sheet{background:#fff;width:100%;max-width:600px;max-height:calc(92vh / var(--z,1));overflow:auto;border-radius:20px 20px 0 0;padding:20px 18px calc(20px + env(safe-area-inset-bottom))}
 @media(min-width:700px){.sheet{border-radius:20px}}
 .sheet-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px}
 .sheet-head h3{margin:0;font-size:18px}
@@ -178,6 +178,10 @@ h2 small{font-size:12px;color:var(--muted);font-weight:700}
 .fbt.ok{background:var(--green-soft);border-color:transparent;color:var(--green)}
 .more{background:none;border:0;color:var(--teal,#0f766e);font-weight:800;padding:8px 4px;cursor:pointer;font-family:inherit}
 .hello{font-size:15px;color:var(--muted);font-weight:700;margin:6px 2px 12px}
+/* big monitors: scale the whole UI up so it isn't tiny */
+@media(min-width:1600px){html{zoom:1.25;--z:1.25}}
+@media(min-width:1900px){html{zoom:1.5;--z:1.5}}
+@media(min-width:2400px){html{zoom:1.8;--z:1.8}}
 .tiles{display:grid;grid-template-columns:1fr;gap:12px}
 @media(min-width:640px){.tiles{grid-template-columns:repeat(2,1fr)}}
 @media(min-width:960px){.tiles{grid-template-columns:repeat(3,1fr)}}
