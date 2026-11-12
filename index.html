@@ -578,6 +578,7 @@ const SA_CITIES = {
 };
 const BRAND_LIST = ['SAYA5','Chefs','Jazzar','CK','HO','Blackish','LEVL','WH','Eater','SK','Smoked'];
 const ALL_CITIES = [...new Set(Object.values(SA_CITIES).flat())].sort((a,b)=>a.localeCompare(b,'ar'));
+const PROPERTY_TYPES = ['شقة','عمارة','فيلا','دور','دوبلكس','استوديو','غرفة','سكن عمال','سكن موظفين','مجمع سكني','بيت شعبي','استراحة','مزرعة','مستودع','محل تجاري','معرض','مكتب','مجمع تجاري','مطعم','مصنع','ورشة','أرض','مبنى'];
 const AUTHORITIES = ['بلدي','أمانة الرياض','هيئة النقل','وزارة التجارة','وزارة الموارد البشرية','هيئة الغذاء والدواء'];
 const TSTATUS = {new:'جديدة',in_progress:'قيد الإجراء',waiting:'بانتظار رد',done:'منتهية'};
 const PRIO = {low:'منخفضة',normal:'عادية',high:'مهمة',urgent:'عاجلة'};
@@ -2821,7 +2822,7 @@ function openContract(id, code){
     <div class="grid2"><div><label>المدينة</label><input class="field" id="fuCity" list="dluCity" value="${esc(u.city)}">${dl('dluCity','city',ALL_CITIES)}</div>
       <div><label>الحي</label><input class="field" id="fuDist" value="${esc(u.district)}"></div></div>
     <label>الوصف (عدد الشقق / الأرقام)</label><input class="field" id="fuDesc" value="${esc(u.unit_desc)}">
-    <div class="grid2"><div><label>نوع العقار</label><input class="field" id="fuPType" list="dluPT" value="${esc(u.property_type)}">${dl('dluPT','property_type')}</div>
+    <div class="grid2"><div><label>نوع العقار</label><input class="field" id="fuPType" list="dluPT" value="${esc(u.property_type)}">${dl('dluPT','property_type',PROPERTY_TYPES)}</div>
       <div><label>المساحة</label><input class="field" id="fuArea" value="${esc(u.unit_area)}" dir="ltr"></div></div>
     <label>الشركة المستأجرة</label><input class="field" id="fuComp" list="dluComp" value="${esc(u.company)}">${dl('dluComp','company')}
     <label>المؤجر</label><input class="field" id="fuLessor" value="${esc(u.lessor)}">
