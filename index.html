@@ -121,6 +121,7 @@ textarea.field{min-height:80px;resize:vertical;line-height:1.6}
 .dash-head{display:flex;justify-content:space-between;align-items:flex-end;margin:4px 2px 12px}
 .dash-head h1{font-size:22px;margin:0}
 h2 small{font-size:12px;color:var(--muted);font-weight:700}
+.tabn{background:var(--red);color:#fff;border-radius:999px;font-size:11px;padding:1px 7px;margin-inline-start:4px}
 .kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
 @media(min-width:760px){.kpis{grid-template-columns:repeat(3,1fr)}}
 @media(min-width:1100px){.kpis{grid-template-columns:repeat(6,1fr)}}
@@ -215,14 +216,15 @@ h2 small{font-size:12px;color:var(--muted);font-weight:700}
   <main>
     <!-- ===== HOME: section tiles ===== -->
     <div id="sec-home">
-      <div class="dash-head"><div><h1>لوحة المتابعة</h1><div class="hello" id="dDate" style="margin:2px 0 0"></div></div></div>
-      <div class="kpis" id="dKpis"></div>
-      <h2>🔴 يحتاج إجراء الآن <small id="dNowN"></small></h2>
-      <div class="list" id="dNow"></div>
-      <h2>🗓️ خلال 30 يوم <small id="dSoonN"></small></h2>
-      <div class="list" id="dSoon"></div>
-      <div class="hello" style="margin-top:22px">الأقسام</div>
-      <div class="tiles" id="tiles"></div>
+      <div class="dash-head"><div><h1>الرئيسية</h1><div class="hello" id="dDate" style="margin:2px 0 0"></div></div></div>
+      <div id="home-kpi"><div class="kpis" id="dKpis"></div></div>
+      <div id="home-todo" class="hidden">
+        <h2>🔴 يحتاج إجراء الآن <small id="dNowN"></small></h2>
+        <div class="list" id="dNow"></div>
+        <h2>🗓️ خلال 30 يوم <small id="dSoonN"></small></h2>
+        <div class="list" id="dSoon"></div>
+      </div>
+      <div id="home-secs" class="hidden"><div class="tiles" id="tiles"></div></div>
     </div>
 
     <!-- ===== VIOLATIONS ===== -->
@@ -516,7 +518,7 @@ const AUTHORITIES = ['بلدي','أمانة الرياض','هيئة النقل',
 const TSTATUS = {new:'جديدة',in_progress:'قيد الإجراء',waiting:'بانتظار رد',done:'منتهية'};
 const PRIO = {low:'منخفضة',normal:'عادية',high:'مهمة',urgent:'عاجلة'};
 
-let state = { viol:[], vupd:[], topics:[], tupd:[], health:[], hupd:[], bal:[], bupd:[], hunits:[], hpeople:[], hsupd:[], leases:[], lupd:[], section:'home', sub:{viol:'dash', health:'dash', bal:'dash', house:'dash', lease:'dash'} };
+let state = { viol:[], vupd:[], topics:[], tupd:[], health:[], hupd:[], bal:[], bupd:[], hunits:[], hpeople:[], hsupd:[], leases:[], lupd:[], section:'home', sub:{home:'kpi', viol:'dash', health:'dash', bal:'dash', house:'dash', lease:'dash'} };
 
 // ===== HELPERS =====
 const $ = s => document.querySelector(s);
@@ -709,6 +711,7 @@ function renderTopics(){
 
 // ===== NAVIGATION (sections + sub tabs) =====
 const SUBTABS = {
+  home:   [['kpi','المؤشرات'],['todo','يحتاج متابعة'],['secs','الأقسام']],
   viol:   [['dash','لوحة المتابعة'],['list','قائمة المخالفات']],
   health: [['dash','لوحة المتابعة'],['list','الموظفين']],
   bal:    [['dash','لوحة المتابعة'],['list','الموظفين']],
@@ -716,7 +719,7 @@ const SUBTABS = {
   lease:  [['dash','لوحة المتابعة'],['list','العقود']],
 };
 function go(section, sub){
-  const h = section==='home' ? '' : '#'+section+(sub?'/'+sub:'');
+  const h = section==='home' ? (sub && sub!=='kpi' ? '#home/'+sub : '') : '#'+section+(sub?'/'+sub:'');
   if(location.hash !== h){ if(h) location.hash = h; else history.pushState('', document.title, location.pathname+location.search); }
   applyRoute();
 }
@@ -730,7 +733,7 @@ function applyRoute(){
   const nav = $('#subnav'), tabs = SUBTABS[section];
   if(tabs){
     nav.classList.remove('hidden');
-    nav.innerHTML = tabs.map(([k,l])=>`<button class="${state.sub[section]===k?'active':''}" onclick="${k==='list'?({health:'clearHealthFilters();',viol:'clearViolFilters();',bal:'clearBalFilters();',lease:'clearLeaseFilters();'}[section]||''):k==='people'?'clearPeopleFilters();':''}go('${section}','${k}')">${l}</button>`).join('');
+    nav.innerHTML = tabs.map(([k,l])=>`<button class="${state.sub[section]===k?'active':''}" onclick="${section==='home'?'':k==='list'?({health:'clearHealthFilters();',viol:'clearViolFilters();',bal:'clearBalFilters();',lease:'clearLeaseFilters();'}[section]||''):k==='people'?'clearPeopleFilters();':''}go('${section}','${k}')">${l}${section==='home'&&k==='todo'?(()=>{const n=dashItems().filter(x=>x.d<=7).length;return n?` <span class="tabn">${n}</span>`:''})():''}</button>`).join('');
     tabs.forEach(([k])=>$(`#${section}-${k}`).classList.toggle('hidden', state.sub[section]!==k));
   } else { nav.classList.add('hidden'); nav.innerHTML=''; }
   $('#fab').classList.toggle('hidden', false);
