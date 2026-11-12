@@ -188,6 +188,28 @@ h2 small{font-size:12px;color:var(--muted);font-weight:700}
 .tile h3{margin:2px 0 4px;font-size:18px}
 .tile .l1{font-weight:700;font-size:14px}
 .tile .l2{color:var(--muted);font-size:13px;margin-top:3px}
+.tile{flex-wrap:wrap}
+.tile>div:nth-child(3){flex:1 1 0;min-width:0}
+.tile .big{margin-inline-start:auto;align-self:center;margin-top:20px;font-size:34px;font-weight:800;line-height:1;padding-inline:6px}
+.tile .tbar{flex:0 0 100%;display:flex;height:8px;border-radius:99px;overflow:hidden;background:#e2e8f0;margin-top:4px}
+.tile .tbar i{display:block;height:100%}
+.tile .tleg{flex:0 0 100%;display:flex;gap:12px;flex-wrap:wrap;font-size:11.5px;color:var(--muted)}
+.tile .tleg b{display:inline-block;width:8px;height:8px;border-radius:50%;margin-inline-end:4px}
+.tile.soon{flex-wrap:nowrap}
+@media(min-width:1100px){
+  body.home-wide main,body.home-wide .top,body.home-wide nav,body.home-wide header .brands{max-width:1240px}
+  body.home-wide .tiles{grid-template-columns:repeat(3,1fr);gap:16px}
+  body.home-wide .tile{padding:22px}.body-x{}
+  body.home-wide .tile h3{font-size:20px}body.home-wide .tile .big{font-size:42px}
+}
+.rec{margin-top:18px;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px}
+.rec h3{margin:0 0 8px;font-size:17px;display:flex;justify-content:space-between;align-items:center}
+.rec-r{display:flex;gap:10px;align-items:flex-start;padding:10px 4px;border-top:1px solid var(--line);cursor:pointer}
+.rec-r:first-of-type{border-top:0}.rec-r:hover{background:#f8fafc}
+.rec-r .ic{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;font-size:17px;flex:none}
+.rec-r .tx{flex:1;min-width:0}.rec-r .tx b{font-size:14px;display:block}.rec-r .tx span{font-size:12.5px;color:var(--muted);display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rec-r .tm{font-size:11.5px;color:var(--muted);white-space:nowrap}
+@media(min-width:1100px){body.home-wide .rec{margin-top:22px}}
 .tile .badge{position:absolute;top:12px;left:12px;background:var(--red);color:#fff;border-radius:99px;font-size:12px;font-weight:800;padding:3px 9px}
 .tile.soon{border-style:dashed;cursor:default;opacity:.75}
 .tile.soon:hover{transform:none;box-shadow:none;border-color:var(--line)}
@@ -269,7 +291,7 @@ h2 small{font-size:12px;color:var(--muted);font-weight:700}
         <div class="list" id="dSoon"></div>
         <div class="list" id="dHid" style="margin-top:6px"></div>
       </div>
-      <div id="home-secs" class="hidden"><div class="tiles" id="tiles"></div></div>
+      <div id="home-secs" class="hidden"><div class="tiles" id="tiles"></div><div class="rec" id="recent"></div></div>
     </div>
 
     <!-- ===== VIOLATIONS ===== -->
@@ -676,7 +698,7 @@ function fillFilters(){
 }
 
 // ===== RENDER =====
-function render(){ renderTiles(); renderHomeDash(); renderViolDash(); renderViol(); renderTopics(); renderHealthDash(); renderHealth(); renderBalDash(); renderBal(); renderHousingDash(); renderUnits(); renderPeople(); renderLeaseDash(); renderLeases(); }
+function render(){ renderTiles(); renderRecent(); renderHomeDash(); renderViolDash(); renderViol(); renderTopics(); renderHealthDash(); renderHealth(); renderBalDash(); renderBal(); renderHousingDash(); renderUnits(); renderPeople(); renderLeaseDash(); renderLeases(); }
 
 function violCard(v){
   return `<div class="item" onclick="openViol('${v.id}')">
@@ -792,7 +814,7 @@ function go(section, sub){
 function applyRoute(){
   const [sec, sub] = (location.hash.replace('#','')||'home').split('/');
   const section = ['viol','health','bal','house','lease','topics'].includes(sec) ? sec : 'home';
-  state.section = section;
+  state.section = section; document.body.classList.toggle('home-wide', section==='home');
   if(sub && SUBTABS[section]?.some(x=>x[0]===sub)) state.sub[section] = sub;
   ['home','viol','health','bal','house','lease','topics'].forEach(s=>$('#sec-'+s).classList.toggle('hidden', s!==section));
   $('#backBtn').classList.toggle('hidden', section==='home');
@@ -819,20 +841,25 @@ function renderTiles(){
   const hDone = hMain.filter(x=>x.cls==='done').length, hTodo = hMain.length - hDone;
   const hFail = hMain.filter(x=>x.cls==='failed').length;
   const tOpen = state.topics.filter(t=>t.status!=='done'), tLate = tOpen.filter(t=>t.due_date && t.due_date<today()).length;
-  const tile = (sec, ic, bg, title, l1, l2, badge) => `<div class="tile" onclick="go('${sec}')">
+  const COL = {g:'#16a34a', a:'#f59e0b', r:'#dc2626', x:'#94a3b8'};
+  const tile = (sec, ic, bg, title, l1, l2, badge, big, segs) => { const tot=(segs||[]).reduce((a,x)=>a+x[0],0);
+    return `<div class="tile" onclick="go('${sec}')">
       ${badge?`<span class="badge">${badge}</span>`:''}
       <div class="ic" style="background:${bg}">${ic}</div>
-      <div><h3>${title}</h3><div class="l1">${l1}</div><div class="l2">${l2}</div></div></div>`;
+      <div><h3>${title}</h3><div class="l1">${l1}</div><div class="l2">${l2}</div></div>
+      ${big!=null?`<div class="big num">${big}</div>`:''}
+      ${tot?`<div class="tbar">${segs.filter(x=>x[0]).map(x=>`<i style="width:${x[0]*100/tot}%;background:${COL[x[1]]}"></i>`).join('')}</div><div class="tleg">${segs.filter(x=>x[0]).map(x=>`<span><b style="background:${COL[x[1]]}"></b>${x[2]} ${x[0]}</span>`).join('')}</div>`:''}
+    </div>`; };
   $('#tiles').innerHTML =
-    tile('viol','🚨','var(--red-soft)','المخالفات', `${open.length} مخالفة مفتوحة`, `واجبة السداد: ${money(dueAmt)}`, soon?`${soon} موعد قريب`:'') +
-    tile('health','🩺','var(--green-soft)','الكروت الصحية', `${H.length} موظف — ${hDone} مكتمل`, `${hTodo} ناقص${hFail?` • ${hFail} راسب يعيد الاختبار`:''}`, hFail?`${hFail} راسب`:'') +
+    tile('viol','🚨','var(--red-soft)','المخالفات', `${open.length} مخالفة مفتوحة`, `واجبة السداد: ${money(dueAmt)}`, soon?`${soon} موعد قريب`:'', open.length, [[V.filter(v=>['due','rejected'].includes(v.status)).length,'r','واجبة'],[V.filter(v=>['objection_prep','objection_pending'].includes(v.status)).length,'a','اعتراض'],[V.filter(v=>!OPEN.includes(v.status)).length,'g','منتهية']]) +
+    tile('health','🩺','var(--green-soft)','الكروت الصحية', `${H.length} موظف — ${hDone} مكتمل`, `${hTodo} ناقص${hFail?` • ${hFail} راسب يعيد الاختبار`:''}`, hFail?`${hFail} راسب`:'', H.length, [[hDone,'g','مكتمل'],[hFail,'r','راسب'],[hTodo-hFail,'a','ناقص']]) +
     (()=>{ const BI=state.bal.map(bInfo), ex=BI.filter(i=>i.state==='expired').length, so=BI.filter(i=>i.state==='soon').length, no=BI.filter(i=>i.state==='none').length;
-      return tile('bal','🪪','var(--amber-soft)','البطاقات البلدية', `${BI.length} موظف — ${BI.filter(i=>i.state==='valid').length} سارية`, `${ex} منتهية • ${so} قريبة • ${no} بدون بطاقة`, ex+so?`${ex+so} تجديد`:''); })() +
+      return tile('bal','🪪','var(--amber-soft)','البطاقات البلدية', `${BI.length} موظف — ${BI.filter(i=>i.state==='valid').length} سارية`, `${ex} منتهية • ${so} قريبة • ${no} بدون بطاقة`, ex+so?`${ex+so} تجديد`:'', BI.length, [[BI.filter(i=>i.state==='valid').length,'g','سارية'],[so,'a','قريبة'],[ex,'r','منتهية'],[no,'x','بدون']]); })() +
     (()=>{ const P=state.hpeople, no=P.filter(p=>!p.accommodation).length, U=state.hunits, ex=U.filter(u=>['expired','soon'].includes(cState(u))).length, G=houseGroups().filter(g=>g.contracts.length).length;
-      return tile('house','🏠','var(--purple-soft, #ede9fe)','السكنات', `${G} سكن — ${P.length-no} ساكن`, `${no} بدون سكن • ${ex} عقد منتهي/قريب`, ex?`${ex} عقد`:''); })() +
+      return tile('house','🏠','var(--purple-soft, #ede9fe)','السكنات', `${G} سكن — ${P.length-no} ساكن`, `${no} بدون سكن • ${ex} عقد منتهي/قريب`, ex?`${ex} عقد`:'', G, [[U.filter(u=>cState(u)==='valid').length,'g','عقود سارية'],[U.filter(u=>cState(u)==='soon').length,'a','قريبة'],[U.filter(u=>cState(u)==='expired').length,'r','منتهية']]); })() +
     (()=>{ const L=state.leases, ex=L.filter(l=>lState(l)==='expired').length, so=L.filter(l=>lState(l)==='soon').length;
-      return tile('lease','📄','var(--blue-soft)','عقود الإيجار', `${L.filter(l=>l.status!=='closed').length} عقد`, `${ex} منتهي • ${so} ينتهي خلال 90 يوم`, ex+so?`${ex+so} تجديد`:''); })() +
-    tile('topics','📋','var(--blue-soft)','المعاملات', `${tOpen.length} معاملة مفتوحة`, tLate?`${tLate} متأخرة`:'كل المعاملات في وقتها', tLate?`${tLate} متأخرة`:'') +
+      return tile('lease','📄','var(--blue-soft)','عقود الإيجار', `${L.filter(l=>l.status!=='closed').length} عقد`, `${ex} منتهي • ${so} ينتهي خلال 90 يوم`, ex+so?`${ex+so} تجديد`:'', L.filter(l=>l.status!=='closed').length, [[L.filter(l=>lState(l)==='valid').length,'g','سارية'],[so,'a','قريبة'],[ex,'r','منتهية']]); })() +
+    tile('topics','📋','var(--blue-soft)','المعاملات', `${tOpen.length} معاملة مفتوحة`, tLate?`${tLate} متأخرة`:'كل المعاملات في وقتها', tLate?`${tLate} متأخرة`:'', tOpen.length, [[state.topics.length-tOpen.length,'g','منجزة'],[tOpen.length-tLate,'a','مفتوحة'],[tLate,'r','متأخرة']]) +
     `<div class="tile soon"><div class="ic" style="background:var(--gray-soft)">➕</div><div><h3>أقسام جاية</h3><div class="l2">ارفع ملف القسم الجديد وأجهّزه لك هنا</div></div></div>`;
 }
 
@@ -1070,6 +1097,26 @@ function fillCityList(){ const dl=document.getElementById('dlCity'), r=document.
 // Dropdown-with-typing fields: show the full list on focus (browsers filter a datalist by the current text), restore the text if left empty
 document.addEventListener('focusin',e=>{ const el=e.target; if(el.tagName==='INPUT' && el.getAttribute('list') && !el.readOnly){ el.dataset.prev=el.value; el.value=''; } });
 document.addEventListener('focusout',e=>{ const el=e.target; if(el.tagName==='INPUT' && el.getAttribute('list') && el.value==='' && el.dataset.prev!==undefined){ el.value=el.dataset.prev; } });
+// ===== RECENT UPDATES =====
+let recentAll = false;
+function renderRecent(){
+  const el = $('#recent'); if(!el) return;
+  const byId = (arr,id)=>arr.find(x=>x.id===id);
+  const L = [];
+  const push = (sec, u, title, click) => { if(title) L.push({sec, t:u.created_at, title, body:String(u.body||'').replace(/\s*\n\s*/g,' • ').trim(), click}); };
+  state.vupd.forEach(u=>{ const v=byId(state.viol,u.violation_id); if(v) push('viol',u,`مخالفة ${v.violation_no||''} — ${v.branch||v.company||v.authority||''}`,`openViol('${v.id}')`); });
+  state.tupd.forEach(u=>{ const t=byId(state.topics,u.topic_id); if(t) push('topics',u,t.title,`openTopic('${t.id}')`); });
+  state.hupd.forEach(u=>{ const e=byId(state.health,u.employee_id); if(e) push('health',u,e.name,`openHealth('${e.id}')`); });
+  state.bupd.forEach(u=>{ const e=byId(state.bal,u.card_id); if(e) push('bal',u,e.name,`openBal('${e.id}')`); });
+  state.hsupd.forEach(u=>{ if(u.unit_id){ const x=byId(state.hunits,u.unit_id); if(x) push('house',u,`عقد سكن ${x.code||''}`,`openContract('${x.id}')`); }
+                           else if(u.person_id){ const p=byId(state.hpeople,u.person_id); if(p) push('house',u,p.name,`openPerson('${p.id}')`); } });
+  state.lupd.forEach(u=>{ const l=byId(state.leases,u.lease_id); if(l) push('lease',u,`عقد إيجار: ${l.branch}`,`openLease('${l.id}')`); });
+  L.sort((a,b)=>b.t<a.t?-1:b.t>a.t?1:0);
+  const ago = t=>{ const m=Math.round((Date.now()-new Date(t))/60000); return m<1?'الآن':m<60?`قبل ${m} دقيقة`:m<1440?`قبل ${Math.round(m/60)} ساعة`:m<10080?`قبل ${Math.round(m/1440)} يوم`:fmtDate(t.slice(0,10)); };
+  const N = recentAll?40:10;
+  el.innerHTML = `<h3>🕘 آخر التحديثات</h3>` + (L.length ? L.slice(0,N).map(x=>{ const [ic,bg]=SEC_IC[x.sec]; return `<div class="rec-r" onclick="${x.click}"><div class="ic" style="background:${bg}">${ic}</div><div class="tx"><b>${esc(x.title)}</b><span>${esc(x.body.slice(0,110))}</span></div><div class="tm">${ago(x.t)}</div></div>`; }).join('') + (L.length>10?`<button class="more" onclick="recentAll=!recentAll;renderRecent()">${recentAll?'عرض أقل':'عرض المزيد'}</button>`:'') : `<div class="muted" style="padding:10px 0">ما فيه تحديثات بعد</div>`);
+}
+
 // ===== BRAND BANNER =====
 const BRANDS = {
   sayakh:{name:'سياخ', bal:'SAYA5', health:'SAYA5', people:'SAYA5', kw:'سياخ'},
