@@ -1702,6 +1702,7 @@ function hIqama(v){
   const s = typeof v==='number' ? String(Math.round(v)) : clean(v).replace(/\s/g,'');
   return /^\d{6,}$/.test(s) ? s : '';
 }
+function cityNorm(s){ s=String(s||''); return ['مكة','مكه'].includes(s.trim()) ? 'مكة المكرمة' : s; }
 function brandNorm(s){ s=String(s||''); const k=s.trim().toLowerCase(); if(['sayakh','saya5','سياخ','سيّاخ'].includes(k)) return 'SAYA5'; if(['jazzar','jazar','جزار'].includes(k)) return 'Jazzar'; if(k==='ck') return 'CK'; return s; }
 function titleCase(s){ return s.replace(/\b([a-z])/g, m=>m.toUpperCase()); }
 function hKey(r){ return (r.iqama||'') + '|' + hNorm(r.name).replace(/[^a-z؀-ۿ0-9]/g,''); }
@@ -2670,7 +2671,7 @@ function parseHousingWorkbook(wb){
         if(!r || !clean(r[c.cc])) continue;
         const extra = r.map((v,i)=>!named.has(i) && clean(v) && !H[i] ? clean(v) : '').filter(Boolean);
         const no = r[c.no]; 
-        units.push({ sr: Number.isFinite(+r[c.sr]) && clean(r[c.sr]) ? Math.round(+r[c.sr]) : null, code: accCode(r[c.cc]), city: clean(r[c.city]), district: clean(r[c.dist]),
+        units.push({ sr: Number.isFinite(+r[c.sr]) && clean(r[c.sr]) ? Math.round(+r[c.sr]) : null, code: accCode(r[c.cc]), city: cityNorm(clean(r[c.city])), district: clean(r[c.dist]),
           unit_desc: clean(r[c.type]).replace(/\s*-\s*$/,''), company: clean(r[c.comp]).replace(/\s+/g,' '), property_type: clean(r[c.ptype]), unit_area: clean(r[c.area]),
           contract_no: no==null ? '' : (typeof no==='number' ? String(Math.round(no)) : clean(no)), start_date: plainDate(r[c.start]), end_date: plainDate(r[c.end]),
           period_years: clean(r[c.period]), lessor: clean(r[c.lessor]), notes: extra.join(' — '), source: clean(sheetName) });
