@@ -299,6 +299,7 @@ header.compact .bbar{display:none}
       <div class="dash-head"><div><h1 id="homeTitle">الرئيسية</h1><div class="hello" id="dDate" style="margin:2px 0 0"></div></div></div>
       <div class="bnote hidden" id="brandNote"></div>
       <div id="home-kpi">
+        <div id="dAlerts"></div>
         <div class="kpis" id="dKpis"></div>
         <div class="result-bar" style="margin-top:16px"><h2 style="margin:0">📊 الرسوم البيانية</h2><button class="btn btn-ghost btn-sm" id="indExportBtn">⬇ تصدير المؤشرات (Excel)</button></div>
         <div class="charts" id="dCharts"></div>
@@ -951,11 +952,24 @@ async function fuRestore(i){ const x=dashCache[i]; if(!x) return;
   if(x.src) await sb.from(x.src[0]).insert({[x.src[1]]:x.src[2], body:'↩ رجع للمتابعة (من لوحة المتابعة)'});
   toast('رجع للقائمة'); await loadAll(); }
 function groupRow(sec, title, n, sub, click){ const [ic,bg]=SEC_IC[sec]; return `<div class="item feed" onclick="${click}"><div class="fi" style="background:${bg}">${ic}</div><div class="fb"><h3>${title}</h3>${sub?`<div class="meta"><span>${sub}</span></div>`:''}</div><span class="dchip late num">${n}</span></div>`; }
+
+// Review alerts: Baladiya rows whose notes carry the bell marker stay listed here (and in the daily email) until the note is removed
+function renderAlerts(){
+  const el=$('#dAlerts'); if(!el) return;
+  const g=new Map();
+  state.bal.filter(e=>e.active!==false && String(e.notes||'').includes('🔔')).forEach(e=>{
+    String(e.notes).split(' — ').filter(x=>x.includes('🔔')).forEach(m=>{ m=m.replace('🔔','').trim(); g.set(m,(g.get(m)||0)+1); });
+  });
+  if(!g.size){ el.innerHTML=''; return; }
+  el.innerHTML = `<div class="warn" style="background:#fef3c7;color:#92400e;margin-bottom:12px"><div style="font-weight:700;margin-bottom:6px">🔔 تنبيهات للمراجعة</div>${
+    [...g].map(([m,n])=>{ const key=m.split(':').slice(1).join(':').trim().slice(0,24).replace(/'/g,''); return `<div class="item" style="cursor:pointer;margin:6px 0" onclick="goBal('');$('#bSearch').value='${key}';renderBal()"><div class="row"><div><h3 style="font-size:14px">🪪 البطاقات البلدية — ${esc(m)}</h3></div><span class="chip h-training num">${n}</span></div></div>`; }).join('')}<div style="font-size:12px;margin-top:4px">تختفي لما تمسح الملاحظة من بطاقة الموظف.</div></div>`;
+}
 function renderHomeDash(){ scoped(_renderHomeDash); }
 function _renderHomeDash(){
   $('#dDate').textContent = new Date().toLocaleDateString('ar-SA-u-ca-gregory-nu-latn',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
   const X=homeCtx(), {bExp,bNone,hFail,pNone}=X;
   $('#dKpis').innerHTML = homeKpis(X).map(k=>`<div class="kpi" style="--k:${IC_CSS(k.color)}" onclick="${k.click}"><div class="t">${k.ic} ${k.t}</div><b class="num">${k.v}</b><em>${k.em}</em></div>`).join('');
+  renderAlerts();
   renderIndicators();
   dashCache = dashItems(); const items=dashCache.filter(x=>!fuHidden(x)), hid=dashCache.filter(fuHidden), now=items.filter(x=>x.d<=7), soon=items.filter(x=>x.d>7 && x.d<=30);
   const iqExp=X.BI.filter(i=>i.iqState==='expired').length, trExp=X.BI.filter(i=>i.tState==='expired').length;
