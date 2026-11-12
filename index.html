@@ -1962,7 +1962,7 @@ async function saveHealth(id){
   if(train){ const [g,h] = toDate(train); if(!g) return toast('تاريخ التثقيف غير صحيح — اكتبه مثل 21/03/1449'); tg=g; th=h; }
   const row = {
     name:$('#fhName').value.trim(), iqama:$('#fhIqama').value.replace(/\D/g,''), phone:$('#fhPhone').value.replace(/[^\d+]/g,''),
-    brand:$('#fhBrand').value.trim(), branch:$('#fhBranch').value.trim(), group_no:$('#fhGroup').value.trim(),
+    brand:brandNorm($('#fhBrand').value.trim()), branch:$('#fhBranch').value.trim(), group_no:$('#fhGroup').value.trim(),
     nationality:$('#fhNat').value.trim(), city:$('#fhCity').value.trim(), region:$('#fhRegion').value.trim()==='الرئيسية'?'':$('#fhRegion').value.trim(),
     medical_test:keepOrDone($('#fhMed').checked, old.medical_test), day1:keepOrDone($('#fhD1').checked, old.day1),
     day2:keepOrDone($('#fhD2').checked, old.day2), exam_date:keepOrDone($('#fhExam').checked, old.exam_date),
@@ -2458,7 +2458,7 @@ function openBalForm(id){
 async function saveBal(id){
   const old = state.bal.find(x=>x.id===id) || {};
   const row = {
-    name:$('#fbName').value.trim(), brand:$('#fbBrand').value.trim(), emp_no:$('#fbEmp').value.trim(), sponsor:$('#fbSponsor').value.trim().toUpperCase(),
+    name:$('#fbName').value.trim(), brand:brandNorm($('#fbBrand').value.trim()), emp_no:$('#fbEmp').value.trim(), sponsor:$('#fbSponsor').value.trim().toUpperCase(),
     location:$('#fbLoc').value.trim(), iqama:$('#fbIqama').value.replace(/\D/g,''), iqama_expiry:$('#fbIqExp').value||null,
     card_expiry:$('#fbCard').value||null, baladia_no:$('#fbBalNo').value.trim(), card_raw:$('#fbCardRaw').value.trim(),
     training_expiry:$('#fbTrain').value||null, training_raw:$('#fbTrainRaw').value.trim(),
@@ -2837,7 +2837,7 @@ function openContract(id, code){
 }
 async function saveContract(id){
   const old = state.hunits.find(x=>x.id===id)||{};
-  const row = { code:accCode($('#fuCode').value), city:$('#fuCity').value.trim(), district:$('#fuDist').value.trim(), unit_desc:$('#fuDesc').value.trim(),
+  const row = { code:accCode($('#fuCode').value), city:cityNorm($('#fuCity').value.trim()), district:$('#fuDist').value.trim(), unit_desc:$('#fuDesc').value.trim(),
     property_type:$('#fuPType').value.trim(), unit_area:$('#fuArea').value.trim(), company:$('#fuComp').value.trim(), lessor:$('#fuLessor').value.trim(),
     contract_no:$('#fuNo').value.trim(), start_date:$('#fuStart').value||null, end_date:$('#fuEnd').value||null, period_years:$('#fuPeriod').value.trim(), notes:$('#fuNotes').value.trim() };
   if(!row.code) return toast('اكتب رمز السكن');
@@ -2878,7 +2878,7 @@ function openPerson(id){
 async function savePerson(id){
   const old = state.hpeople.find(x=>x.id===id)||{};
   const row = { name:$('#fpName').value.trim(), emp_no:$('#fpEmp').value.trim(), id_number:$('#fpId').value.replace(/\D/g,''), nationality:$('#fpNat').value.trim(),
-    brand:$('#fpBrand').value.trim(), cost_center:$('#fpCC').value.trim(), department:$('#fpDept').value.trim(), accommodation:$('#fpAcc').value, notes:$('#fpNotes').value.trim() };
+    brand:brandNorm($('#fpBrand').value.trim()), cost_center:$('#fpCC').value.trim(), department:$('#fpDept').value.trim(), accommodation:$('#fpAcc').value, notes:$('#fpNotes').value.trim() };
   if($('#fpExtra')) row.extra_name = $('#fpExtra').value.trim();
   if(!row.name) return toast('اكتب الاسم');
   if(!id) row.source='إدخال يدوي';
