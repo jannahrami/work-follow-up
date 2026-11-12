@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>Work follow up</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&family=Inter:wght@600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <style>
@@ -39,13 +39,13 @@ header{position:sticky;top:0;z-index:10;background:var(--ink);color:#fff;padding
 @media(max-width:480px){.wide{display:none}.top .logo{font-size:16px;white-space:nowrap}.icon-btn{padding:7px 8px;font-size:12.5px}.top-actions{gap:4px}}
 .top{min-height:44px}
 .brands{display:flex;justify-content:center;align-items:center;gap:8px;flex:1;min-width:0}
-.bchip{background:#fff;border:1px solid #e2e8f0;border-radius:12px;height:44px;padding:0 12px;display:flex;align-items:center;cursor:pointer;transition:.2s;flex:none;box-shadow:0 1px 3px rgba(15,23,42,.08)}
-.bchip img{height:30px;width:auto;display:block}
+.bchip{background:#fff;border:1px solid #e2e8f0;border-radius:12px;height:44px;width:112px;padding:0 10px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:.2s;flex:none;box-shadow:0 1px 3px rgba(15,23,42,.08)}
+.bchip img{max-height:30px;max-width:100%;width:auto;height:auto;display:block}
 .bchip:hover{transform:translateY(-1px);box-shadow:0 5px 14px rgba(15,23,42,.18)}.bchip:active{transform:scale(.96)}
-header.compact .bchip{height:34px;padding:0 9px}header.compact .bchip img{height:23px}
+header.compact .bchip{height:34px;width:90px;padding:0 8px}header.compact .bchip img{height:23px}
 @media(max-width:640px){
-  .bb{height:42px;padding:0 15px;font-size:14.5px}
-  .brands{gap:6px}.bchip{height:36px;padding:0 8px;border-radius:10px}.bchip img{height:24px}
+
+  .brands{gap:6px}.bchip{height:38px;width:84px;padding:0 6px;border-radius:10px}.bchip img{max-height:24px}
   .top .logo{display:none}header.compact .logo{display:block}header.compact .brands{display:none}
   header.compact .top{justify-content:space-between}
 }
@@ -196,9 +196,10 @@ h2 small{font-size:12px;color:var(--muted);font-weight:700}
 .tile h3{margin:2px 0 4px;font-size:18px}
 .tile .l1{font-weight:700;font-size:14px}
 .tile .l2{color:var(--muted);font-size:13px;margin-top:3px}
-.bbar{display:flex;gap:10px;max-width:1000px;margin:10px auto 0;overflow-x:auto;padding:2px 0 4px;scrollbar-width:none}
+.bbar{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:8px;max-width:1000px;margin:10px auto 0;overflow-x:auto;padding:2px 0 4px;scrollbar-width:none}
 .bbar::-webkit-scrollbar{display:none}
-.bb{flex:none;height:46px;border:2px solid transparent;border-radius:11px;background:#e2e8f0;color:#0f172a;padding:0 18px;display:flex;align-items:center;font-weight:800;font-size:15.5px;cursor:pointer;font-family:inherit}
+.bb{height:44px;border:2px solid transparent;border-radius:12px;background:#e2e8f0;color:#0f172a;padding:0 6px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;letter-spacing:.03em;cursor:pointer;font-family:'Inter','Segoe UI Variable','Segoe UI',system-ui,sans-serif;white-space:nowrap}
+@media(max-width:640px){.bbar{display:flex;gap:8px;overflow-x:auto}.bb{flex:none;width:96px;height:42px;font-size:13.5px}}
 .bb.on{border-color:#0f172a;box-shadow:0 0 0 2px rgba(15,23,42,.15)}
 .bnote{background:#ecfeff;border:1px solid #a5f3fc;border-radius:14px;padding:10px 14px;margin:0 2px 12px;display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;font-size:13.5px}
 .bnote .sm{color:var(--muted);font-size:12px;flex:0 0 100%}
