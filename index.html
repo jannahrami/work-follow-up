@@ -576,7 +576,7 @@ const SA_CITIES = {
   'الباحة':['الباحة','بلجرشي','المخواة','المندق','قلوة','العقيق'],
   'الجوف':['سكاكا','دومة الجندل','القريات','طبرجل'],
 };
-const BRAND_LIST = ['Sayakh','Chefs','Jazzar','CK','HO','Blackish','LEVL','WH','Eater','SK','Smoked'];
+const BRAND_LIST = ['SAYA5','Chefs','Jazzar','CK','HO','Blackish','LEVL','WH','Eater','SK','Smoked'];
 const AUTHORITIES = ['بلدي','أمانة الرياض','هيئة النقل','وزارة التجارة','وزارة الموارد البشرية','هيئة الغذاء والدواء'];
 const TSTATUS = {new:'جديدة',in_progress:'قيد الإجراء',waiting:'بانتظار رد',done:'منتهية'};
 const PRIO = {low:'منخفضة',normal:'عادية',high:'مهمة',urgent:'عاجلة'};
@@ -1070,7 +1070,7 @@ document.addEventListener('focusin',e=>{ const el=e.target; if(el.tagName==='INP
 document.addEventListener('focusout',e=>{ const el=e.target; if(el.tagName==='INPUT' && el.getAttribute('list') && el.value==='' && el.dataset.prev!==undefined){ el.value=el.dataset.prev; } });
 // ===== BRAND BANNER =====
 const BRANDS = {
-  sayakh:{name:'سياخ', bal:'Sayakh', health:'Sayakh', people:'SAYA5', kw:'سياخ'},
+  sayakh:{name:'سياخ', bal:'SAYA5', health:'SAYA5', people:'SAYA5', kw:'سياخ'},
   chefs: {name:'شيفز', bal:'Chefs',  health:'Chefs',  people:'Chefs', kw:'شيفز'},
   jazzar:{name:'جزار', bal:'Jazzar', health:'Jazzar', people:'Jazar', kw:'جزار'},
 };
@@ -1701,6 +1701,7 @@ function hIqama(v){
   const s = typeof v==='number' ? String(Math.round(v)) : clean(v).replace(/\s/g,'');
   return /^\d{6,}$/.test(s) ? s : '';
 }
+function brandNorm(s){ s=String(s||''); return ['sayakh','saya5','سياخ','سيّاخ'].includes(s.trim().toLowerCase()) ? 'SAYA5' : s; }
 function titleCase(s){ return s.replace(/\b([a-z])/g, m=>m.toUpperCase()); }
 function hKey(r){ return (r.iqama||'') + '|' + hNorm(r.name).replace(/[^a-z؀-ۿ0-9]/g,''); }
 function parseHealthWorkbook(wb){
@@ -1744,7 +1745,7 @@ function parseHealthWorkbook(wb){
       const exam3 = hResult(g(ex3)) || hResult(g(resCols.find(i=>i>ex3 && ex3>=0) ?? -1));
       const rec = {
         group_no:clean(g(c.group)), seq_no: Number.isFinite(+g(c.seq)) && g(c.seq)!==null && g(c.seq)!=='' ? Math.round(+g(c.seq)) : null,
-        name, iqama, phone, nationality:nat, brand:titleCase(clean(g(c.brand))), branch:titleCase(clean(g(c.branch))),
+        name, iqama, phone, nationality:nat, brand:brandNorm(titleCase(clean(g(c.brand)))), branch:titleCase(clean(g(c.branch))),
         region: riyadh ? 'الرياض' : '', cost_center:clean(g(c.cost)),
         medical_test:hDone(g(c.test)), training_until_hijri:th, training_until:tg,
         day1:hDone(g(c.d1)), day2:hDone(g(c.d2)), exam_date:hDone(g(c.exam)),
@@ -2160,7 +2161,7 @@ $('#healthExportListBtn').onclick = e => withBusy(e.currentTarget, async()=>{
 
 
 // ===== BALADIYA CARDS: Excel parser =====
-const B_BRAND = { sayakh:'Sayakh', shefs:'Chefs', chefs:'Chefs', jazzar:'Jazzar' };
+const B_BRAND = { sayakh:'SAYA5', shefs:'Chefs', chefs:'Chefs', jazzar:'Jazzar' };
 const pad2 = n => String(n).padStart(2,'0');
 const isoD = (y,m,d) => { if(y<100) y+=2000; if(m<1||m>12||d<1||d>31||y<1990||y>2100) return null; const dt=new Date(Date.UTC(y,m-1,d)); return dt.getUTCMonth()===m-1 ? `${y}-${pad2(m)}-${pad2(d)}` : null; };
 // Excel (US locale) turned "dd/mm/yyyy" typed text into real dates with day & month swapped,
@@ -2216,7 +2217,7 @@ function parseBaladiyaWorkbook(wb){
     if(c.trEn>=0 && c.trHi===c.trEn) c.trHi=-1;
     if(c.trHi>=0 && /english/.test(H[c.trHi])) c.trHi=-1;
     const named = new Set(Object.values(c).filter(i=>i>=0));
-    const brand = B_BRAND[sheetName.trim().toLowerCase()] || titleCase(clean(sheetName));
+    const brand = B_BRAND[sheetName.trim().toLowerCase()] || brandNorm(titleCase(clean(sheetName)));
     for(const r of aoa.slice(hi+1)){
       if(!r) continue;
       const g = i => i>=0 ? r[i] : null;
@@ -2682,7 +2683,7 @@ function parseHousingWorkbook(wb){
         const idRaw = r[c.id]; const id = hIqama(idRaw); if(!id && clean(idRaw)) notes.push('رقم الهوية في الملف: '+clean(idRaw));
         const emp = r[c.emp]; let empNo = emp==null ? '' : (typeof emp==='number' ? String(emp) : clean(emp)); if(empNo==='0') empNo='';
         let nat = r[c.nat]==null || r[c.nat]===0 ? '' : clean(r[c.nat]);
-        people.push({ emp_no: empNo, name, nationality: nat, id_number: id, brand: clean(r[c.brand]), cost_center: clean(r[c.cc]).replace(/\s+/g,' '),
+        people.push({ emp_no: empNo, name, nationality: nat, id_number: id, brand: brandNorm(clean(r[c.brand])), cost_center: clean(r[c.cc]).replace(/\s+/g,' '),
           department: clean(r[c.dept]), accommodation: r[c.acc] ? accCode(r[c.acc]) : '', extra_name: extra.join(' — '), notes: notes.join(' — '), source: clean(sheetName) });
       }
     }
