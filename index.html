@@ -747,7 +747,7 @@ const SUBTABS = {
   lease:  [['dash','لوحة المتابعة'],['list','العقود']],
 };
 function go(section, sub){
-  const h = section==='home' ? (sub && sub!=='kpi' ? '#home/'+sub : '') : '#'+section+(sub?'/'+sub:'');
+  const h = section==='home' ? '#home/'+(sub||state.sub.home||'kpi') : '#'+section+(sub?'/'+sub:'');
   if(location.hash !== h){ if(h) location.hash = h; else history.pushState('', document.title, location.pathname+location.search); }
   applyRoute();
 }
