@@ -576,6 +576,7 @@ const SA_CITIES = {
   'الباحة':['الباحة','بلجرشي','المخواة','المندق','قلوة','العقيق'],
   'الجوف':['سكاكا','دومة الجندل','القريات','طبرجل'],
 };
+const BRAND_LIST = ['Sayakh','Chefs','Jazzar','CK','HO','Blackish','LEVL','WH','Eater','SK','Smoked'];
 const AUTHORITIES = ['بلدي','أمانة الرياض','هيئة النقل','وزارة التجارة','وزارة الموارد البشرية','هيئة الغذاء والدواء'];
 const TSTATUS = {new:'جديدة',in_progress:'قيد الإجراء',waiting:'بانتظار رد',done:'منتهية'};
 const PRIO = {low:'منخفضة',normal:'عادية',high:'مهمة',urgent:'عاجلة'};
@@ -1059,6 +1060,7 @@ $('#indExportBtn').onclick = e => withBusy(e.currentTarget, async()=>{ const wb=
 // City list follows the chosen region (also all cities of the existing data)
 document.addEventListener('input',e=>{ if(e.target.id==='fhRegion') fillCityList(); });
 document.addEventListener('focusin',e=>{ if(e.target.id==='fhCity') fillCityList(); },true);
+function uniqCI(a){ const seen=new Set(); return a.filter(v=>{ if(!v) return false; const k=String(v).toLowerCase(); if(seen.has(k)) return false; seen.add(k); return true; }); }
 function fillCityList(){ const dl=document.getElementById('dlCity'), r=document.getElementById('fhRegion'); if(!dl||!r) return;
   const reg=(r.dataset.prev!==undefined && r.value==='') ? r.dataset.prev : r.value.trim();
   const list = SA_CITIES[reg] || Object.values(SA_CITIES).flat();
@@ -1899,7 +1901,7 @@ function openHealthForm(id){
   const e = state.health.find(x=>x.id===id) || {name:'',iqama:'',phone:'',nationality:'',brand:'',branch:'',group_no:'',region:'',city:'',cost_center:'',medical_test:'',training_until_hijri:'',day1:'',day2:'',exam_date:'',exam1:'',exam2:'',exam3:'',balady_request:'',card_status:'',notes:''};
   const i = hInfo(e);
   const ups = id ? state.hupd.filter(u=>u.employee_id===id).slice().reverse() : [];
-  const dl = (idn, f, extra=[]) => `<datalist id="${idn}">${[...new Set([...state.health.map(x=>x[f]), ...extra].filter(Boolean))].map(v=>`<option value="${esc(v)}">`).join('')}</datalist>`;
+  const dl = (idn, f, extra=[]) => `<datalist id="${idn}">${uniqCI([...extra, ...state.health.map(x=>x[f])]).map(v=>`<option value="${esc(v)}">`).join('')}</datalist>`;
   const chk = (idn, label, val) => `<label class="checkline"><input type="checkbox" id="${idn}" ${val?'checked':''}> ${label}${val && val!=='done'?` <span class="mini">(${esc(val)})</span>`:''}</label>`;
   modal(head(id?esc(e.name):'موظف جديد') + `
     ${id?`<div class="meta">${e.region===RUH?'<span class="chip auth">الرياض</span>':hStageChip(i)}</div>${hStepChips(i)}`:''}
@@ -1909,7 +1911,7 @@ function openHealthForm(id){
       <div><label>الجوال</label><input class="field num" id="fhPhone" value="${esc(e.phone)}" dir="ltr" inputmode="tel"></div>
     </div>
     <div class="grid2">
-      <div><label>العلامة التجارية</label><input class="field" id="fhBrand" list="dlBrand" value="${esc(e.brand)}">${dl('dlBrand','brand')}</div>
+      <div><label>العلامة التجارية</label><input class="field" id="fhBrand" list="dlBrand" value="${esc(e.brand)}">${dl('dlBrand','brand',BRAND_LIST)}</div>
       <div><label>الفرع</label><input class="field" id="fhBranch" list="dlHBranch" value="${esc(e.branch)}">${dl('dlHBranch','branch')}</div>
     </div>
     <div class="grid3">
@@ -2399,13 +2401,13 @@ function openBalForm(id){
   const e = state.bal.find(x=>x.id===id) || {brand:'',name:'',emp_no:'',iqama:'',iqama_expiry:'',sponsor:'',location:'',baladia_no:'',card_expiry:'',card_expiry_hijri:'',card_raw:'',training_expiry:'',training_expiry_hijri:'',training_raw:'',medical:'',schooling:'',exam:'',exam_attempts:'',exam_result:'',card_by_ali:'',status_note:'',update_cat:'',action:'',notes:''};
   const i = bInfo(e);
   const ups = id ? state.bupd.filter(u=>u.card_id===id).slice().reverse() : [];
-  const dl = (idn, f) => `<datalist id="${idn}">${[...new Set(state.bal.map(x=>x[f]).filter(Boolean))].map(v=>`<option value="${esc(v)}">`).join('')}</datalist>`;
+  const dl = (idn, f, extra=[]) => `<datalist id="${idn}">${uniqCI([...extra, ...state.bal.map(x=>x[f])]).map(v=>`<option value="${esc(v)}">`).join('')}</datalist>`;
   const RESB = {'':'—', PASSED:'ناجح', FAILED:'راسب'};
   modal(head(id?esc(e.name):'موظف جديد — بطاقة بلدية') + `
     ${id?`<div class="meta">${bStateChip(i)}${e.card_expiry?`<span>${dLabel(i.d)}</span>`:''}</div>`:''}
     <label>الاسم</label><input class="field" id="fbName" value="${esc(e.name)}">
     <div class="grid3">
-      <div><label>العلامة</label><input class="field" id="fbBrand" list="dlbBrand" value="${esc(e.brand)}">${dl('dlbBrand','brand')}</div>
+      <div><label>العلامة</label><input class="field" id="fbBrand" list="dlbBrand" value="${esc(e.brand)}">${dl('dlbBrand','brand',BRAND_LIST)}</div>
       <div><label>الرقم الوظيفي</label><input class="field num" id="fbEmp" value="${esc(e.emp_no)}" dir="ltr"></div>
       <div><label>الكفيل / الشركة</label><input class="field" id="fbSponsor" list="dlbSp" value="${esc(e.sponsor)}">${dl('dlbSp','sponsor')}</div>
     </div>
@@ -2851,14 +2853,14 @@ async function deleteContract(id){
 function openPerson(id){
   const p = state.hpeople.find(x=>x.id===id) || {emp_no:'',name:'',nationality:'',id_number:'',brand:'',cost_center:'',department:'',accommodation:'',extra_name:'',notes:''};
   const ups = id ? state.hsupd.filter(x=>x.person_id===id).slice().reverse() : [];
-  const dl = (idn,f,extra=[]) => `<datalist id="${idn}">${[...new Set([...state.hpeople.map(x=>x[f]), ...extra].filter(Boolean))].map(v=>`<option value="${esc(v)}">`).join('')}</datalist>`;
+  const dl = (idn,f,extra=[]) => `<datalist id="${idn}">${uniqCI([...extra, ...state.hpeople.map(x=>x[f])]).map(v=>`<option value="${esc(v)}">`).join('')}</datalist>`;
   const codes = houseGroups().map(g=>g.code);
   modal(head(id?esc(p.name):'موظف جديد — سكن') + `
     <label>الاسم</label><input class="field" id="fpName" value="${esc(p.name)}">
     <div class="grid3"><div><label>الرقم الوظيفي</label><input class="field num" id="fpEmp" value="${esc(p.emp_no)}" dir="ltr"></div>
       <div><label>رقم الهوية / الإقامة</label><input class="field num" id="fpId" value="${esc(p.id_number)}" dir="ltr" inputmode="numeric"></div>
       <div><label>الجنسية</label><input class="field" id="fpNat" list="dlpNat" value="${esc(p.nationality)}">${dl('dlpNat','nationality',NATIONALITIES)}</div></div>
-    <div class="grid3"><div><label>العلامة</label><input class="field" id="fpBrand" list="dlpBrand" value="${esc(p.brand)}">${dl('dlpBrand','brand')}</div>
+    <div class="grid3"><div><label>العلامة</label><input class="field" id="fpBrand" list="dlpBrand" value="${esc(p.brand)}">${dl('dlpBrand','brand',BRAND_LIST)}</div>
       <div><label>مركز التكلفة</label><input class="field" id="fpCC" list="dlpCC" value="${esc(p.cost_center)}">${dl('dlpCC','cost_center')}</div>
       <div><label>القسم</label><input class="field" id="fpDept" list="dlpDept" value="${esc(p.department)}">${dl('dlpDept','department')}</div></div>
     <label>السكن</label>
