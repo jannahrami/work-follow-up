@@ -155,6 +155,11 @@ h2 small{font-size:12px;color:var(--muted);font-weight:700}
 .feed .fb .meta{margin-top:3px}
 .dchip{flex:none;font-size:12px;font-weight:800;padding:5px 9px;border-radius:999px;white-space:nowrap}
 .dchip.late{background:var(--red-soft);color:var(--red)} .dchip.near{background:var(--amber-soft);color:var(--amber)} .dchip.far{background:var(--gray-soft);color:var(--muted)}
+.fcard{padding:10px 12px}.fcard .feed{cursor:pointer}
+.fr{display:flex;flex-direction:column;gap:4px;align-items:flex-end;flex:none}
+.facts{display:flex;gap:8px;margin-top:9px;padding-top:9px;border-top:1px dashed var(--line)}
+.fbt{flex:1;border:1px solid var(--line);background:var(--card);border-radius:10px;padding:7px 10px;font-weight:700;font-size:13px;cursor:pointer;color:var(--ink)}
+.fbt.ok{background:var(--green-soft);border-color:transparent;color:var(--green)}
 .more{background:none;border:0;color:var(--teal,#0f766e);font-weight:800;padding:8px 4px;cursor:pointer;font-family:inherit}
 .hello{font-size:15px;color:var(--muted);font-weight:700;margin:6px 2px 12px}
 .tiles{display:grid;grid-template-columns:1fr;gap:12px}
@@ -244,6 +249,7 @@ h2 small{font-size:12px;color:var(--muted);font-weight:700}
         <div class="list" id="dNow"></div>
         <h2>🗓️ خلال 30 يوم <small id="dSoonN"></small></h2>
         <div class="list" id="dSoon"></div>
+        <div class="list" id="dHid" style="margin-top:6px"></div>
       </div>
       <div id="home-secs" class="hidden"><div class="tiles" id="tiles"></div></div>
     </div>
@@ -539,7 +545,7 @@ const AUTHORITIES = ['بلدي','أمانة الرياض','هيئة النقل',
 const TSTATUS = {new:'جديدة',in_progress:'قيد الإجراء',waiting:'بانتظار رد',done:'منتهية'};
 const PRIO = {low:'منخفضة',normal:'عادية',high:'مهمة',urgent:'عاجلة'};
 
-let state = { viol:[], vupd:[], topics:[], tupd:[], health:[], hupd:[], bal:[], bupd:[], hunits:[], hpeople:[], hsupd:[], leases:[], lupd:[], section:'home', sub:{home:'kpi', viol:'dash', health:'dash', bal:'dash', house:'dash', lease:'dash'} };
+let state = { viol:[], vupd:[], topics:[], tupd:[], health:[], hupd:[], bal:[], bupd:[], hunits:[], hpeople:[], hsupd:[], leases:[], lupd:[], fu:{}, section:'home', sub:{home:'kpi', viol:'dash', health:'dash', bal:'dash', house:'dash', lease:'dash'} };
 
 // ===== HELPERS =====
 const $ = s => document.querySelector(s);
@@ -602,7 +608,7 @@ async function enterApp(){
 
 // ===== DATA =====
 async function loadAll(){
-  const [v,vu,t,tu,h,hu,bl,bu,hn,hp,hs,ls,lu] = await Promise.all([
+  const [v,vu,t,tu,h,hu,bl,bu,hn,hp,hs,ls,lu,fu] = await Promise.all([
     sb.from('wf_violations').select('*').order('violation_date',{ascending:false,nullsFirst:false}).limit(5000),
     sb.from('wf_violation_updates').select('*').order('created_at'),
     sb.from('wf_topics').select('*').order('created_at',{ascending:false}),
@@ -615,10 +621,11 @@ async function loadAll(){
     sb.from('wf_housing_people').select('*').order('accommodation').order('name').limit(5000),
     sb.from('wf_housing_updates').select('*').order('created_at'),
     sb.from('wf_leases').select('*').order('end_date',{nullsFirst:false}),
-    sb.from('wf_lease_updates').select('*').order('created_at')
+    sb.from('wf_lease_updates').select('*').order('created_at'),
+    sb.from('wf_followups').select('*')
   ]);
-  for(const r of [v,vu,t,tu,h,hu,bl,bu,hn,hp,hs,ls,lu]) if(r.error) return fail(r.error);
-  state.viol=v.data; state.vupd=vu.data; state.topics=t.data; state.tupd=tu.data; state.health=h.data; state.hupd=hu.data; state.bal=bl.data; state.bupd=bu.data; state.hunits=hn.data; state.hpeople=hp.data; state.hsupd=hs.data; state.leases=ls.data; state.lupd=lu.data;
+  for(const r of [v,vu,t,tu,h,hu,bl,bu,hn,hp,hs,ls,lu,fu]) if(r.error) return fail(r.error);
+  state.viol=v.data; state.vupd=vu.data; state.topics=t.data; state.tupd=tu.data; state.health=h.data; state.hupd=hu.data; state.bal=bl.data; state.bupd=bu.data; state.hunits=hn.data; state.hpeople=hp.data; state.hsupd=hs.data; state.leases=ls.data; state.lupd=lu.data; state.fu=Object.fromEntries(fu.data.map(r=>[r.item_key,r]));
   fillFilters(); fillHealthFilters(); fillBalFilters(); fillHousingFilters(); fillLeaseFilters(); render(); applyRoute();
 }
 function fillFilters(){
@@ -754,7 +761,7 @@ function applyRoute(){
   const nav = $('#subnav'), tabs = SUBTABS[section];
   if(tabs){
     nav.classList.remove('hidden');
-    nav.innerHTML = tabs.map(([k,l])=>`<button class="${state.sub[section]===k?'active':''}" onclick="${section==='home'?'':k==='list'?({health:'clearHealthFilters();',viol:'clearViolFilters();',bal:'clearBalFilters();',lease:'clearLeaseFilters();'}[section]||''):k==='people'?'clearPeopleFilters();':''}go('${section}','${k}')">${l}${section==='home'&&k==='todo'?(()=>{const n=dashItems().filter(x=>x.d<=7).length;return n?` <span class="tabn">${n}</span>`:''})():''}</button>`).join('');
+    nav.innerHTML = tabs.map(([k,l])=>`<button class="${state.sub[section]===k?'active':''}" onclick="${section==='home'?'':k==='list'?({health:'clearHealthFilters();',viol:'clearViolFilters();',bal:'clearBalFilters();',lease:'clearLeaseFilters();'}[section]||''):k==='people'?'clearPeopleFilters();':''}go('${section}','${k}')">${l}${section==='home'&&k==='todo'?(()=>{const n=dashVisible().filter(x=>x.d<=7).length;return n?` <span class="tabn">${n}</span>`:''})():''}</button>`).join('');
     tabs.forEach(([k])=>$(`#${section}-${k}`).classList.toggle('hidden', state.sub[section]!==k));
   } else { nav.classList.add('hidden'); nav.innerHTML=''; }
   $('#fab').classList.toggle('hidden', false);
@@ -793,38 +800,84 @@ function renderTiles(){
 
 
 // ===== MAIN DASHBOARD =====
-let dashAll = {now:false, soon:false};
+let dashAll = {now:false, soon:false, hid:false};
 function dChip(d){ if(d==null) return ''; return d<0 ? `<span class="dchip late">متأخر ${-d} يوم</span>` : d===0 ? `<span class="dchip late">اليوم</span>` : d<=7 ? `<span class="dchip near">باقي ${d} يوم</span>` : `<span class="dchip far">باقي ${d} يوم</span>`; }
 const SEC_IC = { lease:['📄','var(--blue-soft)'], house:['🏠','var(--purple-soft, #ede9fe)'], viol:['🚨','var(--red-soft)'], bal:['🪪','var(--amber-soft)'], health:['🩺','var(--green-soft)'], topics:['📋','var(--blue-soft)'] };
+let dashCache = [];
 function dashItems(){
-  const it = [], add = (sec, d, title, sub, click) => it.push({sec, d, title, sub, click});
+  const it = [];
+  // add(sec, d, title, sub, click, key, src[table,col,id], impact)
+  const add = (sec, d, title, sub, click, key, src, impact=0) => {
+    const urg = d<0?3 : d<=7?2 : d<=14?1 : 0, score = urg + impact;
+    it.push({sec, d, title, sub, click, key, src, score, pl: score>=4?'high':score>=2?'mid':'low', fu: state.fu[key]||null});
+  };
+  const res = code => state.hpeople.filter(p=>p.accommodation===code).length;
+  const resImpact = n => n>=40?2 : n>=10?1 : 0;
   // leases (source of truth for contracts)
-  state.leases.forEach(l=>{ const s=lState(l); if(!['expired','soon'].includes(s)) return; const u=lHouse(l);
-    add('lease', daysTo(l.end_date), `عقد إيجار: ${esc(l.branch)}`, `${esc(l.kind)} • ${esc(l.tenant)}${u?` • 👥 ${state.hpeople.filter(p=>p.accommodation===u.code).length} ساكن`:''}${l.status==='renewing'?' • <b>جاري التجديد</b>':''}${l.file_notes||l.notes?` • 📝 ${esc(l.notes||l.file_notes)}`:''}`, `openLease('${l.id}')`); });
+  state.leases.forEach(l=>{ const s=lState(l); if(!['expired','soon'].includes(s)) return; const u=lHouse(l), n=u?res(u.code):0;
+    add('lease', daysTo(l.end_date), `عقد إيجار: ${esc(l.branch)}`, `${esc(l.kind)} • ${esc(l.tenant)}${u?` • 👥 ${n} ساكن`:''}${l.status==='renewing'?' • <b>جاري التجديد</b>':''}${l.file_notes||l.notes?` • 📝 ${esc(l.notes||l.file_notes)}`:''}`, `openLease('${l.id}')`, `lease:${l.id}:${l.end_date}`, ['wf_lease_updates','lease_id',l.id], resImpact(n)); });
   // housing contracts not covered by the lease list
-  state.hunits.forEach(u=>{ const s=cState(u); if(!['expired','soon'].includes(s) || lUnit(u)) return;
-    add('house', daysTo(u.end_date), `عقد سكن: <span dir="ltr">${esc(u.code)}</span>`, `${esc(u.city)} • 👥 ${state.hpeople.filter(p=>p.accommodation===u.code).length} ساكن`, `openContract('${u.id}')`); });
-  // violations: objection deadlines
-  state.viol.filter(v=>['due','objection_prep'].includes(v.status) && v.objection_deadline).forEach(v=>{ const d=daysTo(v.objection_deadline); if(d<-14||d>30) return;
-    add('viol', d, `آخر موعد اعتراض: ${esc(v.authority)}`, `${esc(v.branch||v.company)} • ${money(v.amount)}`, `openViol('${v.id}')`); });
-  // baladiya: individual cards expiring within 30 days (expired ones are grouped below)
-  state.bal.map(bInfo).filter(i=>i.d!=null && i.d>=0 && i.d<=30).forEach(i=>add('bal', i.d, `بطاقة بلدية: ${esc(i.e.name)}`, `${esc(i.e.brand||'')} ${esc(i.e.location||'')}`, `openBal('${i.e.id}')`));
+  state.hunits.forEach(u=>{ const s=cState(u); if(!['expired','soon'].includes(s) || lUnit(u)) return; const n=res(u.code);
+    add('house', daysTo(u.end_date), `عقد سكن: <span dir="ltr">${esc(u.code)}</span>`, `${esc(u.city)} • 👥 ${n} ساكن`, `openContract('${u.id}')`, `house:${u.id}:${u.end_date}`, ['wf_housing_updates','unit_id',u.id], resImpact(n)); });
+  // violations: objection deadlines (bigger amounts weigh more)
+  state.viol.filter(v=>['due','objection_prep'].includes(v.status) && v.objection_deadline).forEach(v=>{ const d=daysTo(v.objection_deadline); if(d<-14||d>30) return; const a=Number(v.amount||0);
+    add('viol', d, `آخر موعد اعتراض: ${esc(v.authority)}`, `${esc(v.branch||v.company)} • ${money(v.amount)}`, `openViol('${v.id}')`, `viol:${v.id}:${v.objection_deadline}`, ['wf_violation_updates','violation_id',v.id], a>=20000?2:a>=5000?1:0); });
+  // baladiya: cards / iqama / training expiring within 30 days (expired ones are grouped separately)
+  state.bal.map(bInfo).forEach(i=>{ const e=i.e, sub=`${esc(e.brand||'')} ${esc(e.location||'')}`, src=['wf_baladiya_updates','card_id',e.id], click=`openBal('${e.id}')`;
+    if(i.d!=null && i.d>=0 && i.d<=30) add('bal', i.d, `بطاقة بلدية: ${esc(e.name)}`, sub, click, `bal:${e.id}:card:${e.card_expiry}`, src);
+    if(i.iqd!=null && i.iqd>=0 && i.iqd<=30) add('bal', i.iqd, `إقامة: ${esc(e.name)}`, sub, click, `bal:${e.id}:iq:${e.iqama_expiry}`, src, 1);
+    if(i.td!=null && i.td>=0 && i.td<=30) add('bal', i.td, `تثقيف صحي: ${esc(e.name)}`, sub, click, `bal:${e.id}:tr:${e.training_expiry}`, src); });
   // topics
   state.topics.filter(t=>t.status!=='done' && t.due_date).forEach(t=>{ const d=daysTo(t.due_date); if(d>30) return;
-    add('topics', d, `معاملة: ${esc(t.title)}`, esc(t.category||t.party||''), `openTopic('${t.id}')`); });
-  return it.sort((a,b)=>a.d-b.d);
+    add('topics', d, `معاملة: ${esc(t.title)}`, esc(t.category||t.party||''), `openTopic('${t.id}')`, `topics:${t.id}:${t.due_date}`, ['wf_topic_updates','topic_id',t.id], t.priority==='high'?1:0); });
+  return it.sort((a,b)=>b.score-a.score || a.d-b.d);
 }
-function feedRow(x){ const [ic,bg]=SEC_IC[x.sec]; return `<div class="item feed" onclick="${x.click}"><div class="fi" style="background:${bg}">${ic}</div><div class="fb"><h3>${x.title}</h3><div class="meta"><span>${x.sub}</span></div></div>${dChip(x.d)}</div>`; }
+const fuHidden = x => !!x.fu && (x.fu.status==='done' || (x.fu.status==='snoozed' && x.fu.until && x.fu.until>today()));
+const dashVisible = () => dashItems().filter(x=>!fuHidden(x));
+function feedRow(x){ const [ic,bg]=SEC_IC[x.sec], i=dashCache.indexOf(x);
+  return `<div class="item fcard"><div class="feed" onclick="${x.click}"><div class="fi" style="background:${bg}">${ic}</div><div class="fb"><h3>${x.title}</h3><div class="meta"><span>${x.sub}</span></div></div><div class="fr">${dChip(x.d)}${x.pl==='high'?`<span class="dchip late pr">🔥 عالية</span>`:''}</div></div>
+    <div class="facts"><button class="fbt ok" onclick="fuDone(${i})">✓ تم</button><button class="fbt" onclick="fuSnooze(${i})">⏰ تأجيل</button></div></div>`; }
+function hiddenRow(x){ const [ic,bg]=SEC_IC[x.sec], i=dashCache.indexOf(x);
+  return `<div class="item fcard"><div class="feed" onclick="${x.click}"><div class="fi" style="background:${bg}">${ic}</div><div class="fb"><h3>${x.title}</h3><div class="meta"><span>${x.fu.status==='done'?'✓ تمت المتابعة':'⏰ مؤجل حتى '+fmtDate(x.fu.until)}${x.fu.note?` • 📝 ${esc(x.fu.note)}`:''}</span></div></div><div class="fr">${dChip(x.d)}</div></div>
+    <div class="facts"><button class="fbt" onclick="fuRestore(${i})">↩ إرجاع للقائمة</button></div></div>`; }
+async function fuSave(x, status, until, note){
+  const row={item_key:x.key, status, until:until||null, note:note||'', section:x.sec, title:plain(x.title)};
+  let { error } = await sb.from('wf_followups').upsert(row,{onConflict:'item_key'}); if(error) return fail(error);
+  if(x.src){ const body = status==='done' ? `✓ تمت المتابعة (من لوحة المتابعة)${note?': '+note:''}` : `⏰ تأجيل حتى ${until}${note?': '+note:''}`;
+    ({ error } = await sb.from(x.src[0]).insert({[x.src[1]]:x.src[2], body})); if(error) return fail(error); }
+  closeModal(); toast(status==='done'?'تم ✅':'تم التأجيل'); await loadAll();
+}
+function fuDone(i){ const x=dashCache[i]; if(!x) return;
+  modal(head('✓ تمت المتابعة')+`<div class="item" style="cursor:default"><h3>${x.title}</h3><div class="meta"><span>${x.sub}</span></div></div>
+    <label>وش صار؟ (اختياري — ينحفظ في سجل العنصر)</label><textarea class="field" id="fuNote" placeholder="مثلاً: تم التواصل مع المالك وبيجدد" style="min-height:70px"></textarea>
+    <div class="warn" style="background:var(--gray-soft);color:#334155">يختفي من القائمة. لو تغيّر التاريخ (تجديد) يرجع يظهر لحاله عند اقتراب التاريخ الجديد.</div>
+    <div class="actions"><button class="btn btn-primary" id="fuGo">حفظ وإخفاء</button><button class="btn btn-ghost" onclick="closeModal()">إلغاء</button></div>`);
+  $('#fuGo').onclick=()=>fuSave(x,'done',null,$('#fuNote').value.trim()); }
+function fuSnooze(i){ const x=dashCache[i]; if(!x) return;
+  const plus=n=>{ const d=new Date(); d.setDate(d.getDate()+n); return d.toLocaleDateString('en-CA'); };
+  modal(head('⏰ تأجيل')+`<div class="item" style="cursor:default"><h3>${x.title}</h3><div class="meta"><span>${x.sub}</span></div></div>
+    <label>ذكّرني بعد</label><div class="actions" style="flex-wrap:wrap">${[[1,'غداً'],[3,'3 أيام'],[7,'أسبوع'],[14,'أسبوعين'],[30,'شهر']].map(([n,l])=>`<button class="btn btn-ghost" onclick="$('#fuUntil').value='${plus(n)}'">${l}</button>`).join('')}</div>
+    <label>أو اختر تاريخ</label><input class="field" type="date" id="fuUntil" min="${plus(1)}" value="${plus(3)}">
+    <label>ملاحظة (اختياري)</label><textarea class="field" id="fuNote" placeholder="مثلاً: بانتظار رد المالك" style="min-height:60px"></textarea>
+    <div class="actions"><button class="btn btn-primary" id="fuGo">تأجيل</button><button class="btn btn-ghost" onclick="closeModal()">إلغاء</button></div>`);
+  $('#fuGo').onclick=()=>{ const u=$('#fuUntil').value; if(!u || u<=today()) return toast('اختر تاريخ بعد اليوم'); fuSave(x,'snoozed',u,$('#fuNote').value.trim()); }; }
+async function fuRestore(i){ const x=dashCache[i]; if(!x) return;
+  const { error } = await sb.from('wf_followups').delete().eq('item_key',x.key); if(error) return fail(error);
+  if(x.src) await sb.from(x.src[0]).insert({[x.src[1]]:x.src[2], body:'↩ رجع للمتابعة (من لوحة المتابعة)'});
+  toast('رجع للقائمة'); await loadAll(); }
 function groupRow(sec, title, n, sub, click){ const [ic,bg]=SEC_IC[sec]; return `<div class="item feed" onclick="${click}"><div class="fi" style="background:${bg}">${ic}</div><div class="fb"><h3>${title}</h3>${sub?`<div class="meta"><span>${sub}</span></div>`:''}</div><span class="dchip late num">${n}</span></div>`; }
 function renderHomeDash(){
   $('#dDate').textContent = new Date().toLocaleDateString('ar-SA-u-ca-gregory-nu-latn',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
   const X=homeCtx(), {bExp,bNone,hFail,pNone}=X;
   $('#dKpis').innerHTML = homeKpis(X).map(k=>`<div class="kpi" style="--k:${IC_CSS(k.color)}" onclick="${k.click}"><div class="t">${k.ic} ${k.t}</div><b class="num">${k.v}</b><em>${k.em}</em></div>`).join('');
   renderIndicators();
-  const items=dashItems(), now=items.filter(x=>x.d<=7), soon=items.filter(x=>x.d>7 && x.d<=30);
+  dashCache = dashItems(); const items=dashCache.filter(x=>!fuHidden(x)), hid=dashCache.filter(fuHidden), now=items.filter(x=>x.d<=7), soon=items.filter(x=>x.d>7 && x.d<=30);
+  const iqExp=X.BI.filter(i=>i.iqState==='expired').length, trExp=X.BI.filter(i=>i.tState==='expired').length;
   const groups = [
     bExp.length && groupRow('bal', 'بطاقات بلدية منتهية', bExp.length, `${bNone.length} موظف بدون بطاقة`, "goBal('expired')"),
     hFail.length && groupRow('health', 'كروت صحية: راسبين لازم يعيدون الاختبار', hFail.length, '', "goHealth('failed')"),
+    iqExp && groupRow('bal', 'إقامات منتهية', iqExp, 'للموظفين في البطاقات البلدية', "goBal('iq')"),
+    trExp && groupRow('bal', 'تثقيف صحي منتهي', trExp, '', "goBal('train')"),
     pNone.length && groupRow('house', 'موظفين بدون سكن', pNone.length, '', "goPeople({Acc:'__none'})"),
   ].filter(Boolean);
   const N=8, cut=(arr,key)=>{ const all=dashAll[key]; return arr.slice(0, all?arr.length:N).map(feedRow).join('') + (arr.length>N ? `<button class="more" onclick="dashAll.${key}=!dashAll.${key};renderHomeDash()">${all?'عرض أقل ▲':`عرض الكل (${arr.length}) ▼`}</button>` : ''); };
@@ -832,6 +885,7 @@ function renderHomeDash(){
   $('#dNow').innerHTML = (cut(now,'now') + groups.join('')) || empty('ما فيه شي مستعجل 👌');
   $('#dSoonN').textContent = soon.length ? `(${soon.length})` : '';
   $('#dSoon').innerHTML = cut(soon,'soon') || empty('ما فيه مواعيد خلال 30 يوم');
+  $('#dHid').innerHTML = hid.length ? `<button class="more" onclick="dashAll.hid=!dashAll.hid;renderHomeDash()">${dashAll.hid?'إخفاء ▲':`✓ المخفية والمؤجلة (${hid.length}) ▼`}</button>` + (dashAll.hid ? hid.map(hiddenRow).join('') : '') : '';
 }
 
 // ===== INDICATORS (KPIs + charts + Excel) =====
@@ -951,15 +1005,16 @@ async function buildIndicatorsWorkbook(){
   [34,16,40,10,44].forEach((w,i)=>ws.getColumn(i+1).width=w);
   ws.pageSetup={orientation:'portrait',fitToPage:true,fitToWidth:1,fitToHeight:0,paperSize:9};
   // follow-up list
-  const it=dashItems(), sc={lease:'عقود الإيجار',house:'السكنات',viol:'المخالفات',bal:'البطاقات البلدية',topics:'المعاملات'};
+  const it=dashVisible(), sc={lease:'عقود الإيجار',house:'السكنات',viol:'المخالفات',bal:'البطاقات البلدية',topics:'المعاملات'};
   const ws2=wb.addWorksheet('يحتاج متابعة',{views:[{rightToLeft:true,state:'frozen',ySplit:3}],properties:{tabColor:{argb:'FFDC2626'}}});
-  sheetTitle(ws2,'يحتاج متابعة (متأخر أو خلال 30 يوم)',`${stamp} — ${it.length} بند`,5);
+  sheetTitle(ws2,'يحتاج متابعة (متأخر أو خلال 30 يوم)',`${stamp} — ${it.length} بند`,6);
   writeTable(ws2,3,[
     {h:'القسم', w:18, get:x=>sc[x.sec]||x.sec, type:'code'},
     {h:'البند', w:44, get:x=>plain(x.title), style:(x,c2)=>{c2.font={name:FONT,size:10,bold:true};}, wrap:true},
     {h:'التفاصيل', w:50, get:x=>plain(x.sub), wrap:true},
     {h:'الأيام', w:10, get:x=>x.d, type:'num', style:(x,c2)=>{ if(x.d<0){c2.fill=fill(C.redSoft);c2.font={name:FONT,size:10,bold:true,color:{argb:C.red}};} else if(x.d<=7){c2.fill=fill(C.amberSoft);c2.font={name:FONT,size:10,bold:true,color:{argb:C.amber}};} }},
     {h:'الحالة', w:16, get:x=>x.d<0?`متأخر ${-x.d} يوم`:x.d===0?'اليوم':`باقي ${x.d} يوم`, type:'code'},
+    {h:'الأولوية', w:12, get:x=>x.pl==='high'?'عالية':x.pl==='mid'?'متوسطة':'عادية', type:'code', style:(x,c2)=>{ if(x.pl==='high'){c2.fill=fill(C.redSoft);c2.font={name:FONT,size:10,bold:true,color:{argb:C.red}};} }},
   ],it,false);
   ws2.pageSetup={orientation:'landscape',fitToPage:true,fitToWidth:1,fitToHeight:0,paperSize:9};
   return wb;
