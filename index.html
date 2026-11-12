@@ -1072,7 +1072,7 @@ document.addEventListener('focusout',e=>{ const el=e.target; if(el.tagName==='IN
 const BRANDS = {
   sayakh:{name:'سياخ', bal:'SAYA5', health:'SAYA5', people:'SAYA5', kw:'سياخ'},
   chefs: {name:'شيفز', bal:'Chefs',  health:'Chefs',  people:'Chefs', kw:'شيفز'},
-  jazzar:{name:'جزار', bal:'Jazzar', health:'Jazzar', people:'Jazar', kw:'جزار'},
+  jazzar:{name:'جزار', bal:'Jazzar', health:'Jazzar', people:'Jazzar', kw:'جزار'},
 };
 function openBrand(k){
   const B=BRANDS[k], img=document.querySelector(`.bchip[data-b="${k}"] img`).src;
@@ -1701,7 +1701,7 @@ function hIqama(v){
   const s = typeof v==='number' ? String(Math.round(v)) : clean(v).replace(/\s/g,'');
   return /^\d{6,}$/.test(s) ? s : '';
 }
-function brandNorm(s){ s=String(s||''); return ['sayakh','saya5','سياخ','سيّاخ'].includes(s.trim().toLowerCase()) ? 'SAYA5' : s; }
+function brandNorm(s){ s=String(s||''); const k=s.trim().toLowerCase(); if(['sayakh','saya5','سياخ','سيّاخ'].includes(k)) return 'SAYA5'; if(['jazzar','jazar','جزار'].includes(k)) return 'Jazzar'; if(k==='ck') return 'CK'; return s; }
 function titleCase(s){ return s.replace(/\b([a-z])/g, m=>m.toUpperCase()); }
 function hKey(r){ return (r.iqama||'') + '|' + hNorm(r.name).replace(/[^a-z؀-ۿ0-9]/g,''); }
 function parseHealthWorkbook(wb){
