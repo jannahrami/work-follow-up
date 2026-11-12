@@ -3379,5 +3379,61 @@ $('#leaseExportListBtn').onclick = e => withBusy(e.currentTarget, async()=>{ con
 document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeModal(); });
 init();
 </script>
+<style>
+.agfab{position:fixed;bottom:max(20px,env(safe-area-inset-bottom));right:20px;width:54px;height:54px;border-radius:50%;background:var(--brand);color:#fff;border:0;font-size:24px;box-shadow:0 8px 20px rgba(15,118,110,.35);cursor:pointer;z-index:30}
+.agp{position:fixed;bottom:0;right:0;left:0;top:12%;background:#fff;z-index:40;display:flex;flex-direction:column;border-radius:18px 18px 0 0;box-shadow:0 -8px 30px rgba(0,0,0,.2)}
+.agp.hidden,.agfab.hidden{display:none}
+@media(min-width:700px){.agp{left:auto;width:420px;top:auto;height:620px;bottom:20px;right:20px;border-radius:18px}}
+.agh{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid #e5e7eb;font-weight:800}
+.agh button{background:none;border:0;font-size:20px;cursor:pointer}
+.agm{flex:1;overflow:auto;padding:12px;display:flex;flex-direction:column;gap:8px}
+.agb{max-width:88%;padding:9px 12px;border-radius:14px;white-space:pre-wrap;line-height:1.7;font-size:14.5px}
+.agb.u{align-self:flex-start;background:var(--brand);color:#fff}
+.agb.a{align-self:flex-end;background:#f1f5f9}
+.agq{display:flex;flex-wrap:wrap;gap:6px}
+.agq button{border:1px solid #cbd5e1;background:#fff;border-radius:99px;padding:6px 11px;font-size:13px;cursor:pointer;font-family:inherit}
+.agf{display:flex;gap:8px;padding:10px;border-top:1px solid #e5e7eb}
+.agf input{flex:1;border:1px solid #cbd5e1;border-radius:10px;padding:10px;font-size:16px;font-family:inherit}
+.agf button{background:var(--brand);color:#fff;border:0;border-radius:10px;padding:0 16px;font-weight:800;cursor:pointer;font-family:inherit}
+</style>
+<button class="agfab hidden" id="agFab" aria-label="وكيل الأعمال">💬</button>
+<div class="agp hidden" id="agPanel">
+  <div class="agh"><span>🤖 وكيل الأعمال</span><button id="agClose" aria-label="إغلاق">✕</button></div>
+  <div class="agm" id="agMsgs"></div>
+  <form class="agf" id="agForm"><input id="agIn" placeholder="اسأل عن بياناتك…" autocomplete="off"><button>إرسال</button></form>
+</div>
+<script>
+(function(){
+  const fab=document.getElementById('agFab'),panel=document.getElementById('agPanel'),box=document.getElementById('agMsgs'),inp=document.getElementById('agIn');
+  let hist=[],busy=false;
+  const add=(t,c)=>{const d=document.createElement('div');d.className='agb '+c;d.textContent=t;box.appendChild(d);box.scrollTop=box.scrollHeight;return d};
+  const SUG=['كم مخالفة مفتوحة وكم مبلغها؟','أي بطاقات بلدية تنتهي خلال 60 يوماً؟','أي عقود سكن أو إيجار قريبة الانتهاء؟','كم ساكن بدون سكن؟'];
+  function welcome(){
+    add('أهلاً! أنا وكيل الأعمال. أجيب من بياناتك الحية (قراءة فقط). جرّب:','a');
+    const q=document.createElement('div');q.className='agq';
+    SUG.forEach(s=>{const b=document.createElement('button');b.type='button';b.textContent=s;b.onclick=()=>{q.remove();send(s)};q.appendChild(b)});
+    box.appendChild(q);
+  }
+  async function send(text){
+    if(busy||!text.trim())return; busy=true;
+    add(text,'u'); hist.push({role:'user',content:text});
+    const w=add('… أبحث في البيانات','a');
+    try{
+      const {data,error}=await sb.functions.invoke('wf-agent',{body:{messages:hist}});
+      if(error) throw error;
+      if(data&&data.error==='not_configured') w.textContent='الوكيل غير مفعّل بعد: يجب إضافة مفتاح ANTHROPIC_API_KEY في Supabase (Edge Functions → Secrets).';
+      else if(data&&data.reply){ w.textContent=data.reply; hist.push({role:'assistant',content:data.reply}); }
+      else w.textContent='تعذّر الحصول على جواب'+(data&&data.error?' ('+data.error+')':'');
+    }catch(e){ w.textContent='حدث خطأ في الاتصال بالوكيل، حاول مرة أخرى.'; }
+    busy=false; box.scrollTop=box.scrollHeight;
+  }
+  fab.onclick=()=>{panel.classList.remove('hidden');fab.classList.add('hidden');if(!box.children.length)welcome();inp.focus()};
+  document.getElementById('agClose').onclick=()=>{panel.classList.add('hidden');fab.classList.remove('hidden')};
+  document.getElementById('agForm').onsubmit=e=>{e.preventDefault();const t=inp.value;inp.value='';send(t)};
+  const app=document.getElementById('app');
+  const sync=()=>{const on=!app.classList.contains('hidden'); if(!on){panel.classList.add('hidden');fab.classList.add('hidden');hist=[];box.innerHTML=''} else if(panel.classList.contains('hidden')) fab.classList.remove('hidden')};
+  new MutationObserver(sync).observe(app,{attributes:true,attributeFilter:['class']}); sync();
+})();
+</script>
 </body>
 </html>
