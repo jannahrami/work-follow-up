@@ -561,6 +561,21 @@ const VSTATUS = {
 const OPEN = ['due','objection_prep','objection_pending','rejected'];
 const NATIONALITIES = ['Afghan', 'Albanian', 'Algerian', 'American', 'Angolan', 'Argentine', 'Armenian', 'Australian', 'Austrian', 'Azerbaijani', 'Bahraini', 'Bangladeshi', 'Belgian', 'Bengali', 'Beninese', 'Bosnian', 'Brazilian', 'British', 'Bulgarian', 'Burkinabe', 'Burmese', 'Burundian', 'Cambodian', 'Cameroonian', 'Canadian', 'Chadian', 'Chilean', 'Chinese', 'Colombian', 'Comorian', 'Congolese', 'Croatian', 'Cuban', 'Czech', 'Danish', 'Djiboutian', 'Dutch', 'Egyptian', 'Emirati', 'Eritrean', 'Estonian', 'Ethiopian', 'Filipino', 'Finnish', 'French', 'Gabonese', 'Gambian', 'Georgian', 'German', 'Ghanaian', 'Greek', 'Guinean', 'Hungarian', 'Indian', 'Indonesian', 'Iranian', 'Iraqi', 'Irish', 'Italian', 'Ivorian', 'Japanese', 'Jordanian', 'Kazakh', 'Kenyan', 'Korean', 'Kuwaiti', 'Kyrgyz', 'Lebanese', 'Liberian', 'Libyan', 'Malagasy', 'Malawian', 'Malaysian', 'Maldivian', 'Malian', 'Mauritanian', 'Mexican', 'Moroccan', 'Mozambican', 'Nepali', 'Nigerian', 'Nigerien', 'Norwegian', 'Omani', 'Pakistani', 'Palestinian', 'Polish', 'Portuguese', 'Qatari', 'Romanian', 'Russian', 'Rwandan', 'Saudi', 'Senegalese', 'Serbian', 'Sierra Leonean', 'Singaporean', 'Somali', 'South African', 'Spanish', 'Sri Lankan', 'Stateless', 'Sudanese', 'Swedish', 'Swiss', 'Syrian', 'Tajik', 'Tanzanian', 'Thai', 'Togolese', 'Tunisian', 'Turkish', 'Turkmen', 'Ugandan', 'Ukrainian', 'Uzbek', 'Venezuelan', 'Vietnamese', 'Yemeni', 'Zambian', 'Zimbabwean'];
 const SA_REGIONS = ['الرئيسية', 'الرياض', 'مكة المكرمة', 'المدينة المنورة', 'القصيم', 'المنطقة الشرقية', 'عسير', 'تبوك', 'حائل', 'الحدود الشمالية', 'جازان', 'نجران', 'الباحة', 'الجوف'];
+const SA_CITIES = {
+  'الرياض':['الرياض','الخرج','الدرعية','الدوادمي','المجمعة','الزلفي','وادي الدواسر','عفيف','شقراء','القويعية','الأفلاج','حوطة بني تميم','الحريق','السليل'],
+  'مكة المكرمة':['مكة المكرمة','جدة','الطائف','رابغ','القنفذة','الليث','خليص','الجموم','تربة','رنية','الخرمة'],
+  'المدينة المنورة':['المدينة المنورة','ينبع','العلا','بدر','خيبر','المهد','الحناكية','وادي الفرع'],
+  'القصيم':['بريدة','عنيزة','الرس','المذنب','البكيرية','البدائع','رياض الخبراء'],
+  'المنطقة الشرقية':['الدمام','الخبر','الظهران','الأحساء','الهفوف','المبرز','الجبيل','القطيف','حفر الباطن','الخفجي','رأس تنورة','بقيق','النعيرية','سيهات','صفوى'],
+  'عسير':['أبها','خميس مشيط','بيشة','النماص','محايل عسير','سراة عبيدة','أحد رفيدة','رجال ألمع','تثليث'],
+  'تبوك':['تبوك','الوجه','ضباء','تيماء','أملج','حقل','البدع'],
+  'حائل':['حائل','بقعاء','الغزالة','الشنان','الشملي','موقق'],
+  'الحدود الشمالية':['عرعر','رفحاء','طريف','العويقيلة'],
+  'جازان':['جازان','صبيا','أبو عريش','صامطة','بيش','الدرب','فرسان','أحد المسارحة'],
+  'نجران':['نجران','شرورة','حبونا','بدر الجنوب','يدمة','ثار'],
+  'الباحة':['الباحة','بلجرشي','المخواة','المندق','قلوة','العقيق'],
+  'الجوف':['سكاكا','دومة الجندل','القريات','طبرجل'],
+};
 const AUTHORITIES = ['بلدي','أمانة الرياض','هيئة النقل','وزارة التجارة','وزارة الموارد البشرية','هيئة الغذاء والدواء'];
 const TSTATUS = {new:'جديدة',in_progress:'قيد الإجراء',waiting:'بانتظار رد',done:'منتهية'};
 const PRIO = {low:'منخفضة',normal:'عادية',high:'مهمة',urgent:'عاجلة'};
@@ -1041,6 +1056,13 @@ async function buildIndicatorsWorkbook(){
 }
 $('#indExportBtn').onclick = e => withBusy(e.currentTarget, async()=>{ const wb=await buildIndicatorsWorkbook(); await downloadWorkbook(wb,`المؤشرات-${today()}.xlsx`); });
 
+// City list follows the chosen region (also all cities of the existing data)
+document.addEventListener('input',e=>{ if(e.target.id==='fhRegion') fillCityList(); });
+document.addEventListener('focusin',e=>{ if(e.target.id==='fhCity') fillCityList(); },true);
+function fillCityList(){ const dl=document.getElementById('dlCity'), r=document.getElementById('fhRegion'); if(!dl||!r) return;
+  const reg=(r.dataset.prev!==undefined && r.value==='') ? r.dataset.prev : r.value.trim();
+  const list = SA_CITIES[reg] || Object.values(SA_CITIES).flat();
+  dl.innerHTML = [...new Set(list)].map(c=>`<option value="${esc(c)}">`).join(''); }
 // Dropdown-with-typing fields: show the full list on focus (browsers filter a datalist by the current text), restore the text if left empty
 document.addEventListener('focusin',e=>{ const el=e.target; if(el.tagName==='INPUT' && el.getAttribute('list') && !el.readOnly){ el.dataset.prev=el.value; el.value=''; } });
 document.addEventListener('focusout',e=>{ const el=e.target; if(el.tagName==='INPUT' && el.getAttribute('list') && el.value==='' && el.dataset.prev!==undefined){ el.value=el.dataset.prev; } });
@@ -1874,7 +1896,7 @@ const H_FIELDS_LABELS = { medical_test:'الفحص الطبي', day1:'اليوم
 const RES = {'':'—', passed:'ناجح', failed:'راسب'};
 function openHealth(id){ openHealthForm(id); }
 function openHealthForm(id){
-  const e = state.health.find(x=>x.id===id) || {name:'',iqama:'',phone:'',nationality:'',brand:'',branch:'',group_no:'',region:'',cost_center:'',medical_test:'',training_until_hijri:'',day1:'',day2:'',exam_date:'',exam1:'',exam2:'',exam3:'',balady_request:'',card_status:'',notes:''};
+  const e = state.health.find(x=>x.id===id) || {name:'',iqama:'',phone:'',nationality:'',brand:'',branch:'',group_no:'',region:'',city:'',cost_center:'',medical_test:'',training_until_hijri:'',day1:'',day2:'',exam_date:'',exam1:'',exam2:'',exam3:'',balady_request:'',card_status:'',notes:''};
   const i = hInfo(e);
   const ups = id ? state.hupd.filter(u=>u.employee_id===id).slice().reverse() : [];
   const dl = (idn, f, extra=[]) => `<datalist id="${idn}">${[...new Set([...state.health.map(x=>x[f]), ...extra].filter(Boolean))].map(v=>`<option value="${esc(v)}">`).join('')}</datalist>`;
@@ -1894,6 +1916,7 @@ function openHealthForm(id){
       <div><label>المجموعة</label><input class="field" id="fhGroup" list="dlGroup" value="${esc(e.group_no)}">${dl('dlGroup','group_no')}</div>
       <div><label>الجنسية</label><input class="field" id="fhNat" list="dlNat" value="${esc(e.nationality)}">${dl('dlNat','nationality',NATIONALITIES)}</div>
       <div><label>المنطقة</label><input class="field" id="fhRegion" list="dlRegion" value="${esc(e.region)}" placeholder="الرئيسية">${dl('dlRegion','region',SA_REGIONS)}</div>
+      <div><label>المدينة</label><input class="field" id="fhCity" list="dlCity" value="${esc(e.city)}" placeholder="اختر المنطقة أولاً"><datalist id="dlCity"></datalist></div>
     </div>
     ${e.cost_center||e.region===RUH?`<label>مركز التكلفة</label><input class="field" id="fhCost" value="${esc(e.cost_center)}" dir="ltr">`:''}
 
@@ -1935,7 +1958,7 @@ async function saveHealth(id){
   const row = {
     name:$('#fhName').value.trim(), iqama:$('#fhIqama').value.replace(/\D/g,''), phone:$('#fhPhone').value.replace(/[^\d+]/g,''),
     brand:$('#fhBrand').value.trim(), branch:$('#fhBranch').value.trim(), group_no:$('#fhGroup').value.trim(),
-    nationality:$('#fhNat').value.trim(), region:$('#fhRegion').value.trim()==='الرئيسية'?'':$('#fhRegion').value.trim(),
+    nationality:$('#fhNat').value.trim(), city:$('#fhCity').value.trim(), region:$('#fhRegion').value.trim()==='الرئيسية'?'':$('#fhRegion').value.trim(),
     medical_test:keepOrDone($('#fhMed').checked, old.medical_test), day1:keepOrDone($('#fhD1').checked, old.day1),
     day2:keepOrDone($('#fhD2').checked, old.day2), exam_date:keepOrDone($('#fhExam').checked, old.exam_date),
     exam1:$('#fhR1').value, exam2:$('#fhR2').value, exam3:$('#fhR3').value,
@@ -2037,6 +2060,7 @@ const HCOLS = [
   {h:'العلامة', w:10, get:e=>e.brand, type:'code'},
   {h:'الفرع', w:13, get:e=>e.branch, type:'code'},
   {h:'المنطقة', w:10, get:e=>e.region||'الرئيسية', type:'code'},
+  {h:'المدينة', w:12, get:e=>e.city, type:'code'},
   {h:'مركز التكلفة', w:15, get:e=>e.cost_center, type:'code'},
   {h:'الفحص الطبي', w:11, get:e=>'', type:'code', style:(e,c)=>tick(!!e.medical_test,c)},
   {h:'اليوم 1', w:11, get:e=>dTxt(e.day1), type:'code'},
