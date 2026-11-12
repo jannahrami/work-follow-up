@@ -1039,6 +1039,9 @@ async function buildIndicatorsWorkbook(){
 }
 $('#indExportBtn').onclick = e => withBusy(e.currentTarget, async()=>{ const wb=await buildIndicatorsWorkbook(); await downloadWorkbook(wb,`المؤشرات-${today()}.xlsx`); });
 
+// Dropdown-with-typing fields: show the full list on focus (browsers filter a datalist by the current text), restore the text if left empty
+document.addEventListener('focusin',e=>{ const el=e.target; if(el.tagName==='INPUT' && el.getAttribute('list') && !el.readOnly){ el.dataset.prev=el.value; el.value=''; } });
+document.addEventListener('focusout',e=>{ const el=e.target; if(el.tagName==='INPUT' && el.getAttribute('list') && el.value==='' && el.dataset.prev!==undefined){ el.value=el.dataset.prev; } });
 // ===== BRAND BANNER =====
 const BRANDS = {
   sayakh:{name:'سياخ', bal:'Sayakh', health:'Sayakh', people:'SAYA5', kw:'سياخ'},
@@ -1145,7 +1148,7 @@ async function deleteVUpdate(uid,id){
 // ----- Violation add / full edit -----
 function openViolForm(id){
   const v = state.viol.find(x=>x.id===id) || {authority:'بلدي',company:'',cr_no:'',license_no:'',branch:'',violation_no:'',invoice_no:'',category:'',reason:'',violation_date:today(),objection_deadline:'',status:'due',amount:'',action:'',notes:''};
-  const comps = [...new Set(state.viol.map(x=>x.company).filter(Boolean))], branches=[...new Set(state.viol.map(x=>x.branch).filter(Boolean))];
+  const comps = [...new Set(state.viol.map(x=>x.company).filter(Boolean))], branches=[...new Set([...state.viol.map(x=>x.branch), ...state.health.map(x=>x.branch), ...state.leases.filter(l=>l.kind==='فرع').map(l=>l.branch)].filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ar'));
   const auths = [...new Set([...AUTHORITIES, ...state.viol.map(x=>x.authority)])];
   modal(head(id?'تعديل بيانات المخالفة':'مخالفة جديدة') + `
     <div class="grid2">
