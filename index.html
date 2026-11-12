@@ -2251,7 +2251,7 @@ $('#healthExportListBtn').onclick = e => withBusy(e.currentTarget, async()=>{
 
 
 // ===== BALADIYA CARDS: Excel parser =====
-const B_BRAND = { sayakh:'SAYA5', shefs:'Chefs', chefs:'Chefs', jazzar:'Jazzar' };
+const B_BRAND = { sayakh:'SAYA5', shefs:'Chefs', chefs:'Chefs', jazzar:'Jazzar', eater:'Eater' };
 const pad2 = n => String(n).padStart(2,'0');
 const isoD = (y,m,d) => { if(y<100) y+=2000; if(m<1||m>12||d<1||d>31||y<1990||y>2100) return null; const dt=new Date(Date.UTC(y,m-1,d)); return dt.getUTCMonth()===m-1 ? `${y}-${pad2(m)}-${pad2(d)}` : null; };
 // Excel (US locale) turned "dd/mm/yyyy" typed text into real dates with day & month swapped,
@@ -2307,7 +2307,8 @@ function parseBaladiyaWorkbook(wb){
     if(c.trEn>=0 && c.trHi===c.trEn) c.trHi=-1;
     if(c.trHi>=0 && /english/.test(H[c.trHi])) c.trHi=-1;
     const named = new Set(Object.values(c).filter(i=>i>=0));
-    const brand = B_BRAND[sheetName.trim().toLowerCase()] || brandNorm(titleCase(clean(sheetName)));
+    const sn = sheetName.trim().toLowerCase().replace(/[’']s?\b/g,'s'), snk = sn.replace(/\s*(restaurant|resturant)\s*$/,'').trim();
+    const brand = B_BRAND[sn] || B_BRAND[snk] || brandNorm(titleCase(clean(sheetName).replace(/\s*restaurant\s*$/i,'')));
     for(const r of aoa.slice(hi+1)){
       if(!r) continue;
       const g = i => i>=0 ? r[i] : null;
