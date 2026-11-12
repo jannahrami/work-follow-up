@@ -122,6 +122,23 @@ textarea.field{min-height:80px;resize:vertical;line-height:1.6}
 .dash-head h1{font-size:22px;margin:0}
 h2 small{font-size:12px;color:var(--muted);font-weight:700}
 .tabn{background:var(--red);color:#fff;border-radius:999px;font-size:11px;padding:1px 7px;margin-inline-start:4px}
+.charts{display:grid;grid-template-columns:1fr;gap:12px;margin-top:8px}
+@media(min-width:900px){.charts{grid-template-columns:repeat(2,1fr)}.chart.span2{grid-column:1/-1}}
+.chart{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px}
+.chart h3{margin:0;font-size:15px}.csub{font-size:12px;color:var(--muted);margin:2px 0 10px}
+.donut{display:flex;gap:12px;align-items:center}
+.dsvg{width:120px;height:120px;flex:none}.seg{cursor:pointer}.seg:hover{opacity:.8}
+.dc-n{font-size:20px;font-weight:800;fill:var(--ink)}.dc-l{font-size:9px;fill:var(--muted)}
+.lg{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
+.lg-r{display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer}
+.lg-r i{width:10px;height:10px;border-radius:3px;flex:none}.lg-t{flex:1;min-width:0}
+.lg-r small{color:var(--muted);min-width:44px;text-align:end}
+.hb{display:flex;flex-direction:column;gap:7px}
+.hb-r{display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12.5px}
+.hb-l{width:34%;flex:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;direction:ltr;text-align:right}
+.hb-t{flex:1;background:var(--gray-soft);border-radius:6px;height:14px;overflow:hidden}
+.hb-f{height:100%;border-radius:6px}.hb-v{min-width:44px;text-align:end;font-weight:700}
+.vsvg{width:100%;height:auto;max-height:230px}.vb-v{font-size:10px;font-weight:700;fill:var(--ink)}.vb-l{font-size:8.5px;fill:var(--muted)}
 .kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
 @media(min-width:760px){.kpis{grid-template-columns:repeat(3,1fr)}}
 @media(min-width:1100px){.kpis{grid-template-columns:repeat(6,1fr)}}
@@ -217,7 +234,11 @@ h2 small{font-size:12px;color:var(--muted);font-weight:700}
     <!-- ===== HOME: section tiles ===== -->
     <div id="sec-home">
       <div class="dash-head"><div><h1>الرئيسية</h1><div class="hello" id="dDate" style="margin:2px 0 0"></div></div></div>
-      <div id="home-kpi"><div class="kpis" id="dKpis"></div></div>
+      <div id="home-kpi">
+        <div class="kpis" id="dKpis"></div>
+        <div class="result-bar" style="margin-top:16px"><h2 style="margin:0">📊 الرسوم البيانية</h2><button class="btn btn-ghost btn-sm" id="indExportBtn">⬇ تصدير المؤشرات (Excel)</button></div>
+        <div class="charts" id="dCharts"></div>
+      </div>
       <div id="home-todo" class="hidden">
         <h2>🔴 يحتاج إجراء الآن <small id="dNowN"></small></h2>
         <div class="list" id="dNow"></div>
@@ -797,20 +818,9 @@ function feedRow(x){ const [ic,bg]=SEC_IC[x.sec]; return `<div class="item feed"
 function groupRow(sec, title, n, sub, click){ const [ic,bg]=SEC_IC[sec]; return `<div class="item feed" onclick="${click}"><div class="fi" style="background:${bg}">${ic}</div><div class="fb"><h3>${title}</h3>${sub?`<div class="meta"><span>${sub}</span></div>`:''}</div><span class="dchip late num">${n}</span></div>`; }
 function renderHomeDash(){
   $('#dDate').textContent = new Date().toLocaleDateString('ar-SA-u-ca-gregory-nu-latn',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
-  const L=state.leases, lDue=L.filter(l=>['expired','soon'].includes(lState(l))), lExp=L.filter(l=>lState(l)==='expired');
-  const V=state.viol, vDue=V.filter(v=>v.status==='due'||v.status==='rejected');
-  const BI=state.bal.map(bInfo), bExp=BI.filter(i=>i.state==='expired'), bSoon=BI.filter(i=>i.state==='soon'), bNone=BI.filter(i=>i.state==='none');
-  const P=state.hpeople, pNone=P.filter(p=>!p.accommodation);
-  const HM=state.health.filter(e=>e.active!==false).map(hInfo).filter(x=>x.e.region!=='الرياض'), hTodo=HM.filter(x=>x.cls!=='done'), hFail=HM.filter(x=>x.cls==='failed');
-  const T=state.topics.filter(t=>t.status!=='done'), tLate=T.filter(t=>t.due_date && t.due_date<today());
-  const k=(color,ic,t,v,em,click)=>`<div class="kpi" style="--k:${color}" onclick="${click}"><div class="t">${ic} ${t}</div><b class="num">${v}</b><em>${em}</em></div>`;
-  $('#dKpis').innerHTML =
-    k(lDue.length?'var(--red)':'var(--green)','📄','عقود تحتاج تجديد', lDue.length, `${lExp.length} منتهي • ${lDue.length-lExp.length} خلال 90 يوم`, "goLease('due')") +
-    k(vDue.length?'var(--red)':'var(--green)','🚨','مخالفات واجبة السداد', Number(sum(vDue)).toLocaleString('en-US'), `ر.س • ${vDue.length} مخالفة • ${V.filter(v=>OPEN.includes(v.status)).length} مفتوحة`, "goViol('dueish')") +
-    k(bExp.length?'var(--red)':'var(--green)','🪪','بطاقات بلدية منتهية', bExp.length, `${bSoon.length} قريبة • ${bNone.length} بدون بطاقة`, "goBal('expired')") +
-    k(pNone.length?'var(--amber)':'var(--green)','🏠','موظفين بدون سكن', pNone.length, `${P.length-pNone.length} ساكن في ${houseGroups().filter(g=>g.contracts.length).length} سكن`, "goPeople({Acc:'__none'})") +
-    k(hTodo.length?'var(--amber)':'var(--green)','🩺','كروت صحية ناقصة', hTodo.length, `${hFail.length} راسب • من ${HM.length}`, "goHealth('incomplete')") +
-    k(tLate.length?'var(--red)':'var(--blue)','📋','معاملات مفتوحة', T.length, tLate.length?`${tLate.length} متأخرة`:'كلها في وقتها', "go('topics')");
+  const X=homeCtx(), {bExp,bNone,hFail,pNone}=X;
+  $('#dKpis').innerHTML = homeKpis(X).map(k=>`<div class="kpi" style="--k:${IC_CSS(k.color)}" onclick="${k.click}"><div class="t">${k.ic} ${k.t}</div><b class="num">${k.v}</b><em>${k.em}</em></div>`).join('');
+  renderIndicators();
   const items=dashItems(), now=items.filter(x=>x.d<=7), soon=items.filter(x=>x.d>7 && x.d<=30);
   const groups = [
     bExp.length && groupRow('bal', 'بطاقات بلدية منتهية', bExp.length, `${bNone.length} موظف بدون بطاقة`, "goBal('expired')"),
@@ -823,6 +833,138 @@ function renderHomeDash(){
   $('#dSoonN').textContent = soon.length ? `(${soon.length})` : '';
   $('#dSoon').innerHTML = cut(soon,'soon') || empty('ما فيه مواعيد خلال 30 يوم');
 }
+
+// ===== INDICATORS (KPIs + charts + Excel) =====
+const IC_CSS = k => k==='teal' ? 'var(--brand)' : `var(--${k})`;
+const IC_ARGB = k => k==='teal' ? C.teal : C[k];
+function homeCtx(){
+  const L=state.leases, lDue=L.filter(l=>['expired','soon'].includes(lState(l))), lExp=L.filter(l=>lState(l)==='expired');
+  const V=state.viol, vDue=V.filter(v=>v.status==='due'||v.status==='rejected');
+  const BI=state.bal.map(bInfo), bExp=BI.filter(i=>i.state==='expired'), bSoon=BI.filter(i=>i.state==='soon'), bNone=BI.filter(i=>i.state==='none');
+  const P=state.hpeople, pNone=P.filter(p=>!p.accommodation);
+  const HM=state.health.filter(e=>e.active!==false).map(hInfo).filter(x=>x.e.region!=='الرياض'), hTodo=HM.filter(x=>x.cls!=='done'), hFail=HM.filter(x=>x.cls==='failed');
+  const T=state.topics.filter(t=>t.status!=='done'), tLate=T.filter(t=>t.due_date && t.due_date<today());
+  return {L,lDue,lExp,V,vDue,BI,bExp,bSoon,bNone,P,pNone,HM,hTodo,hFail,T,tLate};
+}
+function homeKpis(X){
+  const {lDue,lExp,V,vDue,bExp,bSoon,bNone,P,pNone,HM,hTodo,hFail,T,tLate}=X;
+  const nSak = houseGroups().filter(g=>g.contracts.length).length;
+  return [
+    {color:lDue.length?'red':'green', ic:'📄', t:'عقود تحتاج تجديد', v:lDue.length, num:lDue.length, em:`${lExp.length} منتهي • ${lDue.length-lExp.length} خلال 90 يوم`, click:"goLease('due')"},
+    {color:vDue.length?'red':'green', ic:'🚨', t:'مخالفات واجبة السداد (ر.س)', v:Number(sum(vDue)).toLocaleString('en-US'), num:sum(vDue), money:true, em:`${vDue.length} مخالفة • ${V.filter(v=>OPEN.includes(v.status)).length} مفتوحة`, click:"goViol('dueish')"},
+    {color:bExp.length?'red':'green', ic:'🪪', t:'بطاقات بلدية منتهية', v:bExp.length, num:bExp.length, em:`${bSoon.length} قريبة • ${bNone.length} بدون بطاقة`, click:"goBal('expired')"},
+    {color:pNone.length?'amber':'green', ic:'🏠', t:'موظفين بدون سكن', v:pNone.length, num:pNone.length, em:`${P.length-pNone.length} ساكن في ${nSak} سكن`, click:"goPeople({Acc:'__none'})"},
+    {color:hTodo.length?'amber':'green', ic:'🩺', t:'كروت صحية ناقصة', v:hTodo.length, num:hTodo.length, em:`${hFail.length} راسب • من ${HM.length}`, click:"goHealth('incomplete')"},
+    {color:tLate.length?'red':'blue', ic:'📋', t:'معاملات مفتوحة', v:T.length, num:T.length, em:tLate.length?`${tLate.length} متأخرة`:'كلها في وقتها', click:"go('topics')"},
+  ];
+}
+function indCharts(){
+  const X=homeCtx(), out=[];
+  // 1) contracts by expiry month (leases + housing contracts that are not in the lease list)
+  const dates=[]; state.leases.forEach(l=>{ if(l.status!=='closed' && l.end_date) dates.push(l.end_date); });
+  state.hunits.forEach(u=>{ if(u.end_date && !lUnit(u)) dates.push(u.end_date); });
+  const now=new Date(), bk=[{label:'منتهي', v:0, color:'red', key:'x'}];
+  for(let i=0;i<12;i++){ const dt=new Date(now.getFullYear(), now.getMonth()+i, 1); bk.push({label:`${dt.getMonth()+1}/${String(dt.getFullYear()).slice(2)}`, v:0, color:i<3?'amber':'teal', key:dt.getFullYear()+'-'+pad2(dt.getMonth()+1)}); }
+  let later=0; dates.forEach(d=>{ if(daysTo(d)<0) bk[0].v++; else { const b=bk.find(b=>b.key===d.slice(0,7)); if(b) b.v++; else later++; } });
+  out.push({id:'expiry', title:'العقود حسب شهر الانتهاء', sub:`عقود الإيجار + عقود السكن • ${dates.length} عقد${later?` • ${later} بعد 12 شهر`:''}`, type:'vbars', rows:bk, extra:later?[{label:'بعد 12 شهر', v:later, color:'gray'}]:[], span2:true});
+  // 2) violations by status (amount)
+  const VC={due:'red', rejected:'red', objection_prep:'amber', objection_pending:'purple', accepted:'green', paid:'gray'};
+  const VCL={due:"goViol('dueish')", rejected:"goViol('dueish')", objection_prep:"goViol('objection_prep')", objection_pending:"goViol('objection_pending')", accepted:"goViol('accepted')", paid:"goViol('paid')"};
+  const vr=Object.keys(VSTATUS).map(k=>{ const a=X.V.filter(v=>v.status===k); return {label:VSTATUS[k], v:sum(a), cnt:a.length, color:VC[k], click:VCL[k]}; });
+  out.push({id:'viol_status', title:'المخالفات حسب الحالة', sub:'المبلغ بالريال', type:'donut', money:true, rows:vr, center:{n:X.V.length, l:'مخالفة'}});
+  // 3) open violations by authority
+  const ar=[...new Set(X.V.map(v=>v.authority))].map(a=>{ const op=X.V.filter(v=>v.authority===a && OPEN.includes(v.status)); return {label:a, v:sum(op), cnt:op.length, color:'red', click:`goViol('open','${esc(a)}')`}; }).filter(r=>r.v>0).sort((a,b)=>b.v-a.v);
+  out.push({id:'viol_auth', title:'المخالفات المفتوحة حسب الجهة', sub:'المبلغ بالريال', type:'hbars', money:true, rows:ar});
+  // 4) baladiya cards
+  const BL=[['valid','green'],['soon','amber'],['expired','red'],['none','gray']];
+  out.push({id:'bal', title:'البطاقات البلدية', sub:`${X.BI.length} موظف`, type:'donut', rows:BL.map(([k,c])=>({label:BSTATE[k], v:X.BI.filter(i=>i.state===k).length, color:c, click:`goBal('${k}')`})), center:{n:X.BI.length, l:'موظف'}});
+  // 5) health cards (main list)
+  const HL=[['done','green','done'],['partial','amber','incomplete'],['training','blue','training'],['failed','red','failed'],['none','gray','none']];
+  out.push({id:'health', title:'الكروت الصحية', sub:`${X.HM.length} موظف (بدون الرياض)`, type:'donut', rows:HL.map(([k,c,f])=>({label:HSTAGE[k], v:X.HM.filter(x=>x.cls===k).length, color:c, click:`goHealth('${f}')`})), center:{n:X.HM.length, l:'موظف'}});
+  // 6) lease contracts status
+  const LL=[['valid','green'],['soon','amber'],['expired','red'],['closed','gray'],['none','gray']];
+  out.push({id:'lease', title:'حالة عقود الإيجار', sub:`${X.L.length} عقد`, type:'donut', rows:LL.map(([k,c])=>({label:L_LBL[k], v:X.L.filter(l=>lState(l)===k).length, color:c, click:`goLease('${k==='valid'||k==='closed'||k==='none'?'':k}')`})), center:{n:X.L.length, l:'عقد'}});
+  // 8) staff without housing per brand
+  const br={}; X.P.forEach(p=>{ const k=p.brand||'غير محدد'; (br[k] ||= {n:0,no:0}); br[k].n++; if(!p.accommodation) br[k].no++; });
+  out.push({id:'brand', title:'موظفين بدون سكن حسب العلامة', sub:'العدد من إجمالي موظفي العلامة', type:'hbars', rows:Object.entries(br).filter(([,x])=>x.no).sort((a,b)=>b[1].no-a[1].no).map(([k,x])=>({label:k, v:x.no, text:`${x.no} من ${x.n}`, color:'amber', click:`goPeople({Acc:'__none',Brand:'${k==='غير محدد'?'':esc(k)}'})`}))});
+  // 7) residents per accommodation
+  const hg=houseGroups().filter(g=>g.people.length).sort((a,b)=>b.people.length-a.people.length);
+  const hr=hg.map(g=>({label:g.code.replace(/^\d+\s*–\s*/,'').replace(/^ACC-/,''), full:g.code, v:g.people.length, color:g.st==='expired'||g.st==='nocontract'?'red':g.st==='soon'?'amber':'teal', click:`goPeople({Acc:'${esc(g.code)}'})`}));
+  if(X.pNone.length) hr.push({label:'بدون سكن', full:'بدون سكن', v:X.pNone.length, color:'gray', click:"goPeople({Acc:'__none'})"});
+  out.push({id:'house', title:'الساكنين حسب السكن', sub:'اللون = حالة العقد (أحمر منتهي • برتقالي قريب)', type:'hbars', rows:hr, span2:true});
+  return out;
+}
+const cFmt = (c,r) => c.money ? money(r.v) : String(r.v);
+function chartDonut(c){
+  const rows=c.rows.filter(r=>r.v>0), tot=rows.reduce((a,r)=>a+r.v,0); if(!tot) return empty('لا توجد بيانات');
+  const R=44, CI=2*Math.PI*R; let off=0;
+  const seg=rows.map(r=>{ const len=r.v/tot*CI; const e=`<circle cx="60" cy="60" r="${R}" fill="none" stroke-width="18" style="stroke:${IC_CSS(r.color)}" stroke-dasharray="${len.toFixed(2)} ${(CI-len).toFixed(2)}" stroke-dashoffset="${(-off).toFixed(2)}" transform="rotate(-90 60 60)" class="seg" onclick="${r.click||''}"/>`; off+=len; return e; }).join('');
+  const ctr=c.center||{n:tot,l:''};
+  return `<div class="donut"><svg viewBox="0 0 120 120" class="dsvg"><circle cx="60" cy="60" r="${R}" fill="none" stroke-width="18" style="stroke:var(--gray-soft)"/>${seg}<text x="60" y="62" text-anchor="middle" class="dc-n">${ctr.n}</text><text x="60" y="76" text-anchor="middle" class="dc-l">${ctr.l}</text></svg>
+    <div class="lg">${rows.map(r=>`<div class="lg-r" onclick="${r.click||''}"><i style="background:${IC_CSS(r.color)}"></i><span class="lg-t">${esc(r.label)}</span><b class="num">${c.money?`${r.cnt}`:r.v}</b>${c.money?`<small class="num">${Number(r.v).toLocaleString('en-US')}</small>`:`<small class="num">${Math.round(r.v/tot*100)}%</small>`}</div>`).join('')}</div></div>`;
+}
+function chartHBars(c){
+  if(!c.rows.length) return empty('لا توجد بيانات');
+  const max=Math.max(1,...c.rows.map(r=>r.v));
+  return `<div class="hb">${c.rows.map(r=>`<div class="hb-r" onclick="${r.click||''}"><div class="hb-l" title="${esc(r.full||r.label)}">${esc(r.label)}</div><div class="hb-t"><div class="hb-f" style="width:${Math.max(2,r.v/max*100).toFixed(1)}%;background:${IC_CSS(r.color)}"></div></div><div class="hb-v num">${r.text||(c.money?Number(r.v).toLocaleString('en-US'):r.v)}</div></div>`).join('')}</div>`;
+}
+function chartVBars(c){
+  const n=c.rows.length, W=340, H=170, bw=W/n, max=Math.max(1,...c.rows.map(r=>r.v));
+  return `<svg viewBox="0 0 ${W} ${H}" class="vsvg"><line x1="0" y1="${H-20}" x2="${W}" y2="${H-20}" style="stroke:var(--line)"/>${c.rows.map((r,i)=>{
+    const x=W-(i+1)*bw, h=r.v/max*(H-50), cx=x+bw/2;
+    return `<rect x="${(x+bw*.16).toFixed(1)}" y="${(H-20-h).toFixed(1)}" width="${(bw*.68).toFixed(1)}" height="${Math.max(h,0).toFixed(1)}" rx="3" style="fill:${IC_CSS(r.color)}"/>${r.v?`<text x="${cx.toFixed(1)}" y="${(H-24-h).toFixed(1)}" text-anchor="middle" class="vb-v">${r.v}</text>`:''}<text x="${cx.toFixed(1)}" y="${H-6}" text-anchor="middle" class="vb-l">${r.label}</text>`; }).join('')}</svg>`;
+}
+function renderIndicators(){
+  const CH=indCharts();
+  $('#dCharts').innerHTML = CH.map(c=>`<div class="chart${c.span2?' span2':''}"><h3>${c.title}</h3><div class="csub">${c.sub||''}</div>${c.type==='donut'?chartDonut(c):c.type==='hbars'?chartHBars(c):chartVBars(c)}</div>`).join('');
+}
+const plain = h => String(h||'').replace(/<[^>]*>/g,'').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#39;/g,"'").replace(/&amp;/g,'&').trim();
+async function buildIndicatorsWorkbook(){
+  await loadExcelJS();
+  const wb=new ExcelJS.Workbook(); wb.creator='Work follow up'; wb.created=new Date();
+  const stamp='تاريخ التقرير: '+new Date().toLocaleDateString('ar-SA-u-ca-gregory-nu-latn',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  const X=homeCtx(), KP=homeKpis(X), CH=indCharts();
+  const ws=wb.addWorksheet('المؤشرات',{views:[{rightToLeft:true,showGridLines:false}],properties:{tabColor:{argb:C.navy}}});
+  sheetTitle(ws,'تقرير المؤشرات — Work follow up',stamp,5);
+  ws.getRow(1).getCell(1).alignment={horizontal:'center',vertical:'middle',readingOrder:'rtl'};
+  let r=4; const sec=t=>{ ws.mergeCells(r,1,r,5); const h=ws.getCell(r,1); h.value=t; h.font={name:FONT,size:13,bold:true,color:{argb:C.navy}}; h.alignment={horizontal:'right',readingOrder:'rtl'}; ws.getRow(r).height=24; };
+  const SOFT={red:C.redSoft,amber:C.amberSoft,green:C.greenSoft,blue:C.blueSoft,gray:C.graySoft,purple:C.purpleSoft,teal:C.tealSoft};
+  sec('المؤشرات الرئيسية');
+  r=writeTable(ws,r+1,[
+    {h:'المؤشر', w:34, get:k=>k.t, style:(k,c)=>{c.font={name:FONT,size:10,bold:true};}},
+    {h:'القيمة', w:12, get:k=>k.num, type:'num', style:(k,c)=>{ c.fill=fill(SOFT[k.color]); c.font={name:FONT,size:12,bold:true,color:{argb:IC_ARGB(k.color)}}; c.numFmt=k.money?MONEY:'0'; }},
+    {h:'التفاصيل', w:40, get:k=>k.em, wrap:true},
+  ],KP,false); ws.autoFilter=null;
+  CH.forEach(c=>{
+    r+=2; sec(`${c.title} — ${plain(c.sub)}`);
+    const rows=c.rows.concat(c.extra||[]).filter(x=>c.type==='vbars'||x.v>0||c.type==='hbars'), tot=rows.reduce((a,x)=>a+x.v,0), mx=Math.max(1,...rows.map(x=>x.v));
+    const cols=[
+      {h:'الفئة', w:34, get:x=>x.full||x.label, style:(x,c2)=>{c2.font={name:FONT,size:10,bold:true};}},
+      {h:c.money?'العدد':'العدد', w:12, get:x=>c.money?x.cnt:x.v, type:'num', total:'sum'},
+      {h:c.money?'المبلغ (ر.س)':'التفاصيل', w:40, get:x=>c.money?x.v:(x.text||''), type:c.money?'money':'code', total:c.money?'sum':undefined},
+      {h:'النسبة', w:10, get:x=>tot?x.v/tot:0, type:'num', style:(x,c2)=>{c2.numFmt='0%';}},
+      {h:'الرسم', w:44, get:x=>'█'.repeat(Math.round(x.v/mx*32)), type:'code', style:(x,c2)=>{c2.font={name:FONT,size:10,color:{argb:IC_ARGB(x.color)}}; c2.alignment={horizontal:'right',vertical:'middle',readingOrder:'rtl'};}},
+    ];
+    if(c.type==='hbars'&&!c.money&&rows.some(x=>x.text)) cols[1]={...cols[1], total:undefined};
+    r=writeTable(ws,r+1,cols,rows,true); ws.autoFilter=null;
+  });
+  [34,16,40,10,44].forEach((w,i)=>ws.getColumn(i+1).width=w);
+  ws.pageSetup={orientation:'portrait',fitToPage:true,fitToWidth:1,fitToHeight:0,paperSize:9};
+  // follow-up list
+  const it=dashItems(), sc={lease:'عقود الإيجار',house:'السكنات',viol:'المخالفات',bal:'البطاقات البلدية',topics:'المعاملات'};
+  const ws2=wb.addWorksheet('يحتاج متابعة',{views:[{rightToLeft:true,state:'frozen',ySplit:3}],properties:{tabColor:{argb:'FFDC2626'}}});
+  sheetTitle(ws2,'يحتاج متابعة (متأخر أو خلال 30 يوم)',`${stamp} — ${it.length} بند`,5);
+  writeTable(ws2,3,[
+    {h:'القسم', w:18, get:x=>sc[x.sec]||x.sec, type:'code'},
+    {h:'البند', w:44, get:x=>plain(x.title), style:(x,c2)=>{c2.font={name:FONT,size:10,bold:true};}, wrap:true},
+    {h:'التفاصيل', w:50, get:x=>plain(x.sub), wrap:true},
+    {h:'الأيام', w:10, get:x=>x.d, type:'num', style:(x,c2)=>{ if(x.d<0){c2.fill=fill(C.redSoft);c2.font={name:FONT,size:10,bold:true,color:{argb:C.red}};} else if(x.d<=7){c2.fill=fill(C.amberSoft);c2.font={name:FONT,size:10,bold:true,color:{argb:C.amber}};} }},
+    {h:'الحالة', w:16, get:x=>x.d<0?`متأخر ${-x.d} يوم`:x.d===0?'اليوم':`باقي ${x.d} يوم`, type:'code'},
+  ],it,false);
+  ws2.pageSetup={orientation:'landscape',fitToPage:true,fitToWidth:1,fitToHeight:0,paperSize:9};
+  return wb;
+}
+$('#indExportBtn').onclick = e => withBusy(e.currentTarget, async()=>{ const wb=await buildIndicatorsWorkbook(); await downloadWorkbook(wb,`المؤشرات-${today()}.xlsx`); });
 
 // ===== MODAL =====
 function modal(html){ $('#modalRoot').innerHTML = `<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="sheet">${html}</div></div>`; document.body.style.overflow='hidden'; }
