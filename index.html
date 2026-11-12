@@ -577,6 +577,7 @@ const SA_CITIES = {
   'الجوف':['سكاكا','دومة الجندل','القريات','طبرجل'],
 };
 const BRAND_LIST = ['SAYA5','Chefs','Jazzar','CK','HO','Blackish','LEVL','WH','Eater','SK','Smoked'];
+const ALL_CITIES = [...new Set(Object.values(SA_CITIES).flat())].sort((a,b)=>a.localeCompare(b,'ar'));
 const AUTHORITIES = ['بلدي','أمانة الرياض','هيئة النقل','وزارة التجارة','وزارة الموارد البشرية','هيئة الغذاء والدواء'];
 const TSTATUS = {new:'جديدة',in_progress:'قيد الإجراء',waiting:'بانتظار رد',done:'منتهية'};
 const PRIO = {low:'منخفضة',normal:'عادية',high:'مهمة',urgent:'عاجلة'};
@@ -2811,12 +2812,12 @@ function openHouse(code){
 function openContract(id, code){
   const u = state.hunits.find(x=>x.id===id) || {code:code||'', city:'', district:'', unit_desc:'', company:'', property_type:'عمارة', unit_area:'', contract_no:'', start_date:'', end_date:'', period_years:'', lessor:'', notes:''};
   const ups = id ? state.hsupd.filter(x=>x.unit_id===id).slice().reverse() : [];
-  const dl = (idn,f) => `<datalist id="${idn}">${[...new Set(state.hunits.map(x=>x[f]).filter(Boolean))].map(v=>`<option value="${esc(v)}">`).join('')}</datalist>`;
+  const dl = (idn,f,extra=[]) => `<datalist id="${idn}">${uniqCI([...state.hunits.map(x=>x[f]), ...extra]).map(v=>`<option value="${esc(v)}">`).join('')}</datalist>`;
   modal(head(id?'تفاصيل العقد':'عقد سكن جديد') + `
     ${id?`<div class="meta"><span class="chip ${C_CLS[cState(u)]}">${C_LBL[cState(u)]}</span>${u.end_date?`<span>${hsDays(u.end_date)}</span>`:''}</div>`:''}
     ${(()=>{ const l=id&&lUnit(u); return l?`<div class="item" style="margin-top:10px" onclick="openLease('${l.id}')"><div class="row"><h3>📄 في عقود الإيجار: ${esc(l.branch)}</h3><span class="chip ${L_CLS[lState(l)]}">${L_LBL[lState(l)]}</span></div><div class="meta">${telLink(l.phone)}${l.end_date!==u.end_date?`<span class="late">تاريخ الانتهاء هناك ${fmtDate(l.end_date)}</span>`:''}${l.file_notes?`<span>📝 ${esc(l.file_notes)}</span>`:''}</div></div>`:''; })()}
     <label>رمز السكن (مركز التكلفة)</label><input class="field" id="fuCode" list="dluCode" value="${esc(u.code)}" dir="ltr">${dl('dluCode','code')}
-    <div class="grid2"><div><label>المدينة</label><input class="field" id="fuCity" list="dluCity" value="${esc(u.city)}">${dl('dluCity','city')}</div>
+    <div class="grid2"><div><label>المدينة</label><input class="field" id="fuCity" list="dluCity" value="${esc(u.city)}">${dl('dluCity','city',ALL_CITIES)}</div>
       <div><label>الحي</label><input class="field" id="fuDist" value="${esc(u.district)}"></div></div>
     <label>الوصف (عدد الشقق / الأرقام)</label><input class="field" id="fuDesc" value="${esc(u.unit_desc)}">
     <div class="grid2"><div><label>نوع العقار</label><input class="field" id="fuPType" list="dluPT" value="${esc(u.property_type)}">${dl('dluPT','property_type')}</div>
