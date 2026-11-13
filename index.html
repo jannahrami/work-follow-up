@@ -921,6 +921,7 @@ function empsList(){
   return [...M.values()].sort((a,b)=>a.name.localeCompare(b.name,'en'));
 }
 let eShown=100;
+function goEmps(st){ $('#eSearch').value=''; $('#eBrand').value=''; $('#eIq').value=st||''; eShown=100; go('emps'); }
 function iqState(e){ if(!e.iqama_expiry) return 'unknown'; const d=daysTo(e.iqama_expiry); return d<0?'expired':d<=90?'soon':'valid'; }
 function renderEmps(){
   const all=scoped(empsList), brands=[...new Set(all.map(e=>e.brand).filter(Boolean))].sort();
@@ -1110,6 +1111,10 @@ function homeKpis(X){
     {color:lDue.length?'red':'green', ic:'📄', t:'عقود تحتاج تجديد', v:lDue.length, num:lDue.length, em:`${lExp.length} منتهي • ${lDue.length-lExp.length} خلال 90 يوم`, click:"goLease('due')"},
     {color:vDue.length?'red':'green', ic:'🚨', t:'مخالفات واجبة السداد (ر.س)', v:Number(sum(vDue)).toLocaleString('en-US'), num:sum(vDue), money:true, em:`${vDue.length} مخالفة • ${V.filter(v=>OPEN.includes(v.status)).length} مفتوحة`, click:"goViol('dueish')"},
     ...[['objection_prep','🛠️','amber','تحت إجراء رفع الاعتراض (ر.س)'],['objection_pending','⏳','blue','اعتراض قيد النظر (ر.س)'],['accepted','✅','green','اعتراض مقبول (ر.س)'],['paid','💳','green','مخالفات مسددة (ر.س)']].map(([k,ic,col,t])=>{ const a=V.filter(v=>v.status===k); return {color:col, ic, t, v:Number(sum(a)).toLocaleString('en-US'), num:sum(a), money:true, em:`${a.length} مخالفة`, click:`goViol('${k}')`}; }),
+    (()=>{ const EM=empsList(), ex=EM.filter(e=>iqState(e)==='expired').length, so=EM.filter(e=>iqState(e)==='soon').length, un=EM.filter(e=>iqState(e)==='unknown').length;
+      return {color:ex?'red':so?'amber':'green', ic:'🛂', t:'إقامات منتهية', v:ex, num:ex, em:`${so} تنتهي خلال 90 يوم • ${un} بدون تاريخ`, click:"goEmps('expired')"}; })(),
+    (()=>{ const EM=empsList(), so=EM.filter(e=>iqState(e)==='soon').length;
+      return {color:so?'amber':'green', ic:'⏰', t:'إقامات قاربت على الانتهاء', v:so, num:so, em:'خلال 90 يوم', click:"goEmps('soon')"}; })(),
     {color:bExp.length?'red':'green', ic:'🪪', t:'بطاقات بلدية منتهية', v:bExp.length, num:bExp.length, em:`${bSoon.length} قريبة • ${bNone.length} بدون بطاقة`, click:"goBal('expired')"},
     {color:pNone.length?'amber':'green', ic:'🏠', t:'موظفين بدون سكن', v:pNone.length, num:pNone.length, em:`${P.length-pNone.length} ساكن في ${nSak} سكن`, click:"goPeople({Acc:'__none'})"},
     {color:hTodo.length?'amber':'green', ic:'🩺', t:'كروت صحية ناقصة', v:hTodo.length, num:hTodo.length, em:`${hFail.length} راسب • من ${HM.length}`, click:"goHealth('incomplete')"},
