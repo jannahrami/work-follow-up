@@ -1010,6 +1010,9 @@ async function enterApp(){
     else { await sb.auth.signOut(); showLogin(); $('#loginErr').textContent='هذا الحساب ما له صلاحية على Work follow up'; return; }
   } else if(!user){ await sb.auth.signOut(); showLogin(); $('#loginErr').textContent='هذا الحساب ما له صلاحية على Work follow up'; return; }
   $('#login').classList.add('hidden'); $('#app').classList.remove('hidden');
+  try{ if(user){ const { data:ls } = await _sbFrom('wf_last_seen').select('*').eq('user_id', user.id).maybeSingle(); const now=Date.now();
+      const gap = ls ? now-new Date(ls.last_seen).getTime() : Infinity; const prev = ls ? (gap>30*60000 ? ls.last_seen : ls.prev_seen) : null;
+      state.prevSeen = prev; await _sbFrom('wf_last_seen').upsert({ user_id:user.id, prev_seen:prev, last_seen:new Date(now).toISOString() }); } }catch(e){}
   await loadAll();
 }
 
@@ -1671,7 +1674,8 @@ function renderAlerts(){
 }
 function renderHomeDash(){ scoped(_renderHomeDash); }
 function _renderHomeDash(){
-  $('#dDate').textContent = new Date().toLocaleDateString('ar-SA-u-ca-gregory-nu-latn',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  $('#dDate').innerHTML = esc(new Date().toLocaleDateString('ar-SA-u-ca-gregory-nu-latn',{weekday:'long',day:'numeric',month:'long',year:'numeric'}))
+    + (state.prevSeen ? `<div style="font-size:12.5px;opacity:.75;margin-top:2px">آخر دخول: ${esc(new Date(state.prevSeen).toLocaleString('ar-SA-u-ca-gregory-nu-latn',{timeZone:'Asia/Riyadh',weekday:'long',day:'numeric',month:'long',hour:'numeric',minute:'2-digit'}))}</div>` : '');
   const X=homeCtx(), {bExp,bNone,hFail,pNone}=X;
   $('#dKpis').innerHTML = homeKpis(X).map(k=>`<div class="kpi" style="--k:${IC_CSS(k.color)}" onclick="${k.click}"><div class="t">${k.ic} ${k.t}</div><b class="num">${k.v}</b><em>${k.em}</em></div>`).join('');
   renderAlerts();
