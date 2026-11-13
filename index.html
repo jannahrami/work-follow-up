@@ -569,9 +569,9 @@ header.compact .bbar{display:none}
     <!-- ===== TOPICS ===== -->
     <div id="sec-backup" class="hidden">
       <div class="sec-bar"><h1>💾 نسخة احتياطية</h1></div>
-      <div class="bnote" style="margin-bottom:12px">تُحفظ نسخة كاملة من كل مدخلات Work follow up تلقائياً كل يوم الساعة 2 فجراً، وتبقى آخر 30 يوم. تقدر تنزّل أي نسخة كملف إكسل (ورقة لكل جدول).</div>
+      <div class="bnote" style="margin-bottom:12px">تُحفظ نسخة كاملة من كل مدخلات Work follow up تلقائياً كل يوم الساعة 2 فجراً، وتبقى آخر 30 يوم. تقدر تنزّل أي نسخة كملف مضغوط (ZIP) فيه 6 ملفات إكسل منسّقة: المخالفات، الكروت الصحية، البطاقات البلدية، السكنات، عقود الإيجار، والمؤشرات.</div>
       <div class="toolbar" style="gap:8px;flex-wrap:wrap">
-        <button class="btn" id="bkNowXlsx">⬇ تنزيل إكسل محدّث الآن</button>
+        <button class="btn" id="bkNowXlsx">⬇ تنزيل ملفات الإكسل المحدّثة الآن</button>
         <button class="btn btn-ghost" id="bkSaveNow">💾 احفظ نسخة الآن</button>
       </div>
       <div id="bkList" style="margin-top:12px"></div>
@@ -898,16 +898,40 @@ function _renderTiles(){
 
 // ===== BACKUP =====
 const BK_TABLES = {wf_violations:'المخالفات', wf_violation_updates:'تحديثات المخالفات', wf_health_employees:'الكروت الصحية', wf_health_updates:'تحديثات الكروت', wf_baladiya:'البطاقات البلدية', wf_baladiya_updates:'تحديثات البلدية', wf_housing_units:'عقود السكن', wf_housing_people:'سكان السكنات', wf_housing_updates:'تحديثات السكن', wf_leases:'عقود الإيجار', wf_lease_updates:'تحديثات العقود', wf_topics:'المعاملات', wf_topic_updates:'تحديثات المعاملات', wf_followups:'المتابعة'};
-function bkDownload(data, name){
-  const wb = XLSX.utils.book_new();
-  Object.keys(BK_TABLES).forEach(t=>{
-    const rows=(data[t]||[]).map(r=>{ const o={}; Object.keys(r).forEach(k=>{ const v=r[k]; o[k]=(v!==null && typeof v==='object') ? JSON.stringify(v) : v; }); return o; });
-    const ws = XLSX.utils.json_to_sheet(rows.length?rows:[{}]);
-    XLSX.utils.book_append_sheet(wb, ws, BK_TABLES[t].slice(0,31));
-  });
-  wb.Workbook = {Views:[{RTL:true}]};
-  const buf = XLSX.write(wb,{bookType:'xlsx',type:'array'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})); a.download=name; document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove();},1500);
+const BK_STATE = {wf_violations:'viol', wf_violation_updates:'vupd', wf_topics:'topics', wf_topic_updates:'tupd', wf_health_employees:'health', wf_health_updates:'hupd', wf_baladiya:'bal', wf_baladiya_updates:'bupd', wf_housing_units:'hunits', wf_housing_people:'hpeople', wf_housing_updates:'hsupd', wf_leases:'leases', wf_lease_updates:'lupd'};
+function loadJSZip(){
+  if(window.JSZip) return Promise.resolve();
+  return new Promise((res,rej)=>{ const sc=document.createElement('script'); sc.src='https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js'; sc.onload=res; sc.onerror=()=>rej(new Error('تعذر تحميل أداة الضغط')); document.head.appendChild(sc); });
+}
+// Build the six styled workbooks (same layout as each section's own export) from a data snapshot
+async function bkBuildFiles(data, day){
+  const keep = {}; Object.values(BK_STATE).forEach(k=>keep[k]=state[k]); const keepBrand = state.brand, keepFu = state.fu;
+  const byStr = (f)=>(a,b)=>String(a[f]||'').localeCompare(String(b[f]||''),'en');
+  try{
+    state.brand='';
+    Object.entries(BK_STATE).forEach(([t,k])=>{ state[k]=(data[t]||[]).slice(); });
+    state.viol.sort((a,b)=>String(b.violation_date||'').localeCompare(String(a.violation_date||'')));
+    state.health.sort((a,b)=>byStr('region')(a,b)||((a.seq_no||1e9)-(b.seq_no||1e9))||byStr('name')(a,b));
+    state.bal.sort((a,b)=>byStr('brand')(a,b)||((a.seq_no||1e9)-(b.seq_no||1e9)));
+    state.hunits.sort((a,b)=>byStr('code')(a,b)); state.hpeople.sort((a,b)=>byStr('accommodation')(a,b)||byStr('name')(a,b));
+    state.leases.sort((a,b)=>String(a.end_date||'9').localeCompare(String(b.end_date||'9')));
+    const d=day||today(), out=[];
+    out.push([`المخالفات-${d}.xlsx`, await buildStyledWorkbook(state.viol,{summary:true, perAuthority:true, topics:true})]);
+    out.push([`الكروت-الصحية-${d}.xlsx`, await buildHealthWorkbook(state.health,{summary:true})]);
+    out.push([`البطاقات-البلدية-${d}.xlsx`, await buildBalWorkbook(state.bal,{summary:true})]);
+    out.push([`السكنات-${d}.xlsx`, await buildHousingWorkbook(state.hpeople,{summary:true})]);
+    out.push([`عقود-الإيجار-${d}.xlsx`, await buildLeaseWorkbook(state.leases,{summary:true})]);
+    out.push([`المؤشرات-${d}.xlsx`, await buildIndicatorsWorkbook()]);
+    const files=[]; for(const [n,wb] of out) files.push([n, await wb.xlsx.writeBuffer()]);
+    return files;
+  } finally { Object.assign(state, keep); state.brand=keepBrand; state.fu=keepFu; }
+}
+async function bkDownload(data, day){
+  const files = await bkBuildFiles(data, day);
+  await loadJSZip();
+  const z = new JSZip(); files.forEach(([n,buf])=>z.file(n,buf));
+  const blob = await z.generateAsync({type:'blob'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`WorkFollowUp-نسخة-${day||today()}.zip`; document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove();},4000);
 }
 async function bkLive(){
   const out={};
@@ -919,12 +943,12 @@ async function renderBackup(){
   box.innerHTML='<div class="empty">جاري التحميل…</div>';
   const {data,error}=await sb.from('wf_backups').select('id,day,created_at,kind,total_rows').order('day',{ascending:false});
   if(error){ box.innerHTML='<div class="empty">تعذر تحميل النسخ</div>'; return; }
-  box.innerHTML = data.length ? data.map(b=>`<div class="item"><div class="row"><div><h3>📅 ${b.day}</h3><div class="meta"><span>${b.kind==='auto'?'تلقائية':'يدوية'} • ${b.total_rows} سجل • ${new Date(b.created_at).toLocaleTimeString('ar-SA-u-nu-latn',{hour:'2-digit',minute:'2-digit'})}</span></div></div><button class="btn btn-ghost btn-sm" onclick="bkGet('${b.id}','${b.day}',this)">⬇ إكسل</button></div></div>`).join('') : '<div class="empty">لا توجد نسخ بعد</div>';
+  box.innerHTML = data.length ? data.map(b=>`<div class="item"><div class="row"><div><h3>📅 ${b.day}</h3><div class="meta"><span>${b.kind==='auto'?'تلقائية':'يدوية'} • ${b.total_rows} سجل • ${new Date(b.created_at).toLocaleTimeString('ar-SA-u-nu-latn',{hour:'2-digit',minute:'2-digit'})}</span></div></div><button class="btn btn-ghost btn-sm" onclick="bkGet('${b.id}','${b.day}',this)">⬇ ملفات الإكسل</button></div></div>`).join('') : '<div class="empty">لا توجد نسخ بعد</div>';
 }
 async function bkGet(id,day,btn){
-  btn.disabled=true; try{ const {data,error}=await sb.from('wf_backups').select('data').eq('id',id).single(); if(error) throw error; bkDownload(data.data,`WorkFollowUp_backup_${day}.xlsx`); }catch(e){ fail(e); } btn.disabled=false;
+  btn.disabled=true; try{ const {data,error}=await sb.from('wf_backups').select('data').eq('id',id).single(); if(error) throw error; await bkDownload(data.data, day); }catch(e){ fail(e); } btn.disabled=false;
 }
-$('#bkNowXlsx').onclick = async e=>{ const b=e.currentTarget; b.disabled=true; try{ bkDownload(await bkLive(), `WorkFollowUp_${new Date().toISOString().slice(0,10)}.xlsx`); }catch(x){ fail(x); } b.disabled=false; };
+$('#bkNowXlsx').onclick = async e=>{ const b=e.currentTarget; b.disabled=true; try{ await bkDownload(await bkLive(), today()); }catch(x){ fail(x); } b.disabled=false; };
 $('#bkSaveNow').onclick = async e=>{ const b=e.currentTarget; b.disabled=true; const {error}=await sb.rpc('wf_make_backup',{p_kind:'manual'}); if(error) fail(error); else { toast('تم حفظ النسخة'); renderBackup(); } b.disabled=false; };
 
 // ===== MAIN DASHBOARD =====
