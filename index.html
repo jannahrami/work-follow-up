@@ -428,6 +428,37 @@ label{font-weight:600;color:#2b3a4c}
 .bb:hover{color:var(--ink)}
 .bb.on{color:var(--ink);font-weight:700;border-bottom-color:var(--c)}
 @media(max-width:899px){ .bb{color:#a9b8c8;padding:8px 4px} .bb:hover,.bb.on{color:#fff} .bb.on{border-bottom-color:#fff} .bbar{flex-wrap:nowrap;overflow-x:auto} }
+
+.more-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding-bottom:6px}
+.more-it{display:flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px 12px;font-weight:600;font-size:15px;color:var(--ink);text-align:right;cursor:pointer}
+.more-it i{font-style:normal;font-size:22px}.more-it span{flex:1}.more-it em{font-style:normal;background:var(--red);color:#fff;border-radius:99px;font-size:12px;padding:1px 8px}
+#tabbar button{position:relative}#tabbar .tb-n{position:absolute;top:2px;left:50%;margin-left:6px;background:var(--red);color:#fff;border-radius:99px;font-size:10.5px;padding:0 5px;font-style:normal;font-weight:700}
+@media(max-width:899px){
+  header{padding:8px 0 0}
+  .brands{display:none!important}
+  .top{padding:0 12px;min-height:0}
+  .top .logo{display:block!important;font-size:18px}
+  #backBtn{display:none!important}
+  .top-actions .icon-btn{min-height:34px;padding:5px 10px}
+  nav{margin-top:6px;padding:0 10px;gap:4px;overflow-x:auto}
+  nav button{min-height:36px;font-size:14px;padding:0 12px;flex:none}
+  .bbar{padding:0 12px;margin-top:2px}
+  .bb{font-size:13.5px;padding:6px 3px}
+  main{padding:10px 12px 150px}
+  .dash-head h1,.sec-bar h1{font-size:20px}
+  .dash-head{margin-bottom:6px}
+  .hello{font-size:13px}
+  .kpis{gap:8px}
+  .kpi{padding:10px 12px}
+  .kpi .t{font-size:12px;line-height:1.35}
+  .kpi b{font-size:22px;margin-top:3px}
+  .kpi em{font-size:11.5px;line-height:1.35}
+  .warn{padding:10px}
+  .item{padding:12px}
+  .fab{padding:10px 16px;font-size:14px;border-radius:12px;left:12px}
+  .agfab{width:46px!important;height:46px!important;font-size:20px!important;right:12px!important}
+  h2{margin:20px 0 10px}
+}
 header.compact .bbar{display:none!important}
 
 /* staff / approvals */
@@ -1087,7 +1118,8 @@ function allowedSec(k){ if(state.role!=='staff') return !['reqs'].includes(k); i
   if(k==='emps') return ['bal','health'].some(x=>state.staff.sections.includes(x)); return state.staff.sections.includes(k); }
 function navItems(){ if(state.role==='staff') return NAV.filter(n=>allowedSec(n[0]) && n[0]!=='backup').map(n=>n[0]==='home'?['home','🏠','الرئيسية']:n).concat([['reqs','📨','طلباتي']]);
   return NAV.concat([['appr','✅','الموافقات'],['staff','👤','حسابات الموظفين']]); }
-function tabItems(){ if(state.role!=='staff') return TABS; const L=navItems().filter(n=>!['emps','backup'].includes(n[0])).slice(0,5); return L.map(n=>[n[0],n[1],n[2].replace('الكروت ','').replace('البطاقات ','')]); }
+function tabItems(){ if(state.role!=='staff') return TABS; const L=navItems().filter(n=>!['emps','backup','reqs'].includes(n[0])).slice(0,4); return L.map(n=>[n[0],n[1],n[2].replace('الكروت ','').replace('البطاقات ','')]).concat([['more','☰','المزيد']]); }
+function openMore(){ const B=navBadges(); modal(head('كل الأقسام')+`<div class="more-grid">${navItems().map(([k,ic,l])=>`<button class="more-it" onclick="closeModal();go('${k}'${k==='home'?(state.role==='staff'?",'secs'":",'kpi'"):''})"><i>${ic}</i><span>${esc(l)}</span>${B[k]?`<em>${B[k]}</em>`:''}</button>`).join('')}</div>`); }
 function navBadges(){ const b={}; const pend=(state.reqs||[]).filter(r=>r.status==='pending').length; if(state.role==='staff') b.reqs=pend; else b.appr=pend;
   try{ b.viol = state.viol.filter(v=>OPEN.includes(v.status)).length; }catch(e){}
   try{ const t=today(); b.bal = state.bal.filter(x=>x.card_expiry && x.card_expiry<t).length; }catch(e){}
@@ -1099,9 +1131,12 @@ function renderSide(){
     + navItems().map(([k,ic,l])=>`<button class="s-it${sec===k?' on':''}" onclick="go('${k}'${k==='home'?(state.role==='staff'?",'secs'":",'kpi'"):''})"><i>${ic}</i><span>${l}</span>${B[k]?`<em>${B[k]}</em>`:''}</button>`).join('')
     + `<div class="s-foot"><button onclick="$('#pwBtn').click()">🔑 كلمة المرور</button><button onclick="$('#logoutBtn').click()">خروج</button></div><div class="s-strip"></div>`;
   const tb = $('#tabbar'); if(!tb) return;
-  const inMore = state.role!=='staff' && (!TABS.some(t=>t[0]===sec) || (sec==='home' && state.sub.home==='secs'));
-  tb.innerHTML = tabItems().map(([k,ic,l])=>{ const on = k==='more' ? inMore : (sec===k && !(k==='home'&&state.sub.home==='secs'&&state.role!=='staff')); 
-    return `<button class="${on?'on':''}" onclick="${k==='more'?"go('home','secs')":k==='home'?"go('home','${state.role==='staff'?'secs':'kpi'}')":`go('${k}')`}"><i>${ic}</i><span>${l}</span></button>`; }).join('');
+  const base = tabItems().filter(t=>t[0]!=='more');
+  const inMore = !base.some(t=>t[0]===sec); const mb = (B.appr||0)+(B.reqs||0);
+  const homeSub = state.role==='staff' ? 'secs' : 'kpi';
+  tb.innerHTML = tabItems().map(([k,ic,l])=>{ const on = k==='more' ? inMore : sec===k;
+    const act = k==='more' ? 'openMore()' : k==='home' ? `go('home','${homeSub}')` : `go('${k}')`;
+    return `<button class="${on?'on':''}" onclick="${act}"><i>${ic}</i><span>${l}</span>${k==='more'&&mb?`<em class="tb-n">${mb}</em>`:''}</button>`; }).join('');
 }
 
 // ===== STAFF ACCOUNTS + APPROVALS =====
