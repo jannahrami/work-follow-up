@@ -821,14 +821,14 @@ body.staff[data-sec="home"] #subnav{display:none!important}
     <!-- ===== TOPICS ===== -->
     <div id="sec-emps" class="hidden">
       <div class="sec-bar"><h1>👥 الموظفين</h1></div>
-      <div class="bnote" style="margin-bottom:12px">قائمة موحّدة تجمع الموظفين من البطاقات البلدية والكروت الصحية والسكنات (مدموجين برقم الإقامة). للعرض فقط — التعديل يتم من القسم الأصلي.</div>
+      <div class="bnote" style="margin-bottom:12px">قائمة موحّدة تجمع الموظفين من البطاقات البلدية والكروت الصحية والسكنات (مدموجين برقم الإقامة). اضغط على أي موظف لعرض بياناته وإضافة أو تعديل التاريخ والجوال والجنسية والملاحظات. تعديلاتك هنا لا تغيّر القسم الأصلي، بل تُضاف فوقه.</div>
       <div class="toolbar"><input id="eSearch" placeholder="بحث: الاسم، رقم الإقامة، الجنسية، الموقع..."></div>
       <div class="toolbar">
         <select id="eBrand"><option value="">كل العلامات</option></select>
         <select id="eNat"><option value="">كل الجنسيات</option></select>
         <select id="eIq"><option value="">كل حالات الإقامة</option><option value="expired">إقامة منتهية</option><option value="soon">تنتهي خلال 90 يوم</option><option value="valid">إقامة سارية</option><option value="unknown">تاريخ الإقامة غير متوفر</option></select>
       </div>
-      <div class="toolbar"><button class="btn btn-ghost btn-sm" id="eExportBtn">⬇ تصدير الموظفين (Excel)</button></div>
+      <div class="toolbar"><button class="btn btn-primary btn-sm" onclick="openEmp()">➕ موظف جديد</button><button class="btn btn-ghost btn-sm" id="eExportBtn">⬇ تصدير الموظفين (Excel)</button></div>
       <div id="eCount" class="meta" style="margin:6px 2px"></div>
       <div id="eList"></div>
     </div>
@@ -944,7 +944,7 @@ const AUTHORITIES = ['بلدي','أمانة الرياض','هيئة النقل',
 const TSTATUS = {new:'جديدة',in_progress:'قيد الإجراء',waiting:'بانتظار رد',done:'منتهية'};
 const PRIO = {low:'منخفضة',normal:'عادية',high:'مهمة',urgent:'عاجلة'};
 
-let state = { role:'admin', staff:null, reqs:[], staffList:[], viol:[], vupd:[], topics:[], tupd:[], health:[], hupd:[], bal:[], bupd:[], hunits:[], hpeople:[], hsupd:[], leases:[], lupd:[], fu:{}, section:'home', sub:{home:'kpi', viol:'dash', health:'dash', bal:'dash', house:'dash', lease:'dash'} };
+let state = { role:'admin', staff:null, reqs:[], staffList:[], viol:[], vupd:[], topics:[], tupd:[], health:[], hupd:[], bal:[], bupd:[], hunits:[], hpeople:[], hsupd:[], leases:[], lupd:[], emps:[], fu:{}, section:'home', sub:{home:'kpi', viol:'dash', health:'dash', bal:'dash', house:'dash', lease:'dash'} };
 
 // ===== HELPERS =====
 const $ = s => document.querySelector(s);
@@ -1033,6 +1033,7 @@ async function loadAll(){
   ]);
   for(const r of [v,vu,t,tu,h,hu,bl,bu,hn,hp,hs,ls,lu,fu]) if(r.error) return fail(r.error);
   state.viol=v.data; state.vupd=vu.data; state.topics=t.data; state.tupd=tu.data; state.health=h.data; state.hupd=hu.data; state.bal=bl.data; state.bupd=bu.data; state.hunits=hn.data; state.hpeople=hp.data; state.hsupd=hs.data; state.leases=ls.data; state.lupd=lu.data; state.fu=Object.fromEntries(fu.data.map(r=>[r.item_key,r]));
+  if(state.role!=='staff'){ const em=await sb.from('wf_employees').select('*'); state.emps=em.error?[]:em.data; }
   await loadReqs(); fillFilters(); fillHealthFilters(); fillBalFilters(); fillHousingFilters(); fillLeaseFilters(); render(); applyRoute();
 }
 function fillFilters(){
@@ -1355,9 +1356,65 @@ function empsList(){
   state.bal.filter(e=>e.active!==false).forEach(e=>{ const o=get(String(e.iqama||'').trim(), e.name); fill(o,'name',e.name); fill(o,'brand',e.brand); fill(o,'location',e.location); fill(o,'iqama_expiry',e.iqama_expiry); fill(o,'emp_no',e.emp_no); o.src.add('بلدية'); });
   state.health.filter(e=>e.active!==false).forEach(e=>{ const o=get(String(e.iqama||'').trim(), e.name); fill(o,'name',e.name); fill(o,'brand',e.brand); fill(o,'nationality',e.nationality); fill(o,'phone',e.phone); fill(o,'location',e.branch||e.city); o.src.add('صحي'); });
   state.hpeople.filter(e=>e.active!==false).forEach(e=>{ const o=get(String(e.id_number||'').trim(), e.name); fill(o,'name',e.name); fill(o,'brand',e.brand); fill(o,'nationality',e.nationality); fill(o,'emp_no',e.emp_no); o.src.add('سكن'); });
-  return [...M.values()].sort((a,b)=>a.name.localeCompare(b.name,'en'));
+  (state.emps||[]).forEach(m=>{ const o=get(String(m.iqama||'').trim(), m.name); o.master=m.id; ['name','brand','nationality','phone','location','iqama_expiry','emp_no'].forEach(f=>{ if(m[f]) o[f]=m[f]; }); o.notes=m.notes||''; o.src.add('يدوي'); });
+  const B=state.brand;
+  return [...M.values()].filter(o=>!(B && o.src.size===1 && o.src.has('يدوي') && o.brand!==B)).sort((a,b)=>(a.name||'').localeCompare(b.name||'','en'));
 }
-let eShown=100;
+
+// ===== EMPLOYEES: detail + add/edit (manual layer over the 3 sections) =====
+function openEmp(key){ eCur=key||'';
+  const e = key ? scoped(empsList).find(x=>x.key===key) : null;
+  if(key && !e) return toast('لم يتم العثور على الموظف');
+  const x = e || {iqama:'',name:'',brand:'',nationality:'',phone:'',location:'',iqama_expiry:'',emp_no:'',notes:'',src:new Set(),key:''};
+  const staff = state.role==='staff';
+  const ro = staff ? 'disabled' : '';
+  const bal = e && e.iqama ? state.bal.filter(b=>String(b.iqama||'').trim()===e.iqama) : [];
+  const hc = e && e.iqama ? state.health.filter(h=>String(h.iqama||'').trim()===e.iqama) : [];
+  const hp = e && e.iqama ? state.hpeople.filter(h=>String(h.id_number||'').trim()===e.iqama) : [];
+  const natList=[...new Set([...state.health.map(h=>h.nationality),...state.hpeople.map(h=>h.nationality),...(state.emps||[]).map(h=>h.nationality)].filter(Boolean))].sort();
+  const brands=[...new Set([...BRAND_LIST,...state.bal.map(b=>b.brand),...state.health.map(h=>h.brand),...state.hpeople.map(h=>h.brand)].filter(Boolean))];
+  const link=(t,fn,txt)=>`<div class="item" style="margin-top:8px" onclick="closeModal();${fn}"><div class="row"><h3>${t}</h3><span class="chip c-new">${txt}</span></div></div>`;
+  const s = e ? iqState(e) : 'unknown', SCx={expired:'منتهية',soon:'تنتهي قريباً',valid:'سارية',unknown:'تاريخ الإقامة غير متوفر'};
+  modal(head(e?esc(x.name||'—'):'موظف جديد') + `
+    ${e?`<div class="meta"><span class="chip ${s==='expired'?'late':s==='soon'?'near':s==='valid'?'ok':''}">${SCx[s]}</span><span>${[...x.src].join(' • ')||'—'}</span></div>`:''}
+    ${bal.map(b=>link('🏛️ بطاقة بلدية: '+esc(b.brand||''),`openBal('${b.id}')`,'فتح')).join('')}
+    ${hc.map(h=>link('🩺 كرت صحي',`openHealth('${h.id}')`,'فتح')).join('')}
+    ${hp.map(h=>link('🏠 سكن: '+esc(h.accommodation||'بدون'),`openPerson('${h.id}')`,'فتح')).join('')}
+    ${staff?'<div class="bnote">للعرض فقط — التعديل للمدير.</div>':''}
+    <label>الاسم</label><input class="field" id="feName" value="${esc(x.name)}" ${ro}>
+    <div class="grid2"><div><label>رقم الإقامة</label><input class="field num" id="feIq" value="${esc(x.iqama)}" dir="ltr" inputmode="numeric" ${ro}></div>
+      <div><label>تاريخ انتهاء الإقامة</label><input class="field" type="date" id="feExp" value="${x.iqama_expiry||''}" ${ro}></div></div>
+    <div class="grid2"><div><label>الجنسية</label><input class="field" id="feNat" list="dlNat" value="${esc(x.nationality)}" ${ro}><datalist id="dlNat">${natList.map(n=>`<option value="${esc(n)}">`).join('')}</datalist></div>
+      <div><label>العلامة</label><input class="field" id="feBrand" list="dlBr" value="${esc(x.brand)}" ${ro}><datalist id="dlBr">${brands.map(n=>`<option value="${esc(n)}">`).join('')}</datalist></div></div>
+    <div class="grid2"><div><label>الجوال</label><input class="field num" id="fePhone" value="${esc(x.phone)}" dir="ltr" inputmode="tel" ${ro}></div>
+      <div><label>الموقع</label><input class="field" id="feLoc" value="${esc(x.location)}" ${ro}></div></div>
+    <div class="grid2"><div><label>الرقم الوظيفي</label><input class="field num" id="feNo" value="${esc(x.emp_no)}" dir="ltr" ${ro}></div><div></div></div>
+    <label>ملاحظاتي</label><textarea class="field" id="feNotes" style="min-height:60px" ${ro}>${esc(x.notes||'')}</textarea>
+    ${staff?'':`<div class="actions"><button class="btn btn-primary" onclick="saveEmp()">حفظ</button>${e&&e.master?`<button class="btn btn-danger" onclick="delEmp()">حذف تعديلاتي</button>`:''}</div>
+    <div class="bnote" style="margin-top:8px">الحفظ هنا يضيف بياناتك فوق بيانات الأقسام الأخرى، ولا يغيّرها.</div>`}`);
+}
+async function saveEmp(){ const key=eCur;
+  const e = key ? empsList().find(x=>x.key===key) : null;
+  const v = id => $('#'+id).value.trim();
+  const row = { name:v('feName'), iqama:v('feIq')||null, nationality:v('feNat'), brand:v('feBrand'), phone:v('fePhone'), location:v('feLoc'), emp_no:v('feNo'), iqama_expiry:$('#feExp').value||null, notes:v('feNotes') };
+  if(!row.name && !row.iqama) return toast('اكتب الاسم أو رقم الإقامة');
+  if(row.iqama && !/^\d{10}$/.test(row.iqama)) { if(!confirm('رقم الإقامة ليس 10 أرقام. تبغى تكمل؟')) return; }
+  let mid = e && e.master;
+  if(!mid && row.iqama){ const m=(state.emps||[]).find(m=>m.iqama===row.iqama); if(m) mid=m.id; }
+  const res = mid ? await sb.from('wf_employees').update(row).eq('id',mid).select().single() : await sb.from('wf_employees').insert(row).select().single();
+  if(res.error) return fail(res.error);
+  toast('تم الحفظ'); await loadAll(); applyRoute();
+  openEmp(res.data.iqama ? 'i'+res.data.iqama : 'n'+String(res.data.name||'').toLowerCase().replace(/\s+/g,' ').trim());
+}
+async function delEmp(){ const key=eCur;
+  const e=empsList().find(x=>x.key===key); if(!e||!e.master) return;
+  if(!confirm('حذف تعديلاتك على هذا الموظف؟ (بيانات الأقسام الأخرى ما تتأثر)')) return;
+  const { error } = await sb.from('wf_employees').delete().eq('id',e.master); if(error) return fail(error);
+  toast('تم الحذف'); closeModal(); await loadAll(); applyRoute();
+}
+
+let eShown=100, eLast=[], eCur='';
+function openEmpI(i){ openEmp(eLast[i]?eLast[i].key:''); }
 function goEmps(st){ $('#eSearch').value=''; $('#eBrand').value=''; $('#eNat').value=''; $('#eIq').value=st||''; eShown=100; go('emps'); }
 function iqState(e){ if(!e.iqama_expiry) return 'unknown'; const d=daysTo(e.iqama_expiry); return d<0?'expired':d<=90?'soon':'valid'; }
 function renderEmps(){
@@ -1369,7 +1426,7 @@ function renderEmps(){
   const L=all.filter(e=>(!b||e.brand===b) && (!nt||e.nationality===nt) && (!st||iqState(e)===st) && (!q||[e.name,e.iqama,e.nationality,e.location,e.emp_no,e.phone].join(' ').toLowerCase().includes(q)));
   $('#eCount').textContent=`${L.length} موظف من ${all.length} • إقامات بتاريخ معروف: ${all.filter(e=>e.iqama_expiry).length}`;
   const SC={expired:['late','منتهية'],soon:['near','تنتهي قريباً'],valid:['ok','سارية'],unknown:['','تاريخ الإقامة غير متوفر']};
-  $('#eList').innerHTML=L.slice(0,eShown).map(e=>{ const s=iqState(e), c=SC[s]; return `<div class="item"><div class="row"><div><h3>${esc(e.name||'—')}</h3><div class="meta"><span>🪪 ${esc(e.iqama||'بدون رقم إقامة')}</span>${e.nationality?`<span>${esc(e.nationality)}</span>`:''}${e.location?`<span>📍 ${esc(e.location)}</span>`:''}${e.phone?`<span>📞 ${esc(e.phone)}</span>`:''}</div><div class="meta"><span>${e.iqama_expiry?'تنتهي الإقامة: '+fmtDate(e.iqama_expiry):'تاريخ انتهاء الإقامة: —'}</span><span>${[...e.src].join(' • ')}</span></div></div><div style="text-align:left">${e.brand?`<span class="chip" style="background:${BRAND_COLOR[e.brand]||'#475569'};color:#fff">${esc(e.brand)}</span>`:''}<div style="margin-top:4px"><span class="dchip ${c[0]}">${c[1]}</span></div></div></div></div>`; }).join('')+(L.length>eShown?`<button class="btn btn-ghost" style="width:100%;margin-top:8px" onclick="eShown+=150;renderEmps()">عرض المزيد (${L.length-eShown})</button>`:'');
+  eLast=L; $('#eList').innerHTML=L.slice(0,eShown).map(e=>{ const s=iqState(e), c=SC[s]; return `<div class="item" onclick="openEmpI(${eLast.indexOf(e)})"><div class="row"><div><h3>${esc(e.name||'—')}</h3><div class="meta"><span>🪪 ${esc(e.iqama||'بدون رقم إقامة')}</span>${e.nationality?`<span>${esc(e.nationality)}</span>`:''}${e.location?`<span>📍 ${esc(e.location)}</span>`:''}${e.phone?`<span>📞 ${esc(e.phone)}</span>`:''}</div><div class="meta"><span>${e.iqama_expiry?'تنتهي الإقامة: '+fmtDate(e.iqama_expiry):'تاريخ انتهاء الإقامة: —'}</span><span>${[...e.src].join(' • ')}</span></div></div><div style="text-align:left">${e.brand?`<span class="chip" style="background:${BRAND_COLOR[e.brand]||'#475569'};color:#fff">${esc(e.brand)}</span>`:''}<div style="margin-top:4px"><span class="dchip ${c[0]}">${c[1]}</span></div></div></div></div>`; }).join('')+(L.length>eShown?`<button class="btn btn-ghost" style="width:100%;margin-top:8px" onclick="eShown+=150;renderEmps()">عرض المزيد (${L.length-eShown})</button>`:'');
 }
 ['#eSearch','#eBrand','#eNat','#eIq'].forEach(id=>{ $(id).addEventListener('input',()=>{ eShown=100; renderEmps(); }); });
 
@@ -1475,8 +1532,8 @@ $('#rpExport').onclick = e => withBusy(e.currentTarget, async()=>{
 });
 
 // ===== BACKUP =====
-const BK_TABLES = {wf_violations:'المخالفات', wf_violation_updates:'تحديثات المخالفات', wf_health_employees:'الكروت الصحية', wf_health_updates:'تحديثات الكروت', wf_baladiya:'البطاقات البلدية', wf_baladiya_updates:'تحديثات البلدية', wf_housing_units:'عقود السكن', wf_housing_people:'سكان السكنات', wf_housing_updates:'تحديثات السكن', wf_leases:'عقود الإيجار', wf_lease_updates:'تحديثات العقود', wf_topics:'المعاملات', wf_topic_updates:'تحديثات المعاملات', wf_followups:'المتابعة'};
-const BK_STATE = {wf_violations:'viol', wf_violation_updates:'vupd', wf_topics:'topics', wf_topic_updates:'tupd', wf_health_employees:'health', wf_health_updates:'hupd', wf_baladiya:'bal', wf_baladiya_updates:'bupd', wf_housing_units:'hunits', wf_housing_people:'hpeople', wf_housing_updates:'hsupd', wf_leases:'leases', wf_lease_updates:'lupd'};
+const BK_TABLES = {wf_violations:'المخالفات', wf_violation_updates:'تحديثات المخالفات', wf_health_employees:'الكروت الصحية', wf_health_updates:'تحديثات الكروت', wf_baladiya:'البطاقات البلدية', wf_baladiya_updates:'تحديثات البلدية', wf_housing_units:'عقود السكن', wf_housing_people:'سكان السكنات', wf_housing_updates:'تحديثات السكن', wf_leases:'عقود الإيجار', wf_lease_updates:'تحديثات العقود', wf_topics:'المعاملات', wf_topic_updates:'تحديثات المعاملات', wf_followups:'المتابعة', wf_employees:'الموظفين (يدوي)'};
+const BK_STATE = {wf_violations:'viol', wf_violation_updates:'vupd', wf_topics:'topics', wf_topic_updates:'tupd', wf_health_employees:'health', wf_health_updates:'hupd', wf_baladiya:'bal', wf_baladiya_updates:'bupd', wf_housing_units:'hunits', wf_housing_people:'hpeople', wf_housing_updates:'hsupd', wf_leases:'leases', wf_lease_updates:'lupd', wf_employees:'emps'};
 function loadJSZip(){
   if(window.JSZip) return Promise.resolve();
   return new Promise((res,rej)=>{ const sc=document.createElement('script'); sc.src='https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js'; sc.onload=res; sc.onerror=()=>rej(new Error('تعذر تحميل أداة الضغط')); document.head.appendChild(sc); });
