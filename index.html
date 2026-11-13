@@ -1011,7 +1011,7 @@ async function enterApp(){
   } else if(!user){ await sb.auth.signOut(); showLogin(); $('#loginErr').textContent='هذا الحساب ما له صلاحية على Work follow up'; return; }
   $('#login').classList.add('hidden'); $('#app').classList.remove('hidden');
   try{ if(user){ const { data:ls } = await _sbFrom('wf_last_seen').select('*').eq('user_id', user.id).maybeSingle(); const now=Date.now();
-      const gap = ls ? now-new Date(ls.last_seen).getTime() : Infinity; const prev = ls ? (gap>30*60000 ? ls.last_seen : ls.prev_seen) : null;
+      const gap = ls ? now-new Date(ls.last_seen).getTime() : Infinity; const prev = ls ? (gap>5*60000 ? ls.last_seen : ls.prev_seen) : null;
       state.prevSeen = prev; await _sbFrom('wf_last_seen').upsert({ user_id:user.id, prev_seen:prev, last_seen:new Date(now).toISOString() }); } }catch(e){}
   await loadAll();
 }
