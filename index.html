@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>Work follow up</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&family=Inter:wght@600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Tajawal:wght@400;500;700;800&family=Inter:wght@600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <style>
@@ -256,6 +256,118 @@ header.compact .bbar{display:none}
 .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
 .tbl-wrap{overflow-x:auto;border-radius:var(--radius)}
 @media(max-width:480px){.tbl th,.tbl td{padding:8px 6px;font-size:12.5px}.tbl td b{white-space:nowrap}}
+
+/* ===== DESIGN LAYER v2 — "الملف الإداري": concrete ground, ink header, stamp-style status chips ===== */
+:root{
+  --bg:#e9edf0; --card:#fff; --ink:#0d1b2a; --muted:#55657a; --line:#d3dbe3;
+  --brand:#0a5c5a; --brand-soft:#d6ebe9;
+  --red:#b42318; --red-soft:#fde4e1; --amber:#9a5b00; --amber-soft:#fcecc8;
+  --blue:#1c4fb8; --blue-soft:#dce7fb; --green:#17703f; --green-soft:#d9f0e1;
+  --purple:#5a3fb0; --purple-soft:#e8e1fb; --gray-soft:#eef1f4; --radius:10px;
+  --ring:0 0 0 3px rgba(10,92,90,.35);
+}
+body{font-family:'IBM Plex Sans Arabic','Tajawal',system-ui,sans-serif;font-size:15.5px;line-height:1.65;-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font-family:inherit;font-size:15.5px}
+h1,h2,h3{font-weight:700;letter-spacing:0}
+.num,.amt,.kpi b,.tile .big,.stat b{font-variant-numeric:tabular-nums lining-nums;font-feature-settings:"tnum" 1,"lnum" 1}
+:focus-visible{outline:none;box-shadow:var(--ring);border-radius:8px}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--brand)!important;box-shadow:var(--ring)}
+
+/* header: the single bold element — an ink band, with the brand-colour rule kept as the group's signature */
+header{background:var(--ink);color:#fff;box-shadow:none;padding-bottom:12px}
+header::after{height:3px}
+.top .logo{color:#fff}.top .logo span{color:#6ee7d8}
+.icon-btn{background:rgba(255,255,255,.1);color:#fff;border-radius:8px;min-height:40px}
+.icon-btn:hover{background:rgba(255,255,255,.18)}
+.bchip{border:0;border-radius:8px;box-shadow:none}
+.bchip:hover{transform:none;box-shadow:0 0 0 2px #6ee7d8}
+nav{margin-top:10px;gap:4px}
+nav button{color:#a9b8c8;border-radius:8px;min-height:42px;font-weight:600}
+nav button.active{background:#fff;color:var(--ink);font-weight:700}
+.bb{background:rgba(255,255,255,.1);color:#fff;border-radius:8px;border:0}
+.bb.on{background:#fff;color:var(--ink);box-shadow:none;outline:2px solid #6ee7d8;outline-offset:1px}
+
+main{max-width:1120px;padding:20px 16px 120px}
+.top,nav,.bbar{max-width:1120px}
+.sec-bar h1,.dash-head h1{font-size:24px;font-weight:700}
+h2{font-size:17px;margin:28px 0 12px;font-weight:700}
+.hello{font-size:14px;font-weight:500}
+
+/* cards: flat, bordered, no decorative shadow */
+.item,.chart,.rec,.steps-box,.kpi,.tile,.stat{border-radius:12px;border:1px solid var(--line);box-shadow:none}
+.item{padding:16px}
+.list{gap:12px}
+.item:hover,.tile:hover,.kpi:hover{border-color:var(--brand);box-shadow:none;transform:none}
+.item h3{font-size:15.5px;font-weight:600}
+.meta{font-size:13px;gap:4px 14px}
+.amt{font-weight:700;font-size:17px}
+
+/* KPI + section tiles */
+.kpis{gap:12px}
+.kpi{padding:14px 16px}
+.kpi::before{width:5px}
+.kpi .t{font-size:12.5px;font-weight:600}
+.kpi b{font-size:28px;font-weight:700;margin-top:6px;line-height:1.15}
+.kpi em{font-size:12px}
+.tiles{gap:14px}
+.tile{padding:20px;gap:16px}
+.tile h3{font-size:18px;font-weight:700}
+.tile .l1{font-weight:600}
+.tile .ic{border-radius:10px;width:48px;height:48px;font-size:24px}
+.tile .big{font-weight:700;font-size:38px}
+.tile .tbar{height:6px;border-radius:3px}
+.tile .badge{border-radius:5px;font-weight:700}
+
+/* status chips read as rubber stamps: square corners, hairline inset edge */
+.chip,.dchip,.sc,.tabn,.auth{border-radius:5px;font-weight:700;box-shadow:inset 0 0 0 1px color-mix(in srgb,currentColor 30%,transparent)}
+.chip{padding:3px 9px}
+.dchip{padding:4px 9px}
+.tabn{border-radius:4px;box-shadow:none}
+.c-urgent{box-shadow:none}
+
+/* controls */
+.toolbar{gap:10px;margin-bottom:12px}
+.toolbar input,.toolbar select,.field{min-height:46px;border-radius:10px;border:1px solid #bcc7d3;background:#fff}
+.btn{border-radius:10px;min-height:44px;font-weight:600}
+.btn-sm{min-height:36px}
+.btn-primary{background:var(--brand)}
+.btn-primary:hover{background:#084c4a}
+.btn-ghost{background:#fff;border:1px solid #bcc7d3}
+.fab{border-radius:14px;background:var(--brand);box-shadow:0 6px 18px rgba(13,27,42,.28);padding:14px 22px}
+.bnote{background:#e3f1f0;border:1px solid #b7d9d6;border-radius:10px;color:#103f3d}
+label{font-weight:600;color:#2b3a4c}
+.empty{border-radius:12px}
+.tbl{border-radius:10px}
+.tbl th{background:#e4e9ee;font-weight:600}
+.sheet{border-radius:16px 16px 0 0}
+@media(min-width:700px){.sheet{border-radius:16px}}
+.toast{border-radius:10px}
+.kv{border-radius:10px;background:#eef1f4}
+.warn{border-radius:10px}
+.chart{padding:16px}
+.chart h3{font-weight:700}
+.bar,.hb-t{background:#e4e9ee}
+
+/* desktop: use the width — lists run in two columns, indicator cards get room */
+@media(min-width:1000px){
+  .list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:start}
+  .list>.empty,.list>.more,.list>h2{grid-column:1/-1}
+  .item{padding:18px}
+  .kpis{grid-template-columns:repeat(4,1fr)}
+}
+@media(min-width:1300px){ body.home-wide main,body.home-wide .top,body.home-wide nav,body.home-wide header .brands,body.home-wide .bbar{max-width:1280px} }
+@media(max-width:480px){
+  main{padding:14px 12px 120px}
+  .sec-bar h1,.dash-head h1{font-size:21px}
+  .kpi b{font-size:25px}
+  .item{padding:14px}
+}
+@media(max-width:640px){
+  .brands{overflow:hidden;gap:6px}
+  .bchip{flex:1 1 0;width:auto;min-width:0;max-width:96px}
+  .top-left{flex:none}
+}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
 <body>
