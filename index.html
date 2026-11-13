@@ -459,6 +459,26 @@ label{font-weight:600;color:#2b3a4c}
   .agfab{width:46px!important;height:46px!important;font-size:20px!important;right:12px!important}
   h2{margin:20px 0 10px}
 }
+
+#hbTitle{display:none}
+/* coloured banner: ink for all brands, the brand colour when one is selected */
+header{background:var(--hc,var(--ink))!important;transition:background .25s}
+@media(min-width:900px){
+  header{color:#fff;padding:20px 0 4px}
+  header::after{display:block;height:5px}
+  #hbTitle{display:block;padding:0 20px 8px;font-size:28px;font-weight:700;line-height:1.2}
+  #hbTitle small{display:block;font-size:13px;font-weight:500;opacity:.75;margin-top:2px}
+  .bb,.bb.on{font-size:14px;padding:9px 3px}
+  .bbar{gap:2px 11px!important}
+  .top{min-height:0}
+  nav button{color:rgba(255,255,255,.8)}
+  nav button.active{background:#fff;color:var(--ink)}
+  .bbar{padding:0 20px 2px;margin-top:4px}
+  .bb,.bb.on{color:rgba(255,255,255,.82)}
+  .bb:hover{color:#fff}
+  .bb.on{color:#fff;border-bottom-color:#fff}
+  .bb i{box-shadow:0 0 0 1.5px rgba(255,255,255,.7)}
+}
 header.compact .bbar{display:none!important}
 
 /* staff / approvals */
@@ -1748,6 +1768,10 @@ const BRAND_COLOR = { 'ديار سعود':'#0f766e', 'فهد بندر':'#a21caf'
 function renderBrandBar(){
   const bar = $('#brandBar'); if(!bar) return;
   const stf=state.role==='staff', sb_=stf?(state.staff.brands||[]):[];
+  { let t=$('#hbTitle'); if(!t){ t=document.createElement('div'); t.id='hbTitle'; const hh=document.querySelector('header'); hh.insertBefore(t, hh.firstChild); }
+    const sec=({home:'المؤشرات',viol:'المخالفات',health:'الكروت الصحية',bal:'البطاقات البلدية',house:'السكنات',lease:'عقود الإيجار',emps:'الموظفين',topics:'المعاملات',backup:'نسخة احتياطية',reqs:'طلباتي',appr:'الموافقات',staff:'حسابات الموظفين'})[state.section]||'';
+    t.innerHTML=`${esc(state.brand||'كل العلامات')}<small>${sec} — Work follow up</small>`; }
+  { const h=document.querySelector('header'); if(h){ const c=state.brand&&BRAND_COLOR[state.brand]; if(c) h.style.setProperty('--hc',`color-mix(in srgb, ${c} 88%, #000)`); else h.style.removeProperty('--hc'); } }
   bar.classList.toggle('hidden', ['backup','topics','reqs','appr','staff'].includes(state.section) || (stf && sb_.length<=1));
   const chip = (b, label) => `<button class="bb${state.brand===(b||'')?' on':''}" style="--c:${b?(BRAND_COLOR[b]||'#475569'):'var(--ink)'}" onclick="setBrand('${b||''}')">${b?'<i></i>':''}${esc(label)}</button>`;
   bar.innerHTML = chip('', stf?'كل علاماتي':'كل العلامات') + (stf ? (sb_.length?sb_:BRAND_LIST) : BRAND_LIST.concat(EXTRA_TABS)).map(b=>chip(b,b)).join('');
