@@ -567,6 +567,15 @@ header.compact .bbar{display:none}
     </div>
 
     <!-- ===== TOPICS ===== -->
+    <div id="sec-backup" class="hidden">
+      <div class="sec-bar"><h1>💾 نسخة احتياطية</h1></div>
+      <div class="bnote" style="margin-bottom:12px">تُحفظ نسخة كاملة من كل مدخلات Work follow up تلقائياً كل يوم الساعة 2 فجراً، وتبقى آخر 30 يوم. تقدر تنزّل أي نسخة كملف إكسل (ورقة لكل جدول).</div>
+      <div class="toolbar" style="gap:8px;flex-wrap:wrap">
+        <button class="btn" id="bkNowXlsx">⬇ تنزيل إكسل محدّث الآن</button>
+        <button class="btn btn-ghost" id="bkSaveNow">💾 احفظ نسخة الآن</button>
+      </div>
+      <div id="bkList" style="margin-top:12px"></div>
+    </div>
     <div id="sec-topics" class="hidden">
       <div class="sec-bar"><h1>📋 المعاملات</h1></div>
       <div class="toolbar">
@@ -833,10 +842,10 @@ function go(section, sub){
 }
 function applyRoute(){
   const [sec, sub] = (location.hash.replace('#','')||'home').split('/');
-  const section = ['viol','health','bal','house','lease','topics'].includes(sec) ? sec : 'home';
+  const section = ['viol','health','bal','house','lease','topics','backup'].includes(sec) ? sec : 'home';
   state.section = section; document.body.classList.toggle('home-wide', section==='home'); renderBrandBar();
   if(sub && SUBTABS[section]?.some(x=>x[0]===sub)) state.sub[section] = sub;
-  ['home','viol','health','bal','house','lease','topics'].forEach(s=>$('#sec-'+s).classList.toggle('hidden', s!==section));
+  ['home','viol','health','bal','house','lease','topics','backup'].forEach(s=>$('#sec-'+s).classList.toggle('hidden', s!==section));
   $('#backBtn').classList.toggle('hidden', section==='home');
   const nav = $('#subnav'), tabs = SUBTABS[section];
   if(tabs){
@@ -844,7 +853,8 @@ function applyRoute(){
     nav.innerHTML = tabs.map(([k,l])=>`<button class="${state.sub[section]===k?'active':''}" onclick="${section==='home'?'':k==='list'?({health:'clearHealthFilters();',viol:'clearViolFilters();',bal:'clearBalFilters();',lease:'clearLeaseFilters();'}[section]||''):k==='people'?'clearPeopleFilters();':''}go('${section}','${k}')">${l}${section==='home'&&k==='todo'?(()=>{const n=dashVisible().filter(x=>x.d<=7).length;return n?` <span class="tabn">${n}</span>`:''})():''}</button>`).join('');
     tabs.forEach(([k])=>$(`#${section}-${k}`).classList.toggle('hidden', state.sub[section]!==k));
   } else { nav.classList.add('hidden'); nav.innerHTML=''; }
-  $('#fab').classList.toggle('hidden', false);
+  $('#fab').classList.toggle('hidden', section==='backup');
+  if(section==='backup') renderBackup();
   window.scrollTo(0,0);
 }
 window.addEventListener('hashchange', applyRoute);
@@ -881,9 +891,41 @@ function _renderTiles(){
     (()=>{ const L=state.leases, ex=L.filter(l=>lState(l)==='expired').length, so=L.filter(l=>lState(l)==='soon').length;
       return tile('lease','📄','var(--blue-soft)','عقود الإيجار', `${L.filter(l=>l.status!=='closed').length} عقد`, `${ex} منتهي • ${so} ينتهي خلال 90 يوم`, ex+so?`${ex+so} تجديد`:'', L.filter(l=>l.status!=='closed').length, [[L.filter(l=>lState(l)==='valid').length,'g','سارية'],[so,'a','قريبة'],[ex,'r','منتهية']]); })() +
     tile('topics','📋','var(--blue-soft)','المعاملات', `${tOpen.length} معاملة مفتوحة`, tLate?`${tLate} متأخرة`:'كل المعاملات في وقتها', tLate?`${tLate} متأخرة`:'', tOpen.length, [[state.topics.length-tOpen.length,'g','منجزة'],[tOpen.length-tLate,'a','مفتوحة'],[tLate,'r','متأخرة']]) +
+    tile('backup','💾','var(--gray-soft)','نسخة احتياطية', 'نسخة يومية تلقائية', 'تنزيل ملف إكسل محدّث') +
     `<div class="tile soon"><div class="ic" style="background:var(--gray-soft)">➕</div><div><h3>أقسام جاية</h3><div class="l2">ارفع ملف القسم الجديد وأجهّزه لك هنا</div></div></div>`;
 }
 
+
+// ===== BACKUP =====
+const BK_TABLES = {wf_violations:'المخالفات', wf_violation_updates:'تحديثات المخالفات', wf_health_employees:'الكروت الصحية', wf_health_updates:'تحديثات الكروت', wf_baladiya:'البطاقات البلدية', wf_baladiya_updates:'تحديثات البلدية', wf_housing_units:'عقود السكن', wf_housing_people:'سكان السكنات', wf_housing_updates:'تحديثات السكن', wf_leases:'عقود الإيجار', wf_lease_updates:'تحديثات العقود', wf_topics:'المعاملات', wf_topic_updates:'تحديثات المعاملات', wf_followups:'المتابعة'};
+function bkDownload(data, name){
+  const wb = XLSX.utils.book_new();
+  Object.keys(BK_TABLES).forEach(t=>{
+    const rows=(data[t]||[]).map(r=>{ const o={}; Object.keys(r).forEach(k=>{ const v=r[k]; o[k]=(v!==null && typeof v==='object') ? JSON.stringify(v) : v; }); return o; });
+    const ws = XLSX.utils.json_to_sheet(rows.length?rows:[{}]);
+    XLSX.utils.book_append_sheet(wb, ws, BK_TABLES[t].slice(0,31));
+  });
+  wb.Workbook = {Views:[{RTL:true}]};
+  const buf = XLSX.write(wb,{bookType:'xlsx',type:'array'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})); a.download=name; document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove();},1500);
+}
+async function bkLive(){
+  const out={};
+  for(const t of Object.keys(BK_TABLES)){ const r=await sb.from(t).select('*').limit(20000); if(r.error) throw r.error; out[t]=r.data; }
+  return out;
+}
+async function renderBackup(){
+  const box=$('#bkList'); if(!box) return;
+  box.innerHTML='<div class="empty">جاري التحميل…</div>';
+  const {data,error}=await sb.from('wf_backups').select('id,day,created_at,kind,total_rows').order('day',{ascending:false});
+  if(error){ box.innerHTML='<div class="empty">تعذر تحميل النسخ</div>'; return; }
+  box.innerHTML = data.length ? data.map(b=>`<div class="item"><div class="row"><div><h3>📅 ${b.day}</h3><div class="meta"><span>${b.kind==='auto'?'تلقائية':'يدوية'} • ${b.total_rows} سجل • ${new Date(b.created_at).toLocaleTimeString('ar-SA-u-nu-latn',{hour:'2-digit',minute:'2-digit'})}</span></div></div><button class="btn btn-ghost btn-sm" onclick="bkGet('${b.id}','${b.day}',this)">⬇ إكسل</button></div></div>`).join('') : '<div class="empty">لا توجد نسخ بعد</div>';
+}
+async function bkGet(id,day,btn){
+  btn.disabled=true; try{ const {data,error}=await sb.from('wf_backups').select('data').eq('id',id).single(); if(error) throw error; bkDownload(data.data,`WorkFollowUp_backup_${day}.xlsx`); }catch(e){ fail(e); } btn.disabled=false;
+}
+$('#bkNowXlsx').onclick = async e=>{ const b=e.currentTarget; b.disabled=true; try{ bkDownload(await bkLive(), `WorkFollowUp_${new Date().toISOString().slice(0,10)}.xlsx`); }catch(x){ fail(x); } b.disabled=false; };
+$('#bkSaveNow').onclick = async e=>{ const b=e.currentTarget; b.disabled=true; const {error}=await sb.rpc('wf_make_backup',{p_kind:'manual'}); if(error) fail(error); else { toast('تم حفظ النسخة'); renderBackup(); } b.disabled=false; };
 
 // ===== MAIN DASHBOARD =====
 let dashAll = {now:false, soon:false, hid:false};
