@@ -575,12 +575,13 @@ header.compact .bbar{display:none}
         <select id="eBrand"><option value="">كل العلامات</option></select>
         <select id="eIq"><option value="">كل حالات الإقامة</option><option value="expired">إقامة منتهية</option><option value="soon">تنتهي خلال 90 يوم</option><option value="valid">إقامة سارية</option><option value="unknown">تاريخ الإقامة غير متوفر</option></select>
       </div>
+      <div class="toolbar"><button class="btn btn-ghost btn-sm" id="eExportBtn">⬇ تصدير الموظفين (Excel)</button></div>
       <div id="eCount" class="meta" style="margin:6px 2px"></div>
       <div id="eList"></div>
     </div>
     <div id="sec-backup" class="hidden">
       <div class="sec-bar"><h1>💾 نسخة احتياطية</h1></div>
-      <div class="bnote" style="margin-bottom:12px">تُحفظ نسخة كاملة من كل مدخلات Work follow up تلقائياً كل يوم الساعة 2 فجراً، وتبقى آخر 30 يوم. تقدر تنزّل أي نسخة كملف مضغوط (ZIP) فيه 6 ملفات إكسل منسّقة: المخالفات، الكروت الصحية، البطاقات البلدية، السكنات، عقود الإيجار، والمؤشرات.</div>
+      <div class="bnote" style="margin-bottom:12px">تُحفظ نسخة كاملة من كل مدخلات Work follow up تلقائياً كل يوم الساعة 2 فجراً، وتبقى آخر 30 يوم. تقدر تنزّل أي نسخة كملف مضغوط (ZIP) فيه 7 ملفات إكسل منسّقة: المخالفات، الكروت الصحية، البطاقات البلدية، السكنات، عقود الإيجار، الموظفين، والمؤشرات.</div>
       <div class="toolbar" style="gap:8px;flex-wrap:wrap">
         <button class="btn" id="bkNowXlsx">⬇ تنزيل ملفات الإكسل المحدّثة الآن</button>
         <button class="btn btn-ghost" id="bkSaveNow">💾 احفظ نسخة الآن</button>
@@ -934,6 +935,52 @@ function renderEmps(){
 }
 ['#eSearch','#eBrand','#eIq'].forEach(id=>{ $(id).addEventListener('input',()=>{ eShown=100; renderEmps(); }); });
 
+// ===== EMPLOYEES EXPORT (styled) =====
+const E_LBL={expired:'منتهية',soon:'تنتهي قريباً',valid:'سارية',unknown:'تاريخ غير متوفر'};
+const E_COLS=[
+  {h:'#', w:5, get:e=>e._i, type:'num'},
+  {h:'الاسم', w:30, get:e=>e.name, style:(e,c)=>{c.font={name:FONT,size:10,bold:true};}},
+  {h:'رقم الإقامة', w:15, get:e=>e.iqama, type:'code'},
+  {h:'تاريخ انتهاء الإقامة', w:14, get:e=>e.iqama_expiry, type:'date', style:(e,c)=>{ const st=iqState(e); if(st==='expired'){c.fill=fill(C.redSoft);c.font={name:FONT,size:10,bold:true,color:{argb:C.red}};} else if(st==='soon'){c.fill=fill(C.amberSoft);c.font={name:FONT,size:10,bold:true,color:{argb:C.amber}};} }},
+  {h:'الأيام المتبقية', w:10, get:e=>e.iqama_expiry?daysTo(e.iqama_expiry):'', type:'num'},
+  {h:'حالة الإقامة', w:16, get:e=>E_LBL[iqState(e)], type:'code', style:(e,c)=>{ const m={expired:[C.redSoft,C.red],soon:[C.amberSoft,C.amber],valid:[C.greenSoft,C.green],unknown:[C.graySoft,C.gray]}[iqState(e)]; c.fill=fill(m[0]); c.font={name:FONT,size:10,bold:true,color:{argb:m[1]}}; }},
+  {h:'العلامة', w:12, get:e=>e.brand, type:'code'},
+  {h:'الموقع / الفرع', w:22, get:e=>e.location, type:'code'},
+  {h:'الجنسية', w:14, get:e=>e.nationality, type:'code'},
+  {h:'الرقم الوظيفي', w:12, get:e=>e.emp_no, type:'code'},
+  {h:'الجوال', w:14, get:e=>e.phone, type:'code'},
+  {h:'يظهر في', w:18, get:e=>[...e.src].join(' • '), type:'code'},
+];
+async function buildEmployeesWorkbook(list, opts={}){
+  await loadExcelJS();
+  const wb=new ExcelJS.Workbook(); wb.creator='Work follow up'; wb.created=new Date();
+  const stamp='تاريخ التقرير: '+new Date().toLocaleDateString('ar-SA-u-ca-gregory-nu-latn',{day:'numeric',month:'long',year:'numeric'});
+  const L=list.slice().sort((a,b)=>((a.iqama_expiry||'9')<(b.iqama_expiry||'9')?-1:1)||a.name.localeCompare(b.name,'en')); L.forEach((e,i)=>e._i=i+1);
+  if(opts.summary){
+    const ws=wb.addWorksheet('الملخص',{views:[{rightToLeft:true,showGridLines:false}],properties:{tabColor:{argb:C.navy}}});
+    sheetTitle(ws,'تقرير الموظفين',stamp,8);
+    const n=st=>L.filter(e=>iqState(e)===st).length;
+    const k=(c,l,v,bg,fg,sub)=>{ kpi(ws,4,c,l,v,bg,fg,sub); ws.getCell(5,c).numFmt='0'; };
+    k(1,'الموظفين',L.length,C.graySoft,C.navy,''); k(3,'إقامات منتهية',n('expired'),C.redSoft,C.red,''); k(5,'تنتهي خلال 90 يوم',n('soon'),C.amberSoft,C.amber,''); k(7,'تاريخ غير متوفر',n('unknown'),C.graySoft,C.gray,'');
+    ws.getRow(5).height=30;
+    let r=8; const sec=t=>{ ws.mergeCells(r,1,r,8); const h=ws.getCell(r,1); h.value=t; h.font={name:FONT,size:13,bold:true,color:{argb:C.navy}}; };
+    const due=L.filter(e=>['expired','soon'].includes(iqState(e)));
+    sec('إقامات تحتاج تجديد (منتهية أو خلال 90 يوم)');
+    r = due.length ? writeTable(ws,r+1,E_COLS.filter(c=>['الاسم','رقم الإقامة','تاريخ انتهاء الإقامة','الأيام المتبقية','العلامة'].includes(c.h)),due,false) : r+2; ws.autoFilter=null;
+    const by={}; L.forEach(e=>{ const b=e.brand||'غير محدد'; (by[b] ||= {b,n:0,x:0,s:0}); by[b].n++; const st=iqState(e); if(st==='expired') by[b].x++; if(st==='soon') by[b].s++; });
+    r+=2; sec('حسب العلامة');
+    writeTable(ws,r+1,[{h:'العلامة',get:x=>x.b,style:(x,c)=>{c.font={name:FONT,size:10,bold:true};}},{h:'الموظفين',get:x=>x.n,type:'num',total:'sum'},{h:'إقامة منتهية',get:x=>x.x,type:'num',total:'sum'},{h:'قريبة',get:x=>x.s,type:'num',total:'sum'}],Object.values(by).sort((a,b)=>b.n-a.n),true); ws.autoFilter=null;
+    [30,16,14,12,14,12,12,12].forEach((w,i)=>ws.getColumn(i+1).width=w);
+    ws.pageSetup={orientation:'portrait',fitToPage:true,fitToWidth:1,fitToHeight:0,paperSize:9};
+  }
+  addGenericSheet(wb, opts.mainName||'كل الموظفين', E_COLS, L, `${stamp} — ${L.length} موظف`, C.teal, 2);
+  if(opts.summary){
+    [...new Set(L.map(e=>e.brand).filter(Boolean))].sort().forEach(b=>{ const sub=L.filter(e=>e.brand===b); addGenericSheet(wb, b, E_COLS, sub, `${stamp} — ${sub.length} موظف`, (BRAND_COLOR[b]||'#475569').replace('#','FF'), 2); });
+  }
+  return wb;
+}
+$('#eExportBtn').onclick = e => withBusy(e.currentTarget, async()=>{ const wb=await buildEmployeesWorkbook(scoped(empsList),{summary:true}); await downloadWorkbook(wb,`الموظفين-${today()}.xlsx`); });
+
 // ===== BACKUP =====
 const BK_TABLES = {wf_violations:'المخالفات', wf_violation_updates:'تحديثات المخالفات', wf_health_employees:'الكروت الصحية', wf_health_updates:'تحديثات الكروت', wf_baladiya:'البطاقات البلدية', wf_baladiya_updates:'تحديثات البلدية', wf_housing_units:'عقود السكن', wf_housing_people:'سكان السكنات', wf_housing_updates:'تحديثات السكن', wf_leases:'عقود الإيجار', wf_lease_updates:'تحديثات العقود', wf_topics:'المعاملات', wf_topic_updates:'تحديثات المعاملات', wf_followups:'المتابعة'};
 const BK_STATE = {wf_violations:'viol', wf_violation_updates:'vupd', wf_topics:'topics', wf_topic_updates:'tupd', wf_health_employees:'health', wf_health_updates:'hupd', wf_baladiya:'bal', wf_baladiya_updates:'bupd', wf_housing_units:'hunits', wf_housing_people:'hpeople', wf_housing_updates:'hsupd', wf_leases:'leases', wf_lease_updates:'lupd'};
@@ -959,6 +1006,7 @@ async function bkBuildFiles(data, day){
     out.push([`البطاقات-البلدية-${d}.xlsx`, await buildBalWorkbook(state.bal,{summary:true})]);
     out.push([`السكنات-${d}.xlsx`, await buildHousingWorkbook(state.hpeople,{summary:true})]);
     out.push([`عقود-الإيجار-${d}.xlsx`, await buildLeaseWorkbook(state.leases,{summary:true})]);
+    out.push([`الموظفين-${d}.xlsx`, await buildEmployeesWorkbook(empsList(),{summary:true})]);
     out.push([`المؤشرات-${d}.xlsx`, await buildIndicatorsWorkbook()]);
     const files=[]; for(const [n,wb] of out) files.push([n, await wb.xlsx.writeBuffer()]);
     return files;
