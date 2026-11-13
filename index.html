@@ -1373,7 +1373,7 @@ function openEmp(key){ eCur=key||'';
   const hp = e && e.iqama ? state.hpeople.filter(h=>String(h.id_number||'').trim()===e.iqama) : [];
   const natList=[...new Set([...state.health.map(h=>h.nationality),...state.hpeople.map(h=>h.nationality),...(state.emps||[]).map(h=>h.nationality)].filter(Boolean))].sort();
   const brands=[...new Set([...BRAND_LIST,...state.bal.map(b=>b.brand),...state.health.map(h=>h.brand),...state.hpeople.map(h=>h.brand)].filter(Boolean))];
-  const link=(t,fn,txt)=>`<div class="item" style="margin-top:8px" onclick="closeModal();${fn}"><div class="row"><h3>${t}</h3><span class="chip c-new">${txt}</span></div></div>`;
+  const link=(t,fn,txt)=>`<div class="item" style="margin-top:8px" onclick="closeModal();_empBack=eCur;${fn}"><div class="row"><h3>${t}</h3><span class="chip c-new">${txt}</span></div></div>`;
   const s = e ? iqState(e) : 'unknown', SCx={expired:'منتهية',soon:'تنتهي قريباً',valid:'سارية',unknown:'تاريخ الإقامة غير متوفر'};
   modal(head(e?esc(x.name||'—'):'موظف جديد') + `
     ${e?`<div class="meta"><span class="chip ${s==='expired'?'late':s==='soon'?'near':s==='valid'?'ok':''}">${SCx[s]}</span><span>${[...x.src].join(' • ')||'—'}</span></div>`:''}
@@ -1928,8 +1928,10 @@ function brandGo(b){ state.brand = b; go('home','kpi'); renderBrandBar(); render
   if(!c && y>90){ c=true; h.classList.add('compact'); } else if(c && y<30){ c=false; h.classList.remove('compact'); } }); },{passive:true}); })();
 
 // ===== MODAL =====
-function modal(html){ $('#modalRoot').innerHTML = `<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="sheet">${html}</div></div>`; document.body.style.overflow='hidden'; }
-function closeModal(){ $('#modalRoot').innerHTML=''; document.body.style.overflow=''; }
+let _empBack='';
+function modal(html){ const bk=_empBack?`<button class="btn btn-ghost btn-sm" style="margin-bottom:8px" onclick="backToEmp()">→ رجوع لبطاقة الموظف</button>`:''; $('#modalRoot').innerHTML = `<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="sheet">${bk}${html}</div></div>`; document.body.style.overflow='hidden'; }
+function closeModal(){ _empBack=''; $('#modalRoot').innerHTML=''; document.body.style.overflow=''; }
+function backToEmp(){ const k=_empBack; closeModal(); openEmp(k); }
 const head = t => `<div class="sheet-head"><h3>${t}</h3><button class="btn btn-ghost btn-sm" onclick="closeModal()">✕</button></div>`;
 function openChooser(){
   modal(head('إضافة جديد')+`<div class="actions" style="flex-direction:column">
