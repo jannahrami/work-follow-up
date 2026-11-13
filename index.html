@@ -420,6 +420,14 @@ label{font-weight:600;color:#2b3a4c}
 }
 @media(min-width:900px){ body[data-sec="home"] #subnav{display:none} .agfab{right:auto!important;left:20px!important;bottom:84px!important} }
 @media(max-width:899px){ .agfab{bottom:calc(76px + env(safe-area-inset-bottom))!important} }
+
+/* brand filter: text tabs with a colour bar */
+.bbar{display:flex!important;flex-wrap:wrap;gap:4px 14px;grid-template-columns:none;overflow:visible;max-width:none}
+.bb,.bb.on{height:auto;width:auto;flex:none;background:none;border:0;border-bottom:2px solid transparent;border-radius:0;box-shadow:none;outline:0;padding:7px 4px;gap:7px;font-size:14px;font-weight:500;letter-spacing:0;color:var(--muted);font-family:inherit}
+.bb i{width:3px;height:15px;border-radius:2px;background:var(--c);display:inline-block}
+.bb:hover{color:var(--ink)}
+.bb.on{color:var(--ink);font-weight:700;border-bottom-color:var(--c)}
+@media(max-width:899px){ .bb{color:#a9b8c8;padding:8px 4px} .bb:hover,.bb.on{color:#fff} .bb.on{border-bottom-color:#fff} .bbar{flex-wrap:nowrap;overflow-x:auto} }
 @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
@@ -1520,7 +1528,7 @@ const BRAND_COLOR = { SAYA5:'#dc2626', Chefs:'#b45309', Jazzar:'#15803d', CK:'#1
 function renderBrandBar(){
   const bar = $('#brandBar'); if(!bar) return;
   bar.classList.toggle('hidden', state.section!=='home');
-  const chip = (b, label) => `<button class="bb${state.brand===(b||'')?' on':''}" style="${b?`background:${BRAND_COLOR[b]||'#475569'};color:#fff;`:''}" onclick="setBrand('${b||''}')">${esc(label)}</button>`;
+  const chip = (b, label) => `<button class="bb${state.brand===(b||'')?' on':''}" style="--c:${b?(BRAND_COLOR[b]||'#475569'):'var(--ink)'}" onclick="setBrand('${b||''}')">${b?'<i></i>':''}${esc(label)}</button>`;
   bar.innerHTML = chip('', 'كل العلامات') + BRAND_LIST.map(b=>chip(b,b)).join('');
   const top = $('#topBrands'); if(top) top.innerHTML = ['SAYA5','Chefs','Jazzar'].map(b=>`<button class="bchip" onclick="brandGo('${b}')" aria-label="${LOGO_NAME[b]}"><img src="${LOGOS[BRAND_KEY[b]]}" alt="${LOGO_NAME[b]}"></button>`).join('');
   const t = $('#homeTitle'), note = $('#brandNote');
