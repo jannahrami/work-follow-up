@@ -567,6 +567,17 @@ header.compact .bbar{display:none}
     </div>
 
     <!-- ===== TOPICS ===== -->
+    <div id="sec-emps" class="hidden">
+      <div class="sec-bar"><h1>👥 الموظفين</h1></div>
+      <div class="bnote" style="margin-bottom:12px">قائمة موحّدة تجمع الموظفين من البطاقات البلدية والكروت الصحية والسكنات (مدموجين برقم الإقامة). للعرض فقط — التعديل يتم من القسم الأصلي.</div>
+      <div class="toolbar"><input id="eSearch" placeholder="بحث: الاسم، رقم الإقامة، الجنسية، الموقع..."></div>
+      <div class="toolbar">
+        <select id="eBrand"><option value="">كل العلامات</option></select>
+        <select id="eIq"><option value="">كل حالات الإقامة</option><option value="expired">إقامة منتهية</option><option value="soon">تنتهي خلال 90 يوم</option><option value="valid">إقامة سارية</option><option value="unknown">تاريخ الإقامة غير متوفر</option></select>
+      </div>
+      <div id="eCount" class="meta" style="margin:6px 2px"></div>
+      <div id="eList"></div>
+    </div>
     <div id="sec-backup" class="hidden">
       <div class="sec-bar"><h1>💾 نسخة احتياطية</h1></div>
       <div class="bnote" style="margin-bottom:12px">تُحفظ نسخة كاملة من كل مدخلات Work follow up تلقائياً كل يوم الساعة 2 فجراً، وتبقى آخر 30 يوم. تقدر تنزّل أي نسخة كملف مضغوط (ZIP) فيه 6 ملفات إكسل منسّقة: المخالفات، الكروت الصحية، البطاقات البلدية، السكنات، عقود الإيجار، والمؤشرات.</div>
@@ -842,10 +853,10 @@ function go(section, sub){
 }
 function applyRoute(){
   const [sec, sub] = (location.hash.replace('#','')||'home').split('/');
-  const section = ['viol','health','bal','house','lease','topics','backup'].includes(sec) ? sec : 'home';
+  const section = ['viol','health','bal','house','lease','topics','backup','emps'].includes(sec) ? sec : 'home';
   state.section = section; document.body.classList.toggle('home-wide', section==='home'); renderBrandBar();
   if(sub && SUBTABS[section]?.some(x=>x[0]===sub)) state.sub[section] = sub;
-  ['home','viol','health','bal','house','lease','topics','backup'].forEach(s=>$('#sec-'+s).classList.toggle('hidden', s!==section));
+  ['home','viol','health','bal','house','lease','topics','backup','emps'].forEach(s=>$('#sec-'+s).classList.toggle('hidden', s!==section));
   $('#backBtn').classList.toggle('hidden', section==='home');
   const nav = $('#subnav'), tabs = SUBTABS[section];
   if(tabs){
@@ -853,8 +864,9 @@ function applyRoute(){
     nav.innerHTML = tabs.map(([k,l])=>`<button class="${state.sub[section]===k?'active':''}" onclick="${section==='home'?'':k==='list'?({health:'clearHealthFilters();',viol:'clearViolFilters();',bal:'clearBalFilters();',lease:'clearLeaseFilters();'}[section]||''):k==='people'?'clearPeopleFilters();':''}go('${section}','${k}')">${l}${section==='home'&&k==='todo'?(()=>{const n=dashVisible().filter(x=>x.d<=7).length;return n?` <span class="tabn">${n}</span>`:''})():''}</button>`).join('');
     tabs.forEach(([k])=>$(`#${section}-${k}`).classList.toggle('hidden', state.sub[section]!==k));
   } else { nav.classList.add('hidden'); nav.innerHTML=''; }
-  $('#fab').classList.toggle('hidden', section==='backup');
+  $('#fab').classList.toggle('hidden', section==='backup'||section==='emps');
   if(section==='backup') renderBackup();
+  if(section==='emps') renderEmps();
   window.scrollTo(0,0);
 }
 window.addEventListener('hashchange', applyRoute);
@@ -891,10 +903,35 @@ function _renderTiles(){
     (()=>{ const L=state.leases, ex=L.filter(l=>lState(l)==='expired').length, so=L.filter(l=>lState(l)==='soon').length;
       return tile('lease','📄','var(--blue-soft)','عقود الإيجار', `${L.filter(l=>l.status!=='closed').length} عقد`, `${ex} منتهي • ${so} ينتهي خلال 90 يوم`, ex+so?`${ex+so} تجديد`:'', L.filter(l=>l.status!=='closed').length, [[L.filter(l=>lState(l)==='valid').length,'g','سارية'],[so,'a','قريبة'],[ex,'r','منتهية']]); })() +
     tile('topics','📋','var(--blue-soft)','المعاملات', `${tOpen.length} معاملة مفتوحة`, tLate?`${tLate} متأخرة`:'كل المعاملات في وقتها', tLate?`${tLate} متأخرة`:'', tOpen.length, [[state.topics.length-tOpen.length,'g','منجزة'],[tOpen.length-tLate,'a','مفتوحة'],[tLate,'r','متأخرة']]) +
+    tile('emps','👥','var(--blue-soft)','الموظفين', `${empsList().length} موظف`, 'الاسم • الإقامة • العلامة') +
     tile('backup','💾','var(--gray-soft)','نسخة احتياطية', 'نسخة يومية تلقائية', 'تنزيل ملف إكسل محدّث') +
     `<div class="tile soon"><div class="ic" style="background:var(--gray-soft)">➕</div><div><h3>أقسام جاية</h3><div class="l2">ارفع ملف القسم الجديد وأجهّزه لك هنا</div></div></div>`;
 }
 
+
+// ===== EMPLOYEES (read-only merged view over Baladiya + Health + Housing) =====
+function empsList(){
+  const norm=x=>String(x||'').toLowerCase().replace(/\s+/g,' ').trim();
+  const M=new Map();
+  const get=(id,name)=>{ const k=id?('i'+id):('n'+norm(name)); let o=M.get(k); if(!o){ o={key:k, iqama:id||'', name:'', brand:'', nationality:'', phone:'', location:'', iqama_expiry:'', emp_no:'', src:new Set()}; M.set(k,o); } return o; };
+  const fill=(o,f,v)=>{ if(v && !o[f]) o[f]=v; };
+  state.bal.filter(e=>e.active!==false).forEach(e=>{ const o=get(String(e.iqama||'').trim(), e.name); fill(o,'name',e.name); fill(o,'brand',e.brand); fill(o,'location',e.location); fill(o,'iqama_expiry',e.iqama_expiry); fill(o,'emp_no',e.emp_no); o.src.add('بلدية'); });
+  state.health.filter(e=>e.active!==false).forEach(e=>{ const o=get(String(e.iqama||'').trim(), e.name); fill(o,'name',e.name); fill(o,'brand',e.brand); fill(o,'nationality',e.nationality); fill(o,'phone',e.phone); fill(o,'location',e.branch||e.city); o.src.add('صحي'); });
+  state.hpeople.filter(e=>e.active!==false).forEach(e=>{ const o=get(String(e.id_number||'').trim(), e.name); fill(o,'name',e.name); fill(o,'brand',e.brand); fill(o,'nationality',e.nationality); fill(o,'emp_no',e.emp_no); o.src.add('سكن'); });
+  return [...M.values()].sort((a,b)=>a.name.localeCompare(b.name,'en'));
+}
+let eShown=100;
+function iqState(e){ if(!e.iqama_expiry) return 'unknown'; const d=daysTo(e.iqama_expiry); return d<0?'expired':d<=90?'soon':'valid'; }
+function renderEmps(){
+  const all=scoped(empsList), brands=[...new Set(all.map(e=>e.brand).filter(Boolean))].sort();
+  const bsel=$('#eBrand'); if(bsel.options.length<=1 || bsel.dataset.n!=String(brands.length)){ const keep=bsel.value; bsel.innerHTML='<option value="">كل العلامات</option>'+brands.map(b=>`<option>${esc(b)}</option>`).join(''); bsel.value=keep; bsel.dataset.n=brands.length; }
+  const q=$('#eSearch').value.trim().toLowerCase(), b=$('#eBrand').value, st=$('#eIq').value;
+  const L=all.filter(e=>(!b||e.brand===b) && (!st||iqState(e)===st) && (!q||[e.name,e.iqama,e.nationality,e.location,e.emp_no,e.phone].join(' ').toLowerCase().includes(q)));
+  $('#eCount').textContent=`${L.length} موظف من ${all.length} • إقامات بتاريخ معروف: ${all.filter(e=>e.iqama_expiry).length}`;
+  const SC={expired:['late','منتهية'],soon:['near','تنتهي قريباً'],valid:['ok','سارية'],unknown:['','تاريخ الإقامة غير متوفر']};
+  $('#eList').innerHTML=L.slice(0,eShown).map(e=>{ const s=iqState(e), c=SC[s]; return `<div class="item"><div class="row"><div><h3>${esc(e.name||'—')}</h3><div class="meta"><span>🪪 ${esc(e.iqama||'بدون رقم إقامة')}</span>${e.nationality?`<span>${esc(e.nationality)}</span>`:''}${e.location?`<span>📍 ${esc(e.location)}</span>`:''}${e.phone?`<span>📞 ${esc(e.phone)}</span>`:''}</div><div class="meta"><span>${e.iqama_expiry?'تنتهي الإقامة: '+fmtDate(e.iqama_expiry):'تاريخ انتهاء الإقامة: —'}</span><span>${[...e.src].join(' • ')}</span></div></div><div style="text-align:left">${e.brand?`<span class="chip" style="background:${BRAND_COLOR[e.brand]||'#475569'};color:#fff">${esc(e.brand)}</span>`:''}<div style="margin-top:4px"><span class="dchip ${c[0]}">${c[1]}</span></div></div></div></div>`; }).join('')+(L.length>eShown?`<button class="btn btn-ghost" style="width:100%;margin-top:8px" onclick="eShown+=150;renderEmps()">عرض المزيد (${L.length-eShown})</button>`:'');
+}
+['#eSearch','#eBrand','#eIq'].forEach(id=>{ $(id).addEventListener('input',()=>{ eShown=100; renderEmps(); }); });
 
 // ===== BACKUP =====
 const BK_TABLES = {wf_violations:'المخالفات', wf_violation_updates:'تحديثات المخالفات', wf_health_employees:'الكروت الصحية', wf_health_updates:'تحديثات الكروت', wf_baladiya:'البطاقات البلدية', wf_baladiya_updates:'تحديثات البلدية', wf_housing_units:'عقود السكن', wf_housing_people:'سكان السكنات', wf_housing_updates:'تحديثات السكن', wf_leases:'عقود الإيجار', wf_lease_updates:'تحديثات العقود', wf_topics:'المعاملات', wf_topic_updates:'تحديثات المعاملات', wf_followups:'المتابعة'};
