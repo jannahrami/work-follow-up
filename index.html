@@ -825,6 +825,7 @@ body.staff[data-sec="home"] #subnav{display:none!important}
       <div class="toolbar"><input id="eSearch" placeholder="بحث: الاسم، رقم الإقامة، الجنسية، الموقع..."></div>
       <div class="toolbar">
         <select id="eBrand"><option value="">كل العلامات</option></select>
+        <select id="eNat"><option value="">كل الجنسيات</option></select>
         <select id="eIq"><option value="">كل حالات الإقامة</option><option value="expired">إقامة منتهية</option><option value="soon">تنتهي خلال 90 يوم</option><option value="valid">إقامة سارية</option><option value="unknown">تاريخ الإقامة غير متوفر</option></select>
       </div>
       <div class="toolbar"><button class="btn btn-ghost btn-sm" id="eExportBtn">⬇ تصدير الموظفين (Excel)</button></div>
@@ -1357,18 +1358,20 @@ function empsList(){
   return [...M.values()].sort((a,b)=>a.name.localeCompare(b.name,'en'));
 }
 let eShown=100;
-function goEmps(st){ $('#eSearch').value=''; $('#eBrand').value=''; $('#eIq').value=st||''; eShown=100; go('emps'); }
+function goEmps(st){ $('#eSearch').value=''; $('#eBrand').value=''; $('#eNat').value=''; $('#eIq').value=st||''; eShown=100; go('emps'); }
 function iqState(e){ if(!e.iqama_expiry) return 'unknown'; const d=daysTo(e.iqama_expiry); return d<0?'expired':d<=90?'soon':'valid'; }
 function renderEmps(){
   const all=scoped(empsList), brands=[...new Set(all.map(e=>e.brand).filter(Boolean))].sort();
   const bsel=$('#eBrand'); if(bsel.options.length<=1 || bsel.dataset.n!=String(brands.length)){ const keep=bsel.value; bsel.innerHTML='<option value="">كل العلامات</option>'+brands.map(b=>`<option>${esc(b)}</option>`).join(''); bsel.value=keep; bsel.dataset.n=brands.length; }
-  const q=$('#eSearch').value.trim().toLowerCase(), b=$('#eBrand').value, st=$('#eIq').value;
-  const L=all.filter(e=>(!b||e.brand===b) && (!st||iqState(e)===st) && (!q||[e.name,e.iqama,e.nationality,e.location,e.emp_no,e.phone].join(' ').toLowerCase().includes(q)));
+  const nats=[...new Set(all.map(e=>e.nationality).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'en')), nsel=$('#eNat');
+  if(nsel.dataset.n!==nats.join('|')){ const keep=nsel.value; nsel.innerHTML='<option value="">كل الجنسيات</option>'+nats.map(n=>`<option>${esc(n)}</option>`).join(''); nsel.value=nats.includes(keep)?keep:''; nsel.dataset.n=nats.join('|'); }
+  const q=$('#eSearch').value.trim().toLowerCase(), b=$('#eBrand').value, st=$('#eIq').value, nt=nsel.value;
+  const L=all.filter(e=>(!b||e.brand===b) && (!nt||e.nationality===nt) && (!st||iqState(e)===st) && (!q||[e.name,e.iqama,e.nationality,e.location,e.emp_no,e.phone].join(' ').toLowerCase().includes(q)));
   $('#eCount').textContent=`${L.length} موظف من ${all.length} • إقامات بتاريخ معروف: ${all.filter(e=>e.iqama_expiry).length}`;
   const SC={expired:['late','منتهية'],soon:['near','تنتهي قريباً'],valid:['ok','سارية'],unknown:['','تاريخ الإقامة غير متوفر']};
   $('#eList').innerHTML=L.slice(0,eShown).map(e=>{ const s=iqState(e), c=SC[s]; return `<div class="item"><div class="row"><div><h3>${esc(e.name||'—')}</h3><div class="meta"><span>🪪 ${esc(e.iqama||'بدون رقم إقامة')}</span>${e.nationality?`<span>${esc(e.nationality)}</span>`:''}${e.location?`<span>📍 ${esc(e.location)}</span>`:''}${e.phone?`<span>📞 ${esc(e.phone)}</span>`:''}</div><div class="meta"><span>${e.iqama_expiry?'تنتهي الإقامة: '+fmtDate(e.iqama_expiry):'تاريخ انتهاء الإقامة: —'}</span><span>${[...e.src].join(' • ')}</span></div></div><div style="text-align:left">${e.brand?`<span class="chip" style="background:${BRAND_COLOR[e.brand]||'#475569'};color:#fff">${esc(e.brand)}</span>`:''}<div style="margin-top:4px"><span class="dchip ${c[0]}">${c[1]}</span></div></div></div></div>`; }).join('')+(L.length>eShown?`<button class="btn btn-ghost" style="width:100%;margin-top:8px" onclick="eShown+=150;renderEmps()">عرض المزيد (${L.length-eShown})</button>`:'');
 }
-['#eSearch','#eBrand','#eIq'].forEach(id=>{ $(id).addEventListener('input',()=>{ eShown=100; renderEmps(); }); });
+['#eSearch','#eBrand','#eNat','#eIq'].forEach(id=>{ $(id).addEventListener('input',()=>{ eShown=100; renderEmps(); }); });
 
 // ===== EMPLOYEES EXPORT (styled) =====
 const E_LBL={expired:'منتهية',soon:'تنتهي قريباً',valid:'سارية',unknown:'تاريخ غير متوفر'};
