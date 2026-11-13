@@ -367,6 +367,59 @@ label{font-weight:600;color:#2b3a4c}
   .bchip{flex:1 1 0;width:auto;min-width:0;max-width:96px}
   .top-left{flex:none}
 }
+
+/* ===== SIDEBAR LAYOUT (ink) ===== */
+#side,#tabbar{display:none}
+@media(min-width:900px){
+  #side{display:flex;flex-direction:column;position:fixed;top:0;right:0;bottom:0;width:224px;background:var(--ink);color:#fff;padding:18px 12px 0;z-index:30;overflow-y:auto}
+  #side .s-logo{font-size:20px;font-weight:800;padding:4px 10px 18px;cursor:pointer;color:#fff}
+  #side .s-logo span{color:#6ee7d8}
+  #side .s-it{display:flex;align-items:center;gap:10px;width:100%;background:none;border:0;color:#a9b8c8;padding:11px 12px;border-radius:9px;font-weight:600;font-size:15px;cursor:pointer;text-align:right;margin-bottom:2px}
+  #side .s-it i{font-style:normal;width:22px;text-align:center}
+  #side .s-it span{flex:1}
+  #side .s-it em{font-style:normal;background:rgba(255,255,255,.14);color:#fff;border-radius:99px;font-size:12px;padding:1px 8px;font-weight:700}
+  #side .s-it:hover{background:rgba(255,255,255,.08);color:#fff}
+  #side .s-it.on{background:#fff;color:var(--ink);font-weight:700}
+  #side .s-it.on em{background:var(--ink)}
+  #side .s-foot{margin-top:auto;display:flex;gap:6px;padding:12px 0}
+  #side .s-foot button{flex:1;background:rgba(255,255,255,.1);border:0;color:#fff;border-radius:8px;padding:9px 4px;font-size:13px;cursor:pointer}
+  #side .s-strip{height:3px;margin:0 -12px;background:linear-gradient(90deg,#0a5c5a,#b42318,#9a5b00,#1c4fb8)}
+  #app{padding-right:224px}
+  header{background:transparent;color:var(--ink);padding:10px 0 0}
+  header::after{display:none}
+  header .brands,.top .logo,.top-actions{display:none}
+  .top{padding:0 20px;min-height:0}
+  #backBtn{display:none}
+  nav{padding:0 20px}
+  nav button{color:var(--muted)}
+  nav button.active{background:var(--ink);color:#fff}
+  .bbar{padding:0 20px}
+  .bb{background:#fff;color:var(--ink);border:1px solid var(--line)}
+  .bb.on{background:var(--ink);color:#fff;outline:0}
+  main,.top,nav,.bbar{max-width:none}
+  main{padding:14px 20px 60px}
+}
+@media(min-width:1100px){
+  body.home-wide #sec-home{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:0 22px;align-items:start}
+  body.home-wide #sec-home>.dash-head,body.home-wide #sec-home>.bnote,body.home-wide #sec-home>#home-secs{grid-column:1/-1}
+  body[data-hsub="kpi"] #home-todo.hidden,body[data-hsub="todo"] #home-todo.hidden{display:block!important}
+  body[data-hsub="todo"] #home-kpi.hidden{display:block!important}
+  body.home-wide #home-todo{grid-column:2;grid-row:2;background:#fff;border:1px solid var(--line);border-radius:12px;padding:6px 16px 16px;position:sticky;top:10px;max-height:calc(100vh - 30px);overflow:auto}
+  body.home-wide #home-todo .list{display:flex;flex-direction:column}
+  body.home-wide #home-todo h2:first-child{margin-top:10px}
+  body.home-wide #home-kpi{grid-column:1;grid-row:2}
+  body.home-wide .kpis{grid-template-columns:repeat(3,1fr)}
+}
+@media(max-width:899px){
+  #tabbar{display:flex;position:fixed;bottom:0;left:0;right:0;background:var(--ink);z-index:30;padding:4px 4px max(4px,env(safe-area-inset-bottom));box-shadow:0 -2px 12px rgba(13,27,42,.25)}
+  #tabbar button{flex:1;background:none;border:0;color:#a9b8c8;display:flex;flex-direction:column;align-items:center;gap:1px;padding:6px 2px;font-size:11px;font-weight:600;border-radius:8px;cursor:pointer;min-width:0}
+  #tabbar button i{font-style:normal;font-size:19px;line-height:1.2}
+  #tabbar button.on{color:#fff;background:rgba(255,255,255,.14)}
+  .fab{bottom:calc(72px + env(safe-area-inset-bottom))}
+  main{padding-bottom:140px}
+}
+@media(min-width:900px){ body[data-sec="home"] #subnav{display:none} .agfab{right:auto!important;left:20px!important;bottom:84px!important} }
+@media(max-width:899px){ .agfab{bottom:calc(76px + env(safe-area-inset-bottom))!important} }
 @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
@@ -388,7 +441,9 @@ label{font-weight:600;color:#2b3a4c}
 </section>
 
 <section id="app" class="hidden">
-<header>
+<aside id="side" aria-label="التنقل"></aside>
+  <nav id="tabbar" aria-label="التنقل السريع"></nav>
+  <header>
     <div class="top">
       <div class="top-left">
         <button class="icon-btn hidden" id="backBtn" onclick="go('home')">‹ الرئيسية</button>
@@ -851,7 +906,7 @@ function fillFilters(){
 }
 
 // ===== RENDER =====
-function render(){ renderTiles(); renderRecent(); renderHomeDash(); renderViolDash(); renderViol(); renderTopics(); renderHealthDash(); renderHealth(); renderBalDash(); renderBal(); renderHousingDash(); renderUnits(); renderPeople(); renderLeaseDash(); renderLeases(); }
+function render(){ renderSide(); renderTiles(); renderRecent(); renderHomeDash(); renderViolDash(); renderViol(); renderTopics(); renderHealthDash(); renderHealth(); renderBalDash(); renderBal(); renderHousingDash(); renderUnits(); renderPeople(); renderLeaseDash(); renderLeases(); }
 
 function violCard(v){
   return `<div class="item" onclick="openViol('${v.id}')">
@@ -959,6 +1014,24 @@ const SUBTABS = {
   house:  [['dash','لوحة المتابعة'],['units','السكنات'],['people','الموظفين']],
   lease:  [['dash','لوحة المتابعة'],['list','العقود']],
 };
+
+const NAV = [['home','📊','المؤشرات'],['viol','🚨','المخالفات'],['health','🩺','الكروت الصحية'],['bal','🏛️','البطاقات البلدية'],['house','🏠','السكنات'],['lease','📄','عقود الإيجار'],['emps','👥','الموظفين'],['backup','💾','نسخة احتياطية']];
+const TABS = [['home','📊','الرئيسية'],['viol','🚨','المخالفات'],['health','🩺','الصحية'],['bal','🏛️','البلدية'],['emps','👥','الموظفين'],['more','☰','المزيد']];
+function navBadges(){ const b={};
+  try{ b.viol = state.viol.filter(v=>OPEN.includes(v.status)).length; }catch(e){}
+  try{ const t=today(); b.bal = state.bal.filter(x=>x.card_expiry && x.card_expiry<t).length; }catch(e){}
+  return b; }
+function renderSide(){
+  const sec = state.section, B = navBadges();
+  const side = $('#side'); if(!side) return;
+  side.innerHTML = `<div class="s-logo" onclick="go('home','kpi')">Work <span>follow up</span></div>`
+    + NAV.map(([k,ic,l])=>`<button class="s-it${sec===k?' on':''}" onclick="go('${k}'${k==='home'?",'kpi'":''})"><i>${ic}</i><span>${l}</span>${B[k]?`<em>${B[k]}</em>`:''}</button>`).join('')
+    + `<div class="s-foot"><button onclick="$('#pwBtn').click()">🔑 كلمة المرور</button><button onclick="$('#logoutBtn').click()">خروج</button></div><div class="s-strip"></div>`;
+  const tb = $('#tabbar'); if(!tb) return;
+  const inMore = !TABS.some(t=>t[0]===sec) || (sec==='home' && state.sub.home==='secs');
+  tb.innerHTML = TABS.map(([k,ic,l])=>{ const on = k==='more' ? inMore : (sec===k && !(k==='home'&&state.sub.home==='secs')); 
+    return `<button class="${on?'on':''}" onclick="${k==='more'?"go('home','secs')":k==='home'?"go('home','kpi')":`go('${k}')`}"><i>${ic}</i><span>${l}</span></button>`; }).join('');
+}
 function go(section, sub){
   const h = section==='home' ? '#home/'+(sub||state.sub.home||'kpi') : '#'+section+(sub?'/'+sub:'');
   if(location.hash !== h){ if(h) location.hash = h; else history.pushState('', document.title, location.pathname+location.search); }
@@ -980,6 +1053,7 @@ function applyRoute(){
   $('#fab').classList.toggle('hidden', section==='backup'||section==='emps');
   if(section==='backup') renderBackup();
   if(section==='emps') renderEmps();
+  document.body.dataset.hsub = state.sub.home; document.body.dataset.sec = section; renderSide();
   window.scrollTo(0,0);
 }
 window.addEventListener('hashchange', applyRoute);
