@@ -1419,7 +1419,8 @@ function openEmp(key){ eCur=key||'';
       <div><label>العلامة</label><input class="field" id="feBrand" list="dlBr" value="${esc(x.brand)}" ${ro}><datalist id="dlBr">${brands.map(n=>`<option value="${esc(n)}">`).join('')}</datalist></div></div>
     <div class="grid2"><div><label>الجوال</label><input class="field num" id="fePhone" value="${esc(x.phone)}" dir="ltr" inputmode="tel" ${ro}></div>
       <div><label>الموقع</label><input class="field" id="feLoc" value="${esc(x.location)}" ${ro}></div></div>
-    <div class="grid2"><div><label>الرقم الوظيفي</label><input class="field num" id="feNo" value="${esc(x.emp_no)}" dir="ltr" ${ro}></div><div></div></div>
+    <div class="grid2"><div><label>الرقم الوظيفي</label><input class="field num" id="feNo" value="${esc(x.emp_no)}" dir="ltr" ${ro}></div>
+      <div>${e&&e.rid?`<label>الحالة الوظيفية</label><select class="field" id="feSt" ${ro}>${['active','vacation','settlement'].map(k=>`<option value="${k}" ${(x.status||'active')===k?'selected':''}>${EMP_ST_LBL[k]}</option>`).join('')}</select>`:''}</div></div>
     <label>ملاحظاتي</label><textarea class="field" id="feNotes" style="min-height:60px" ${ro}>${esc(x.notes||'')}</textarea>
     ${staff?'':`<div class="actions"><button class="btn btn-primary" onclick="saveEmp()">حفظ</button>${e&&e.master?`<button class="btn btn-danger" onclick="delEmp()">حذف تعديلاتي</button>`:''}</div>
     <div class="bnote" style="margin-top:8px">الحفظ هنا يضيف بياناتك فوق بيانات الأقسام الأخرى، ولا يغيّرها.</div>`}`);
@@ -1430,6 +1431,11 @@ async function saveEmp(){ const key=eCur;
   const row = { name:v('feName'), iqama:v('feIq')||null, nationality:v('feNat'), brand:v('feBrand'), phone:v('fePhone'), location:v('feLoc'), emp_no:v('feNo'), iqama_expiry:$('#feExp').value||null, notes:v('feNotes') };
   if(!row.name && !row.iqama) return toast('اكتب الاسم أو رقم الإقامة');
   if(row.iqama && !/^\d{10}$/.test(row.iqama)) { if(!confirm('رقم الإقامة ليس 10 أرقام. تبغى تكمل؟')) return; }
+  if(e && e.rid){ // موظف من القائمة الثابتة: الاسم والرقم الوظيفي والجنسية والحالة تُحفظ في القائمة
+    const rr=await sb.from('wf_roster').update({name:row.name, emp_no:row.emp_no, nationality:row.nationality, status:$('#feSt').value, iqama:(row.iqama&&/^\d{10}$/.test(row.iqama))?row.iqama:'', updated_at:new Date().toISOString()}).eq('id',e.rid);
+    if(rr.error) return fail(rr.error);
+    if(!row.iqama){ toast('تم الحفظ'); await loadAll(); applyRoute(); return openEmp(e.key); }
+  }
   let mid = e && e.master;
   if(!mid && row.iqama){ const m=(state.emps||[]).find(m=>m.iqama===row.iqama); if(m) mid=m.id; }
   const res = mid ? await sb.from('wf_employees').update(row).eq('id',mid).select().single() : await sb.from('wf_employees').insert(row).select().single();
