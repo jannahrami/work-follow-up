@@ -1604,7 +1604,7 @@ function rpData(){
     return {...sec, added, changes}; }) };
 }
 function renderReport(){
-  const body=$('#rpBody'); if(!body) return; const D=scoped(rpData); const CAP=60;
+  const body=$('#rpBody'); if(!body) return; const D=scoped(()=>linkedOnly(rpData)); const CAP=60;
   const nAdd=D.secs.reduce((a,s)=>a+s.added.length,0), nCh=D.secs.reduce((a,s)=>a+s.changes.length,0);
   let h=`<div class="rp-sum"><div class="rp-k"><b>${nAdd}</b><span>سجلات جديدة</span></div><div class="rp-k"><b>${nCh}</b><span>تغييرات وملاحظات</span></div>`
     + D.secs.filter(s=>s.added.length||s.changes.length).map(s=>`<div class="rp-k"><b>${s.added.length+s.changes.length}</b><span>${s.t}</span></div>`).join('') + '</div>';
@@ -1618,7 +1618,7 @@ function renderReport(){
 }
 ['#rpFrom','#rpTo'].forEach(x=>$(x).addEventListener('change',renderReport));
 $('#rpExport').onclick = e => withBusy(e.currentTarget, async()=>{
-  await loadExcelJS(); const D=scoped(rpData);
+  await loadExcelJS(); const D=scoped(()=>linkedOnly(rpData));
   const wb=new ExcelJS.Workbook(); wb.creator='Work follow up'; wb.created=new Date();
   const ws=wb.addWorksheet('التقرير',{views:[{rightToLeft:true,state:'frozen',ySplit:3}]});
   ws.columns=[{width:16},{width:22},{width:12},{width:52},{width:60}];
@@ -1943,7 +1943,7 @@ document.addEventListener('focusin',e=>{ const el=e.target; if(el.tagName==='INP
 document.addEventListener('focusout',e=>{ const el=e.target; if(el.tagName==='INPUT' && el.getAttribute('list') && el.value==='' && el.dataset.prev!==undefined){ el.value=el.dataset.prev; } });
 // ===== RECENT UPDATES =====
 let recentAll = false;
-function renderRecent(){ scoped(_renderRecent); }
+function renderRecent(){ scoped(()=>linkedOnly(_renderRecent)); }
 function _renderRecent(){
   const el = $('#recent'); if(!el) return;
   const byId = (arr,id)=>arr.find(x=>x.id===id);
