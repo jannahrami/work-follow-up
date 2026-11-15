@@ -1158,8 +1158,8 @@ const SUBTABS = {
   lease:  [['dash','لوحة المتابعة'],['list','العقود']],
 };
 
-const NAV = [['home','📊','المؤشرات'],['viol','🚨','المخالفات'],['health','🩺','الكروت الصحية'],['bal','🏛️','البطاقات البلدية'],['house','🏠','السكنات'],['lease','📄','عقود الإيجار'],['emps','👥','الموظفين'],['report','📈','التقرير'],['backup','💾','نسخة احتياطية']];
-const TABS = [['home','📊','الرئيسية'],['viol','🚨','المخالفات'],['health','🩺','الصحية'],['bal','🏛️','البلدية'],['emps','👥','الموظفين'],['more','☰','المزيد']];
+const NAV = [['home','📊','المؤشرات'],['viol','🚨','المخالفات'],['bal','🏛️','البطاقات البلدية'],['house','🏠','السكنات'],['lease','📄','عقود الإيجار'],['emps','👥','الموظفين'],['report','📈','التقرير'],['backup','💾','نسخة احتياطية']];
+const TABS = [['home','📊','الرئيسية'],['viol','🚨','المخالفات'],['bal','🏛️','البلدية'],['emps','👥','الموظفين'],['more','☰','المزيد']];
 function allowedSec(k){ if(state.role!=='staff') return !['reqs'].includes(k); if(k==='report') return false; if(['home','reqs'].includes(k)) return true;
   if(k==='emps') return ['bal','health'].some(x=>state.staff.sections.includes(x)); return state.staff.sections.includes(k); }
 function navItems(){ if(state.role==='staff') return NAV.filter(n=>allowedSec(n[0]) && !['backup','report'].includes(n[0])).map(n=>n[0]==='home'?['home','🏠','الرئيسية']:n).concat([['reqs','📨','طلباتي']]);
@@ -1289,7 +1289,7 @@ function go(section, sub){
 }
 function applyRoute(){
   const [sec, sub] = (location.hash.replace('#','')||'home').split('/');
-  let section = ['viol','health','bal','house','lease','topics','backup','emps','report','reqs','appr','staff'].includes(sec) ? sec : 'home';
+  let section = ['viol','bal','house','lease','topics','backup','emps','report','reqs','appr','staff'].includes(sec) ? sec : 'home';
   if(state.role==='staff' && (['topics','backup','report','appr','staff'].includes(section) || !allowedSec(section))) section='home';
   if(state.role!=='staff' && section==='reqs') section='home';
   state.section = section; document.body.classList.toggle('home-wide', section==='home'); renderBrandBar();
@@ -1336,7 +1336,6 @@ function _renderTiles(){
     </div>`; };
   $('#tiles').innerHTML =
     tile('viol','🚨','var(--red-soft)','المخالفات', `${open.length} مخالفة مفتوحة`, `واجبة السداد: ${money(dueAmt)}`, soon?`${soon} موعد قريب`:'', open.length, [[V.filter(v=>['due','rejected'].includes(v.status)).length,'r','واجبة'],[V.filter(v=>['objection_prep','objection_pending'].includes(v.status)).length,'a','اعتراض'],[V.filter(v=>!OPEN.includes(v.status)).length,'g','منتهية']]) +
-    tile('health','🩺','var(--green-soft)','الكروت الصحية', `${H.length} موظف — ${hDone} مكتمل`, `${hTodo} ناقص${hFail?` • ${hFail} راسب يعيد الاختبار`:''}`, hFail?`${hFail} راسب`:'', H.length, [[hDone,'g','مكتمل'],[hFail,'r','راسب'],[hTodo-hFail,'a','ناقص']]) +
     (()=>{ const BI=state.bal.map(bInfo), ex=BI.filter(i=>i.state==='expired').length, so=BI.filter(i=>i.state==='soon').length, no=BI.filter(i=>i.state==='none').length;
       return tile('bal','🪪','var(--amber-soft)','البطاقات البلدية', `${BI.length} موظف — ${BI.filter(i=>i.state==='valid').length} سارية`, `${ex} منتهية • ${so} قريبة • ${no} بدون بطاقة`, ex+so?`${ex+so} تجديد`:'', BI.length, [[BI.filter(i=>i.state==='valid').length,'g','سارية'],[so,'a','قريبة'],[ex,'r','منتهية'],[no,'x','بدون']]); })() +
     (()=>{ const P=state.hpeople, no=P.filter(p=>!p.accommodation).length, U=state.hunits, ex=U.filter(u=>['expired','soon'].includes(cState(u))).length, G=houseGroups().filter(g=>g.contracts.length).length;
@@ -1381,7 +1380,7 @@ function openEmp(key){ eCur=key||'';
   modal(head(e?esc(x.name||'—'):'موظف جديد') + `
     ${e?`<div class="meta"><span class="chip ${s==='expired'?'late':s==='soon'?'near':s==='valid'?'ok':''}">${SCx[s]}</span><span>${[...x.src].join(' • ')||'—'}</span></div>`:''}
     ${bal.map(b=>link('🏛️ بطاقة بلدية: '+esc(b.brand||''),`openBal('${b.id}')`,'فتح')).join('')}
-    ${hc.map(h=>link('🩺 كرت صحي',`openHealth('${h.id}')`,'فتح')).join('')}
+    
     ${hp.map(h=>link('🏠 سكن: '+esc(h.accommodation||'بدون'),`openPerson('${h.id}')`,'فتح')).join('')}
     ${staff?'<div class="bnote">للعرض فقط — التعديل للمدير.</div>':''}
     <label>الاسم</label><input class="field" id="feName" value="${esc(x.name)}" ${ro}>
@@ -1492,7 +1491,6 @@ function rpData(){
   const [f,to]=rpRange(), inR=ts=>{ const x=rpDay(ts); return x>=f && x<=to; };
   const S = [
     { k:'viol', t:'🚨 المخالفات', rows:state.viol, upd:state.vupd, fk:'violation_id', open:id=>`openViol('${id}')`, nm:v=>`${v.authority||''} • ${v.branch||v.company||''} • ${money(v.amount)}` },
-    { k:'health', t:'🩺 الكروت الصحية', rows:state.health, upd:state.hupd, fk:'employee_id', open:id=>`openHealth('${id}')`, nm:e=>`${e.name||''} • ${e.brand||''}` },
     { k:'bal', t:'🏛️ البطاقات البلدية', rows:state.bal, upd:state.bupd, fk:'card_id', open:id=>`openBal('${id}')`, nm:e=>`${e.name||''} • ${e.brand||''}` },
     { k:'units', t:'🏠 عقود السكن', rows:state.hunits, upd:state.hsupd, fk:'unit_id', open:id=>`openContract('${id}')`, nm:u=>`${u.code||''} • ${u.city||''}` },
     { k:'people', t:'👥 سكان السكنات', rows:state.hpeople, upd:state.hsupd, fk:'person_id', open:id=>`openPerson('${id}')`, nm:p=>`${p.name||''} • ${p.accommodation||'بدون سكن'}` },
@@ -1684,7 +1682,6 @@ function _renderHomeDash(){
   const iqExp=X.BI.filter(i=>i.iqState==='expired').length, trExp=X.BI.filter(i=>i.tState==='expired').length;
   const groups = [
     bExp.length && groupRow('bal', 'بطاقات بلدية منتهية', bExp.length, `${bNone.length} موظف بدون بطاقة`, "goBal('expired')"),
-    hFail.length && groupRow('health', 'كروت صحية: راسبين لازم يعيدون الاختبار', hFail.length, '', "goHealth('failed')"),
     iqExp && groupRow('bal', 'إقامات منتهية', iqExp, 'للموظفين في البطاقات البلدية', "goBal('iq')"),
     trExp && groupRow('bal', 'تثقيف صحي منتهي', trExp, '', "goBal('train')"),
     pNone.length && groupRow('house', 'موظفين بدون سكن', pNone.length, '', "goPeople({Acc:'__none'})"),
@@ -1722,7 +1719,6 @@ function homeKpis(X){
       return {color:so?'amber':'green', ic:'⏰', t:'إقامات قاربت على الانتهاء', v:so, num:so, em:'خلال 90 يوم', click:"goEmps('soon')"}; })(),
     {color:bExp.length?'red':'green', ic:'🪪', t:'بطاقات بلدية منتهية', v:bExp.length, num:bExp.length, em:`${bSoon.length} قريبة • ${bNone.length} بدون بطاقة`, click:"goBal('expired')"},
     {color:pNone.length?'amber':'green', ic:'🏠', t:'موظفين بدون سكن', v:pNone.length, num:pNone.length, em:`${P.length-pNone.length} ساكن في ${nSak} سكن`, click:"goPeople({Acc:'__none'})"},
-    {color:hTodo.length?'amber':'green', ic:'🩺', t:'كروت صحية ناقصة', v:hTodo.length, num:hTodo.length, em:`${hFail.length} راسب • من ${HM.length}`, click:"goHealth('incomplete')"},
     {color:tLate.length?'red':'blue', ic:'📋', t:'معاملات مفتوحة', v:T.length, num:T.length, em:tLate.length?`${tLate.length} متأخرة`:'كلها في وقتها', click:"go('topics')"},
   ];
 }
@@ -1746,9 +1742,6 @@ function indCharts(){
   // 4) baladiya cards
   const BL=[['valid','green'],['soon','amber'],['expired','red'],['none','gray']];
   out.push({id:'bal', title:'البطاقات البلدية', sub:`${X.BI.length} موظف`, type:'donut', rows:BL.map(([k,c])=>({label:BSTATE[k], v:X.BI.filter(i=>i.state===k).length, color:c, click:`goBal('${k}')`})), center:{n:X.BI.length, l:'موظف'}});
-  // 5) health cards (main list)
-  const HL=[['done','green','done'],['partial','amber','incomplete'],['training','blue','training'],['failed','red','failed'],['none','gray','none']];
-  out.push({id:'health', title:'الكروت الصحية', sub:`${X.HM.length} موظف (بدون الرياض)`, type:'donut', rows:HL.map(([k,c,f])=>({label:HSTAGE[k], v:X.HM.filter(x=>x.cls===k).length, color:c, click:`goHealth('${f}')`})), center:{n:X.HM.length, l:'موظف'}});
   // 6) lease contracts status
   const LL=[['valid','green'],['soon','amber'],['expired','red'],['closed','gray'],['none','gray']];
   out.push({id:'lease', title:'حالة عقود الإيجار', sub:`${X.L.length} عقد`, type:'donut', rows:LL.map(([k,c])=>({label:L_LBL[k], v:X.L.filter(l=>lState(l)===k).length, color:c, click:`goLease('${k==='valid'||k==='closed'||k==='none'?'':k}')`})), center:{n:X.L.length, l:'عقد'}});
@@ -1856,7 +1849,6 @@ function _renderRecent(){
   const push = (sec, u, title, click) => { if(title) L.push({sec, t:u.created_at, title, body:String(u.body||'').replace(/\s*\n\s*/g,' • ').trim(), click}); };
   state.vupd.forEach(u=>{ const v=byId(state.viol,u.violation_id); if(v) push('viol',u,`مخالفة ${v.violation_no||''} — ${v.branch||v.company||v.authority||''}`,`openViol('${v.id}')`); });
   state.tupd.forEach(u=>{ const t=byId(state.topics,u.topic_id); if(t) push('topics',u,t.title,`openTopic('${t.id}')`); });
-  state.hupd.forEach(u=>{ const e=byId(state.health,u.employee_id); if(e) push('health',u,e.name,`openHealth('${e.id}')`); });
   state.bupd.forEach(u=>{ const e=byId(state.bal,u.card_id); if(e) push('bal',u,e.name,`openBal('${e.id}')`); });
   state.hsupd.forEach(u=>{ if(u.unit_id){ const x=byId(state.hunits,u.unit_id); if(x) push('house',u,`عقد سكن ${x.code||''}`,`openContract('${x.id}')`); }
                            else if(u.person_id){ const p=byId(state.hpeople,u.person_id); if(p) push('house',u,p.name,`openPerson('${p.id}')`); } });
@@ -1940,7 +1932,6 @@ const head = t => `<div class="sheet-head"><h3>${t}</h3><button class="btn btn-g
 function openChooser(){
   modal(head('إضافة جديد')+`<div class="actions" style="flex-direction:column">
     <button class="btn btn-primary" onclick="openViolForm()">مخالفة جديدة</button>
-    <button class="btn btn-primary" onclick="openHealthForm()">موظف جديد (الكروت الصحية)</button>
     <button class="btn btn-primary" onclick="openBalForm()">موظف جديد (البطاقات البلدية)</button>
     <button class="btn btn-primary" onclick="openPerson('')">موظف جديد (السكنات)</button>
     <button class="btn btn-primary" onclick="openContract('')">عقد سكن جديد</button>
@@ -2134,7 +2125,7 @@ $('#fileInput').onchange = async e => {
     const vRows = hRows.length && importTarget==='health' ? [] : parseWorkbook(wb);
     if(importTarget==='health' && hRows.length) return previewHealthImport(hRows, file.name);
     if(vRows.length && (importTarget==='viol' || !hRows.length)) return previewImport(vRows, file.name);
-    if(hRows.length){ toast('هذا ملف كروت صحية — بيتم استيراده لقسم الكروت الصحية'); return previewHealthImport(hRows, file.name); }
+    if(hRows.length){ toast('الكروت الصحية صارت ضمن البطاقات البلدية — هذا الملف بصيغة الكروت الصحية ولا يُستورد'); return; }
     toast('ما لقيت بيانات أعرفها في الملف');
   }catch(err){ fail(err); }
 };
