@@ -821,7 +821,8 @@ body.staff[data-sec="home"] #subnav{display:none!important}
     <!-- ===== TOPICS ===== -->
     <div id="sec-emps" class="hidden">
       <div class="sec-bar"><h1>👥 الموظفين</h1></div>
-      <div class="bnote" style="margin-bottom:12px">قائمة موحّدة تجمع الموظفين من البطاقات البلدية والكروت الصحية والسكنات (مدموجين برقم الإقامة). اضغط على أي موظف لعرض بياناته وإضافة أو تعديل التاريخ والجوال والجنسية والملاحظات. تعديلاتك هنا لا تغيّر القسم الأصلي، بل تُضاف فوقه.</div>
+      <div class="stats" id="eStats"></div>
+      <div class="bnote" style="margin-bottom:12px">قائمة الموظفين الثابتة (من ملف الموظفين). البطاقات البلدية والسكنات مربوطة بها، وتقدر تعدّل حالة أي موظف من بطاقته.</div>
       <div class="toolbar"><input id="eSearch" placeholder="بحث: الاسم، رقم الإقامة، الجنسية، الموقع..."></div>
       <div class="toolbar">
         <select id="eBrand"><option value="">كل العلامات</option></select>
@@ -1454,7 +1455,13 @@ let eShown=100, eLast=[], eCur='';
 function openEmpI(i){ openEmp(eLast[i]?eLast[i].key:''); }
 function goEmps(st){ $('#eSearch').value=''; $('#eBrand').value=''; $('#eNat').value=''; $('#eIq').value=st||''; eShown=100; go('emps'); }
 function iqState(e){ if(!e.iqama_expiry) return 'unknown'; const d=daysTo(e.iqama_expiry); return d<0?'expired':d<=90?'soon':'valid'; }
+function setEmpSt(v){ $('#eSt').value=v; eUnl=false; eShown=100; renderEmps(); }
 function renderEmps(){
+  { const A=scoped(empsList), has=(state.roster||[]).length>0, c=k=>A.filter(e=>e.status===k).length;
+    $('#eStats').innerHTML = has ? `<div class="stat" onclick="setEmpSt('')"><small>إجمالي الموظفين</small><b class="num">${A.length}</b></div>
+      <div class="stat" onclick="setEmpSt('active')"><small>على رأس العمل</small><b class="num" style="color:var(--green)">${c('active')}</b></div>
+      <div class="stat" onclick="setEmpSt('vacation')"><small>إجازة</small><b class="num" style="color:var(--amber)">${c('vacation')}</b></div>
+      <div class="stat" onclick="setEmpSt('settlement')"><small>تصفية</small><b class="num" style="color:var(--red)">${c('settlement')}</b></div>` : ''; }
   const all=eUnl?scoped(unlinkedList):scoped(empsList), brands=[...new Set(all.map(e=>e.brand).filter(Boolean))].sort();
   const bsel=$('#eBrand'); if(bsel.options.length<=1 || bsel.dataset.n!=String(brands.length)){ const keep=bsel.value; bsel.innerHTML='<option value="">كل العلامات</option>'+brands.map(b=>`<option>${esc(b)}</option>`).join(''); bsel.value=keep; bsel.dataset.n=brands.length; }
   const nats=[...new Set(all.map(e=>e.nationality).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'en')), nsel=$('#eNat');
