@@ -828,7 +828,7 @@ body.staff[data-sec="home"] #subnav{display:none!important}
         <select id="eNat"><option value="">كل الجنسيات</option></select>
         <select id="eIq"><option value="">كل حالات الإقامة</option><option value="expired">إقامة منتهية</option><option value="soon">تنتهي خلال 90 يوم</option><option value="valid">إقامة سارية</option><option value="unknown">تاريخ الإقامة غير متوفر</option></select>
       </div>
-      <div class="toolbar"><button class="btn btn-ghost btn-sm" id="eExportBtn">⬇ تصدير الموظفين (Excel)</button></div>
+      <div class="toolbar"><button class="btn btn-primary btn-sm" id="rosterUpBtn" onclick="$('#rosterFile').click()">⬆ تحديث قائمة الموظفين (Excel)</button><input type="file" id="rosterFile" accept=".xlsx,.xls" hidden><button class="btn btn-ghost btn-sm" id="eExportBtn">⬇ تصدير الموظفين (Excel)</button></div>
       <div id="eCount" class="meta" style="margin:6px 2px"></div>
       <div id="eList"></div>
     </div>
@@ -1391,7 +1391,7 @@ function empsListLegacy(){
 function openEmp(key){ eCur=key||'';
   const e = key ? (scoped(empsList).find(x=>x.key===key) || unlinkedList().find(x=>x.key===key)) : null;
   if(key && !e) return toast('لم يتم العثور على الموظف');
-  if(e && e.kind){ if(e.kind==='bal') return openBal(e.id); return openPerson(e.id); }
+  if(e && e.kind) return openLink(e.kind,e.id);
   const x = e || {iqama:'',name:'',brand:'',nationality:'',phone:'',location:'',iqama_expiry:'',emp_no:'',notes:'',src:new Set(),key:''};
   const staff = state.role==='staff';
   const ro = staff ? 'disabled' : '';
@@ -1451,7 +1451,8 @@ function renderEmps(){
   if(nsel.dataset.n!==nats.join('|')){ const keep=nsel.value; nsel.innerHTML='<option value="">كل الجنسيات</option>'+nats.map(n=>`<option>${esc(n)}</option>`).join(''); nsel.value=nats.includes(keep)?keep:''; nsel.dataset.n=nats.join('|'); }
   const q=$('#eSearch').value.trim().toLowerCase(), b=$('#eBrand').value, st=$('#eIq').value, nt=nsel.value;
   const L=all.filter(e=>(!b||e.brand===b) && (!nt||e.nationality===nt) && (!st||iqState(e)===st) && (!q||[e.name,e.iqama,e.nationality,e.location,e.emp_no,e.phone].join(' ').toLowerCase().includes(q)));
-  const _u=scoped(unlinkedList).length; $('#eCount').innerHTML=(eUnl?`غير مدرجين بالقائمة: ${L.length} من ${all.length}`:`${L.length} موظف من ${all.length} • إقامات بتاريخ معروف: ${all.filter(e=>e.iqama_expiry).length}`)+` &nbsp; <button class="btn btn-ghost" style="padding:2px 10px" onclick="toggleUnl()">${eUnl?'⬅ رجوع لقائمة الموظفين':'غير مرتبطين بالقائمة ('+_u+')'}</button>`;
+  const _u=scoped(unlinkedList).length; $('#eCount').innerHTML=(eUnl?`غير مدرجين بالقائمة: ${L.length} من ${all.length}`:`${L.length} موظف من ${all.length} • إقامات بتاريخ معروف: ${all.filter(e=>e.iqama_expiry).length}`)+((state.role!=='staff'&&(state.roster||[]).length)?` &nbsp; <button class="btn btn-ghost" style="padding:2px 10px" onclick="toggleUnl()">${eUnl?'⬅ رجوع لقائمة الموظفين':'غير مرتبطين بالقائمة ('+_u+')'}</button>`:'');
+  { const rb=$('#rosterUpBtn'); if(rb) rb.style.display=state.role==='staff'?'none':''; }
   const SC={expired:['late','منتهية'],soon:['near','تنتهي قريباً'],valid:['ok','سارية'],unknown:['','تاريخ الإقامة غير متوفر']};
   eLast=L; $('#eList').innerHTML=L.slice(0,eShown).map(e=>{ const s=iqState(e), c=SC[s]; return `<div class="item" onclick="openEmpI(${eLast.indexOf(e)})"><div class="row"><div><h3>${esc(e.name||'—')}</h3><div class="meta"><span>🪪 ${esc(e.iqama||'بدون رقم إقامة')}</span>${e.nationality?`<span>${esc(e.nationality)}</span>`:''}${e.location?`<span>📍 ${esc(e.location)}</span>`:''}${e.phone?`<span>📞 ${esc(e.phone)}</span>`:''}</div><div class="meta"><span>${e.iqama_expiry?'تنتهي الإقامة: '+fmtDate(e.iqama_expiry):'تاريخ انتهاء الإقامة: —'}</span><span>${[...e.src].join(' • ')}</span>${ROSTER_ST[e.status]?`<span class="chip late">${ROSTER_ST[e.status]}</span>`:''}</div></div><div style="text-align:left">${e.brand?`<span class="chip" style="background:${BRAND_COLOR[e.brand]||'#475569'};color:#fff">${esc(e.brand)}</span>`:''}<div style="margin-top:4px"><span class="dchip ${c[0]}">${c[1]}</span></div></div></div></div>`; }).join('')+(L.length>eShown?`<button class="btn btn-ghost" style="width:100%;margin-top:8px" onclick="eShown+=150;renderEmps()">عرض المزيد (${L.length-eShown})</button>`:'');
 }
@@ -1501,6 +1502,80 @@ async function buildEmployeesWorkbook(list, opts={}){
   }
   return wb;
 }
+// ===== ربط بطاقة/سكن بموظف من القائمة =====
+function _lev(a,b){ if(Math.abs(a.length-b.length)>2) return 9; const m=[...Array(a.length+1)].map((_,i)=>[i]); for(let j=1;j<=b.length;j++) m[0][j]=j; for(let i=1;i<=a.length;i++) for(let j=1;j<=b.length;j++) m[i][j]=Math.min(m[i-1][j]+1,m[i][j-1]+1,m[i-1][j-1]+(a[i-1]===b[j-1]?0:1)); return m[a.length][b.length]; }
+function _simScore(a,b){ const t=x=>new Set(String(x||'').toLowerCase().replace(/[^a-z0-9؀-ۿ ]/g,' ').split(/\s+/).filter(w=>w.length>1)); const A=t(a),B=t(b); if(!A.size||!B.size) return 0; let n=0; A.forEach(w=>{ if(B.has(w)) n++; }); return n/Math.min(A.size,B.size); }
+let _lk=null;
+function openLink(kind,id){
+  const rec = kind==='bal' ? state.bal.find(x=>x.id===id) : state.hpeople.find(x=>x.id===id); if(!rec) return;
+  const iq = String(kind==='bal' ? (rec.iqama||'') : (rec.id_number||'')).trim();
+  _lk={kind,id,iq,name:rec.name||''};
+  modal(head('ربط بموظف من القائمة') + `<div class="item"><div class="row"><div><h3>${esc(rec.name||'—')}</h3><div class="meta"><span>🪪 ${esc(iq||'بدون إقامة')}</span><span>${kind==='bal'?'بطاقة بلدية':'سكن'}${rec.emp_no?' • '+esc(rec.emp_no):''}</span></div></div></div></div>
+    <label>اختر الموظف الصحيح (ابحث بالاسم أو الإقامة أو الرقم الوظيفي)</label><input class="field" id="lkQ" placeholder="بحث..." oninput="renderLinkList()">
+    <div id="lkList"></div>
+    <div class="actions"><button class="btn btn-ghost" onclick="closeModal();${kind==='bal'?`openBal('${id}')`:`openPerson('${id}')`}">فتح البطاقة نفسها</button></div>`);
+  renderLinkList();
+}
+function renderLinkList(){
+  const q=($('#lkQ').value||'').trim().toLowerCase(); let L;
+  if(q) L=(state.roster||[]).filter(r=>[r.name,r.iqama,r.emp_no].join(' ').toLowerCase().includes(q)).slice(0,30).map(r=>({r,why:''}));
+  else L=(state.roster||[]).map(r=>{ let sc=_simScore(_lk.name,r.name), why=sc>=0.5?'اسم قريب':''; if(_lk.iq && r.iqama && _lev(_lk.iq,r.iqama)<=2){ sc+=1; why='إقامة قريبة'; } return {r,sc,why}; }).filter(x=>x.sc>=0.5).sort((a,b)=>b.sc-a.sc).slice(0,8);
+  $('#lkList').innerHTML = L.length ? L.map(x=>`<div class="item" style="margin-top:8px" onclick="doLink(${x.r.id})"><div class="row"><div><h3>${esc(x.r.name)}</h3><div class="meta"><span>🪪 ${esc(x.r.iqama||'بدون إقامة')}</span><span>${esc(x.r.emp_no)}</span>${ROSTER_ST[x.r.status]?`<span class="chip late">${ROSTER_ST[x.r.status]}</span>`:''}</div></div><span class="chip c-new">${x.why||'ربط'}</span></div></div>`).join('') : `<div class="bnote">${q?'ما لقيت موظف بهذا البحث.':'ما فيه اقتراح قريب — اكتب في البحث.'}</div>`;
+}
+async function doLink(rid){
+  if(!_lk) return; const r=(state.roster||[]).find(x=>x.id===rid); if(!r) return;
+  if(!confirm(`ربط «${_lk.name}» بالموظف «${r.name}»؟`)) return;
+  const { error } = await sb.from(_lk.kind==='bal'?'wf_baladiya':'wf_housing_people').update({roster_id:rid}).eq('id',_lk.id);
+  if(error) return fail(error);
+  closeModal(); toast('تم الربط'); await loadAll();
+}
+
+// ===== تحديث القائمة الثابتة من ملف إكسل =====
+let _rp=null;
+async function importRoster(file){
+  if(state.role==='staff') return;
+  try{
+    const wb=XLSX.read(await file.arrayBuffer(),{cellDates:true}); const aoa=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,raw:true,defval:null});
+    const nv=v=>String(v==null?'':v).trim(); const rows=[];
+    for(const r of aoa){ const emp=nv(r[0]), name=nv(r[1]); if(!emp||!name||emp==='رقم وظيفي') continue;
+      let iq=nv(r[5]).replace(/\.0$/,''); if(!/^\d{10}$/.test(iq)) iq='';
+      const st=nv(r[7]).toLowerCase(); rows.push({emp_no:emp,name,iqama:iq,nationality:nv(r[6]),status:st.startsWith('final')?'settlement':st.startsWith('vac')?'vacation':'active'}); }
+    if(rows.length<50 || rows.filter(x=>x.iqama).length<rows.length*0.5) return toast('شكل الملف غير مطابق لقائمة الموظفين');
+    const R=state.roster||[], byIq=new Map(), byEmpNoIq=new Map();
+    R.forEach(r=>{ if(r.iqama) byIq.set(r.iqama,r); else byEmpNoIq.set(r.emp_no,r); });
+    const add=[], upd=[], seen=new Set();
+    rows.forEach(n=>{ const o=(n.iqama&&byIq.get(n.iqama))||byEmpNoIq.get(n.emp_no)||(!n.iqama&&n.emp_no!=='NEW HIRE'&&n.emp_no!=='-'&&R.find(r=>r.emp_no===n.emp_no));
+      if(!o||seen.has(o.id)){ add.push(n); return; } seen.add(o.id);
+      const ch={}; ['emp_no','name','nationality','status','iqama'].forEach(f=>{ if(n[f] && o[f]!==n[f]) ch[f]=n[f]; });
+      if(Object.keys(ch).length) upd.push({id:o.id,old:o,ch}); });
+    const miss=R.filter(r=>!seen.has(r.id));
+    _rp={add,upd};
+    const fN=l=>l.slice(0,8).map(x=>`<div class="meta"><span>${esc(x.name)}</span></div>`).join('')+(l.length>8?`<div class="meta">و ${l.length-8} آخرين</div>`:'');
+    const ST=v=>ROSTER_ST[v]||'على رأس العمل';
+    modal(head('تحديث قائمة الموظفين') + `<div class="bnote">الملف فيه ${rows.length} موظف، والقائمة الحالية ${R.length}.</div>
+      <div class="item" style="margin-top:8px"><h3>➕ موظفون جدد: ${add.length}</h3>${fN(add)}</div>
+      <div class="item" style="margin-top:8px"><h3>✏️ تغييرات: ${upd.length}</h3>${upd.slice(0,8).map(u=>`<div class="meta"><span>${esc(u.old.name)}: ${Object.keys(u.ch).map(f=>f==='status'?`الحالة ${ST(u.old.status)} ← ${ST(u.ch.status)}`:f==='emp_no'?`الرقم ${esc(u.old.emp_no)} ← ${esc(u.ch.emp_no)}`:f==='name'?'الاسم':f==='iqama'?'الإقامة':'الجنسية').join(' • ')}</span></div>`).join('')}${upd.length>8?`<div class="meta">و ${upd.length-8} آخرين</div>`:''}</div>
+      <div class="item" style="margin-top:8px"><h3>⚠️ في القائمة وليسوا في الملف: ${miss.length}</h3><div class="meta"><span>ما يتحذفون — تبقى في القائمة لحد ما تقرر.</span></div>${fN(miss)}</div>
+      <div class="actions"><button class="btn btn-primary" id="rpApply" onclick="applyRoster()" ${add.length+upd.length?'':'disabled'}>تطبيق التحديث</button><button class="btn btn-ghost" onclick="closeModal()">إلغاء</button></div>
+      <div class="bnote" style="margin-top:8px">تُؤخذ نسخة احتياطية قبل التطبيق، وبعدها تُربط البطاقات والسكنات الجديدة بالإقامة تلقائياً.</div>`);
+  }catch(e){ fail(e); }
+}
+async function applyRoster(){
+  if(!_rp) return; const {add,upd}=_rp; const btn=$('#rpApply'); btn.disabled=true; btn.textContent='⏳ جاري التطبيق...';
+  try{
+    const b=await sb.rpc('wf_make_backup',{p_kind:'manual'}); if(b.error) throw b.error;
+    for(let i=0;i<add.length;i+=200){ const r=await sb.from('wf_roster').insert(add.slice(i,i+200)); if(r.error) throw r.error; }
+    for(let i=0;i<upd.length;i+=20){ const rs=await Promise.all(upd.slice(i,i+20).map(u=>sb.from('wf_roster').update({...u.ch,updated_at:new Date().toISOString()}).eq('id',u.id))); for(const r of rs) if(r.error) throw r.error; }
+    const rr=await sb.from('wf_roster').select('*').limit(3000); if(rr.error) throw rr.error;
+    const byIq=new Map(rr.data.filter(r=>r.iqama).map(r=>[r.iqama,r.id])); let linked=0;
+    const jobs=[]; state.bal.filter(e=>!e.roster_id && byIq.has(String(e.iqama||'').trim())).forEach(e=>jobs.push(sb.from('wf_baladiya').update({roster_id:byIq.get(String(e.iqama).trim())}).eq('id',e.id)));
+    state.hpeople.filter(e=>!e.roster_id && byIq.has(String(e.id_number||'').trim())).forEach(e=>jobs.push(sb.from('wf_housing_people').update({roster_id:byIq.get(String(e.id_number).trim())}).eq('id',e.id)));
+    for(let i=0;i<jobs.length;i+=20){ const rs=await Promise.all(jobs.slice(i,i+20)); rs.forEach(r=>{ if(!r.error) linked++; }); }
+    closeModal(); toast(`تم: ${add.length} جديد • ${upd.length} تعديل • ${linked} ربط`); _rp=null; await loadAll();
+  }catch(e){ fail(e); btn.disabled=false; btn.textContent='تطبيق التحديث'; }
+}
+$('#rosterFile').onchange=e=>{ const f=e.target.files[0]; e.target.value=''; if(f) importRoster(f); };
+
 $('#eExportBtn').onclick = e => withBusy(e.currentTarget, async()=>{ const wb=await buildEmployeesWorkbook(scoped(empsList),{summary:true}); await downloadWorkbook(wb,`الموظفين-${today()}.xlsx`); });
 
 
