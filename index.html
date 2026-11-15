@@ -3310,6 +3310,13 @@ function renderBalDash(){
   const c = s => I.filter(i=>i.state===s).length;
   $('#bkAll').textContent = I.length; $('#bkAllN').textContent = [...new Set(state.bal.map(e=>e.brand))].join(' • ');
   $('#bkValid').textContent = c('valid'); $('#bkSoon').textContent = c('soon'); $('#bkExp').textContent = c('expired'); $('#bkNone').textContent = c('none');
+  if(state.role!=='staff' && (state.roster||[]).length){ // الأرقام حسب قائمة الموظفين الثابتة
+    const EM=empsList(), ids=new Set(EM.map(e=>e.rid)), IL=I.filter(i=>ids.has(i.e.roster_id)), cl=s=>IL.filter(i=>i.state===s).length;
+    const withCard=new Set(IL.filter(i=>i.state!=='none').map(i=>i.e.roster_id)).size;
+    $('#bkAll').textContent = EM.length; $('#bkAllN').textContent = `${withCard} عندهم بطاقة`;
+    $('#bkValid').textContent = cl('valid'); $('#bkSoon').textContent = cl('soon'); $('#bkExp').textContent = cl('expired'); $('#bkNone').textContent = EM.length-withCard;
+    const _n=document.querySelector('#bkNone'); if(_n) _n.previousElementSibling.textContent='موظفون بدون بطاقة';
+  }
   const iq = I.filter(i=>i.iqState==='expired'||i.iqState==='soon').length, tr = I.filter(i=>i.tState==='expired'||i.tState==='soon').length;
   $('#bAlerts').innerHTML = `
     <div class="item" onclick="goBal('iq')"><div class="row"><h3>🪪 إقامات منتهية أو تنتهي خلال 30 يوم</h3><span class="chip h-failed num">${iq}</span></div></div>
