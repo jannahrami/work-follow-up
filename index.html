@@ -1713,6 +1713,8 @@ function homeKpis(X){
     {color:lDue.length?'red':'green', ic:'📄', t:'عقود تحتاج تجديد', v:lDue.length, num:lDue.length, em:`${lExp.length} منتهي • ${lDue.length-lExp.length} خلال 90 يوم`, click:"goLease('due')"},
     {color:vDue.length?'red':'green', ic:'🚨', t:'مخالفات واجبة السداد (ر.س)', v:Number(sum(vDue)).toLocaleString('en-US'), num:sum(vDue), money:true, em:`${vDue.length} مخالفة • ${V.filter(v=>OPEN.includes(v.status)).length} مفتوحة`, click:"goViol('dueish')"},
     ...[['objection_prep','🛠️','amber','تحت إجراء رفع الاعتراض (ر.س)'],['objection_pending','⏳','blue','اعتراض قيد النظر (ر.س)'],['accepted','✅','green','اعتراض مقبول (ر.س)'],['paid','💳','green','مخالفات مسددة (ر.س)']].map(([k,ic,col,t])=>{ const a=V.filter(v=>v.status===k); return {color:col, ic, t, v:Number(sum(a)).toLocaleString('en-US'), num:sum(a), money:true, em:`${a.length} مخالفة`, click:`goViol('${k}')`}; }),
+    (()=>{ const EM=empsList(), bc={}; EM.forEach(e=>{ const b=e.brand||'بدون علامة'; bc[b]=(bc[b]||0)+1; });
+      return {color:'blue', ic:'👥', t:'عدد الموظفين', v:EM.length, num:EM.length, em:Object.entries(bc).sort((x,y)=>y[1]-x[1]).map(([b,n])=>`${b} ${n}`).join(' • '), click:"goEmps('')"}; })(),
     (()=>{ const EM=empsList(), ex=EM.filter(e=>iqState(e)==='expired').length, so=EM.filter(e=>iqState(e)==='soon').length, un=EM.filter(e=>iqState(e)==='unknown').length;
       return {color:ex?'red':so?'amber':'green', ic:'🛂', t:'إقامات منتهية', v:ex, num:ex, em:`${so} تنتهي خلال 90 يوم • ${un} بدون تاريخ`, click:"goEmps('expired')"}; })(),
     (()=>{ const EM=empsList(), so=EM.filter(e=>iqState(e)==='soon').length;
