@@ -1413,7 +1413,7 @@ function openEmp(key){ eCur=key||'';
   const s = e ? iqState(e) : 'unknown', SCx={expired:'منتهية',soon:'تنتهي قريباً',valid:'سارية',unknown:'تاريخ الإقامة غير متوفر'};
   modal(head(e?esc(x.name||'—'):'موظف جديد') + `
     ${e&&e.status?`<div class="meta">${stChip(e.status)}</div>`:''}${e?`<div class="meta"><span class="chip ${s==='expired'?'late':s==='soon'?'near':s==='valid'?'ok':''}">${SCx[s]}</span><span>${[...x.src].join(' • ')||'—'}</span></div>`:''}
-    ${bal.map(b=>link('🏛️ بطاقة بلدية: '+esc(b.brand||''),`openBal('${b.id}')`,'فتح')).join('')}
+    ${bal.map(b=>{ const i=bInfo(b), SL={valid:'سارية',soon:'تنتهي قريباً',expired:'منتهية',none:'بدون تاريخ بطاقة'}; return `<div class="item" style="margin-top:8px" onclick="closeModal();_empBack=eCur;openBal('${b.id}')"><div class="row"><h3>🏛️ بطاقة بلدية رقم: <span class="num" dir="ltr">${esc(b.baladia_no||'غير مسجل')}</span></h3><span class="chip ${i.state==='expired'?'late':i.state==='soon'?'near':i.state==='valid'?'ok':''}">${SL[i.state]}</span></div><div class="meta">${b.card_expiry?`<span>ينتهي: ${fmtDate(b.card_expiry)}</span>`:''}${b.training_expiry?`<span>التثقيف: ${fmtDate(b.training_expiry)}</span>`:''}${b.exam_result?`<span>الاختبار: ${b.exam_result==='PASSED'?'ناجح':'راسب'}</span>`:''}${b.update_cat?`<span>${esc(b.update_cat)}</span>`:''}<span>${esc(b.brand||'')}</span></div></div>`; }).join('')}
     
     ${hp.map(h=>link('🏠 سكن: '+esc(h.accommodation||'بدون'),`openPerson('${h.id}')`,'فتح')).join('')}
     ${staff?'<div class="bnote">للعرض فقط — التعديل للمدير.</div>':''}
