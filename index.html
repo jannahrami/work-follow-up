@@ -1576,6 +1576,8 @@ function prFill(all){ const fill=(id,lbl,vals)=>{ const s=$(id), keep=s.value, v
   const yv=ys.value; const ms=[...new Set(all.map(x=>x.month))].sort().filter(m=>!yv||m.startsWith(yv)); const ms2=$('#prM'); ms2.dataset.n=ms2.dataset.n===ms.join('|')?ms2.dataset.n:''; if(ms2.dataset.n!==ms.join('|')){ ms2.innerHTML=ms.map(m=>`<option value="${m}">${prMLabel(m)}</option>`).join(''); ms2.dataset.n=ms.join('|'); }
   if(!ms.includes(prMonth)) prMonth=ms[ms.length-1]||''; ms2.value=prMonth; }
 const PR_TABS=[['dash','📊 اللوحة'],['month','📋 تقرير الشهر'],['brand','🏷️ البراند'],['cc','📍 الفروع'],['move','🔄 جدد ومغادرين'],['imp','⬆ استيراد']];
+function prGo(t,q,anchor){ prTab=t; prShown=100; if(t==='month'){ renderPay(); const e=$('#prQ'); if(e){ e.value=q||''; } } renderPay();
+  window.scrollTo({top:0}); if(anchor) setTimeout(()=>{ const e=document.getElementById(anchor); if(e) e.scrollIntoView({behavior:'smooth',block:'start'}); },50); }
 function setPrTab(t){ prTab=t; prShown=100; renderPay(); }
 function renderPay(){
   if(state.role==='staff') return;
@@ -1594,8 +1596,8 @@ function prTiles(A){
   const o=A.M.get(prMonth); if(!o) return '';
   const i=A.months.indexOf(prMonth), prev=i>0?A.M.get(A.months[i-1]):null, hc=o.pids.size;
   const dlt=(a,b)=>b==null?'':`<em>${a-b>=0?'▲':'▼'} ${prFm(Math.abs(a-b))} عن الشهر السابق</em>`;
-  const tile=(l,v,sub,c)=>`<div class="stat"><small>${l}</small><b class="num"${c?` style="color:${c}"`:''}>${v}</b>${sub||''}</div>`;
-  const T=`<div class="stats">${tile('إجمالي الرواتب (ر.س)',prFm(o.total),dlt(o.total,prev?.total))}${tile('عدد الموظفين',hc,dlt(hc,prev?.pids.size))}${tile('متوسط الراتب للموظف',hc?prFm((o.total-o.expTotal)/hc):'—')}${tile('موظفين جدد',o.isNew?o.isNew.length:'—','', 'var(--green)')}${tile('غادروا',o.left?o.left.length:'—','', 'var(--red)')}${tile('مصاريف أخرى (Other Exp)',prFm(o.expTotal))}</div>`;
+  const tile=(l,v,sub,c,go)=>`<div class="stat" style="cursor:pointer" onclick="${go||"prGo('month')"}"><small>${l}</small><b class="num"${c?` style="color:${c}"`:''}>${v}</b>${sub||''}</div>`;
+  const T=`<div class="stats">${tile('إجمالي الرواتب (ر.س)',prFm(o.total),dlt(o.total,prev?.total))}${tile('عدد الموظفين',hc,dlt(hc,prev?.pids.size))}${tile('متوسط الراتب للموظف',hc?prFm((o.total-o.expTotal)/hc):'—')}${tile('موظفين جدد',o.isNew?o.isNew.length:'—','', 'var(--green)',"prGo('move','','prNew')")}${tile('غادروا',o.left?o.left.length:'—','', 'var(--red)',"prGo('move','','prLeft')")}${tile('مصاريف أخرى (Other Exp)',prFm(o.expTotal),'','',"prGo('month','other exp')")}</div>`;
   return `<div style="display:flex;justify-content:space-between;align-items:center;margin:2px 2px 6px"><span class="meta">مؤشرات ${prMLabel(prMonth)}</span><button class="btn btn-primary btn-sm" onclick="prExportDash(this)">⬇️ إكسل المؤشرات</button></div>`+T;
 }
 function prDash(A,rows){
@@ -1648,7 +1650,7 @@ function prMove(A){
   const prev=A.M.get(A.months[i-1]);
   const li=(x,sub)=>`<div class="item" onclick="prEdit(${x.id})"><div class="row"><div><h3>${esc(x.name)}</h3><div class="meta"><span>${esc(x.emp_no||'—')}</span>${x.nationality?`<span>${esc(x.nationality)}</span>`:''}<span>${esc(x.job||'')}</span><span>📍 ${esc(x.cost_center||'—')}</span></div></div><div style="text-align:left">${x.brand?`<span class="chip" style="background:${BRAND_COLOR[x.brand]||'#475569'};color:#fff">${esc(x.brand)}</span>`:''}<div style="font-weight:800;margin-top:4px">${prFm(x.total)}</div><div class="meta">${sub}</div></div></div></div>`;
   const news=o.isNew.map(p=>o.rows.find(r=>r._p===p)).filter(Boolean), lefts=o.left.map(p=>prev.rows.find(r=>r._p===p)).filter(Boolean);
-  const h=(t,c)=>`<h3 style="margin:18px 2px 6px;color:${c}">${t}</h3>`;
+  const h=(t,c)=>`<h3 ${/جدد في/.test(t)?'id="prNew"':'id="prLeft"'} style="margin:18px 2px 6px;color:${c};scroll-margin-top:70px">${t}</h3>`;
   return sum+h(`جدد في ${prMLabel(prMonth)} (${news.length})`,'var(--green)')+(news.map(x=>li(x,'تعيين: '+(x.joining_date?fmtDate(x.joining_date):'—'))).join('')||'<div class="bnote">ما فيه</div>')
    +h(`غادروا — كانوا في ${prMLabel(A.months[i-1])} وما انصرف لهم راتب في ${prMLabel(prMonth)} (${lefts.length})`,'var(--red)')+(lefts.map(x=>li(x,'آخر راتب: '+prMLabel(x.month))).join('')||'<div class="bnote">ما فيه</div>')
    +`<div class="bnote" style="margin-top:10px">«غادر» = ظهر الشهر السابق وغاب هذا الشهر. قد يكون في إجازة بدون راتب أو راتبه تأخر، فراجعه قبل ما تعتمد.</div>`;
