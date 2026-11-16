@@ -1518,7 +1518,8 @@ function prBrandN(s){ s=String(s||'').trim(); if(!s||/^none$/i.test(s)) return '
 const PR_CO={'fahad resturant':'Fahad Resturant','resturant fahad':'Fahad Resturant','mazaq':'MAZAQ'};
 const prCoN=s=>{ s=String(s||'').replace(/\s+/g,' ').trim(); return PR_CO[s.toLowerCase()]||s; };
 // توحيد المسمى الوظيفي: نفس الكلمة بحروف مختلفة => أكثر كتابة شيوعاً (مع تفضيل Title Case عند التعادل)
-function prJobFix(rows){ const key=j=>String(j||'').replace(/\s+/g,' ').trim().toLowerCase(), cnt={};
+const PR_JOB_ALIAS={'kitchen worker':'Kitchen Crew'};
+function prJobFix(rows){ rows.forEach(x=>{ const a=PR_JOB_ALIAS[String(x.job||'').replace(/\s+/g,' ').trim().toLowerCase()]; if(a) x.job=a; }); const key=j=>String(j||'').replace(/\s+/g,' ').trim().toLowerCase(), cnt={};
   const add=j=>{ const t=String(j||'').replace(/\s+/g,' ').trim(); if(!t) return; const k=key(t), o=cnt[k]||(cnt[k]={}); o[t]=(o[t]||0)+1; };
   (state.pay||[]).forEach(x=>add(x.job)); rows.forEach(x=>add(x.job));
   const canon={}; Object.keys(cnt).forEach(k=>{ canon[k]=Object.entries(cnt[k]).sort((a,b)=>b[1]-a[1]||(b[0]!==b[0].toLowerCase()?1:0)-(a[0]!==a[0].toLowerCase()?1:0))[0][0]; });
@@ -1717,7 +1718,7 @@ function prEdit(id){
 }
 async function prSave(id,month){
   const v=i=>$('#'+i).value.trim(), n=i=>parseFloat($('#'+i).value)||0;
-  const d={month,name:v('pe_name'),emp_no:v('pe_emp'),iqama:v('pe_iq')||null,nationality:prNatN(v('pe_nat')),brand:prBrandN(v('pe_brand')),cost_center:prCC(v('pe_cc')),job:v('pe_job'),company:prCoN(v('pe_co')),gross:n('pe_gross'),overtime:n('pe_ot'),total:n('pe_total'),joining_date:v('pe_join')||null,roster_id:$('#pe_r').value?+$('#pe_r').value:null,is_expense:$('#pe_exp').checked,note:v('pe_note')||null};
+  const d={month,name:v('pe_name'),emp_no:v('pe_emp'),iqama:v('pe_iq')||null,nationality:prNatN(v('pe_nat')),brand:prBrandN(v('pe_brand')),cost_center:prCC(v('pe_cc')),job:prJobFix([{job:v('pe_job')}])[0].job,company:prCoN(v('pe_co')),gross:n('pe_gross'),overtime:n('pe_ot'),total:n('pe_total'),joining_date:v('pe_join')||null,roster_id:$('#pe_r').value?+$('#pe_r').value:null,is_expense:$('#pe_exp').checked,note:v('pe_note')||null};
   if(!d.name){ toast('اكتب الاسم'); return; }
   const r=id?await sb.from('wf_payroll').update(d).eq('id',id):await sb.from('wf_payroll').insert(d);
   if(r.error) return fail(r.error); closeModal(); toast('تم الحفظ'); await prLoad(); renderPay();
