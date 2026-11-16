@@ -1596,7 +1596,7 @@ function prTiles(A){
   const dlt=(a,b)=>b==null?'':`<em>${a-b>=0?'▲':'▼'} ${prFm(Math.abs(a-b))} عن الشهر السابق</em>`;
   const tile=(l,v,sub,c)=>`<div class="stat"><small>${l}</small><b class="num"${c?` style="color:${c}"`:''}>${v}</b>${sub||''}</div>`;
   const T=`<div class="stats">${tile('إجمالي الرواتب (ر.س)',prFm(o.total),dlt(o.total,prev?.total))}${tile('عدد الموظفين',hc,dlt(hc,prev?.pids.size))}${tile('متوسط الراتب للموظف',hc?prFm((o.total-o.expTotal)/hc):'—')}${tile('موظفين جدد',o.isNew?o.isNew.length:'—','', 'var(--green)')}${tile('غادروا',o.left?o.left.length:'—','', 'var(--red)')}${tile('مصاريف أخرى (Other Exp)',prFm(o.expTotal))}</div>`;
-  return `<div class="meta" style="margin:2px 2px 6px">مؤشرات ${prMLabel(prMonth)}</div>`+T;
+  return `<div style="display:flex;justify-content:space-between;align-items:center;margin:2px 2px 6px"><span class="meta">مؤشرات ${prMLabel(prMonth)}</span><button class="btn btn-primary btn-sm" onclick="prExportDash(this)">⬇️ إكسل المؤشرات</button></div>`+T;
 }
 function prDash(A,rows){
   const o=A.M.get(prMonth); if(!o) return '';
@@ -1711,6 +1711,63 @@ async function prApply(){
 function prDl(aoa,name,sheet){ const ws=XLSX.utils.aoa_to_sheet(aoa); ws['!views']=[{rightToLeft:true}]; const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,sheet); XLSX.writeFile(wb,name); }
 function prExportMonth(){ const H=['الاسم','الرقم الوظيفي','الإقامة','الجنسية','البراند','الفرع','الوظيفة','الراتب الأساسي','الإضافي','الإجمالي','تاريخ التعيين','بالقائمة؟']; prDl([H,...prLast.map(x=>[x.name,x.emp_no,x.iqama||'',x.nationality,x.brand,x.cost_center,x.job,x.gross,x.overtime,x.total,x.joining_date||'',x.is_expense?'مصاريف':x.roster_id?'نعم':'لا'])],'رواتب-'+prMonth.slice(0,7)+'.xlsx',prMLabel(prMonth)); }
 function prExportMatrix(lbl){ const {rows}=prRows(), A=prAgg(rows), G=prGroup(A,lbl.startsWith('البراند')?(x=>x.brand):(x=>x.cost_center)); prDl([[lbl,...(A.vm||A.months).flatMap(m=>[prMLabel(m)+' - عدد',prMLabel(m)+' - إجمالي']),'الإجمالي'],...G.map(g=>[g.k,...(A.vm||A.months).flatMap(m=>{ const c=g.by.get(m); return [c?c.p.size:0,c?Math.round(c.total):0]; }),Math.round(g.total)])],'كوست-'+(lbl.startsWith('البراند')?'البراند':'الفروع')+'.xlsx','Matrix'); }
+
+// ---------- تصدير المؤشرات (إكسل منسّق) ----------
+async function prExportDash(btn){ return withBusy(btn, async()=>{
+  await loadExcelJS(); const {rows}=prRows(), A=prAgg(rows), vm=A.vm, o=A.M.get(prMonth); if(!o) throw new Error('لا توجد بيانات');
+  const i=A.months.indexOf(prMonth), prev=i>0?A.M.get(A.months[i-1]):null, hc=o.pids.size;
+  const fl=[$('#prNat').value,$('#prBrand').value,$('#prCC').value].filter(Boolean).join(' • ')||'بدون فلاتر';
+  const wb=new ExcelJS.Workbook(); wb.creator='Work follow up'; wb.created=new Date();
+  const stamp='تاريخ التقرير: '+new Date().toLocaleDateString('ar-SA-u-ca-gregory-nu-latn',{day:'numeric',month:'long',year:'numeric'});
+  const NUM='#,##0', PCT='0.0%';
+  const mk=(name,tab)=>wb.addWorksheet(name,{views:[{rightToLeft:true,showGridLines:false}],properties:{tabColor:{argb:tab||C.teal}}});
+  const cellStyle=(c,{bold,bg,color,fmt,al}={})=>{ c.font={name:FONT,size:10,bold:!!bold,color:{argb:color||'FF0F172A'}}; if(bg) c.fill=fill(bg); c.border=box; c.alignment={horizontal:al||'center',vertical:'middle',readingOrder:'rtl'}; if(fmt) c.numFmt=fmt; };
+  const section=(ws,r,t,n)=>{ ws.mergeCells(r,1,r,n); const c=ws.getCell(r,1); c.value=t; c.font={name:FONT,size:12,bold:true,color:{argb:C.white}}; c.fill=fill(C.navy); c.alignment={horizontal:'right',vertical:'middle',readingOrder:'rtl'}; ws.getRow(r).height=22; return r+1; };
+  // data: rows = arrays; fmts per column; totals optional
+  const table=(ws,r,heads,data,fmts,tot,bar)=>{ heads.forEach((h,k)=>cellStyle(ws.getCell(r,k+1),{bold:true,bg:C.teal,color:C.white})); ws.getRow(r).height=22; const r0=r+1;
+    data.forEach((d,j)=>{ r++; d.forEach((v,k)=>cellStyle(ws.getCell(r,k+1),{bg:j%2?C.zebra:C.white,fmt:fmts[k],al:k===0?'right':'center',bold:k===0})); d.forEach((v,k)=>ws.getCell(r,k+1).value=v); });
+    if(tot){ r++; tot.forEach((v,k)=>{ const c=ws.getCell(r,k+1); c.value=v; cellStyle(c,{bold:true,bg:C.tealSoft,fmt:fmts[k],al:k===0?'right':'center'}); }); }
+    if(bar!=null&&data.length) ws.addConditionalFormatting({ref:`${String.fromCharCode(65+bar)}${r0}:${String.fromCharCode(65+bar)}${r0+data.length-1}`,rules:[{type:'dataBar',priority:1,gradient:false,cfvo:[{type:'min'},{type:'max'}],color:{argb:'FF99F6E4'}}]});
+    return r+2; };
+  const title=(ws,t,sub,n)=>{ sheetTitle(ws,t,sub,n); return 4; };
+  const grp=(key)=>{ const G=prGroup({months:[prMonth],M:new Map([[prMonth,o]])},key); return G.map(g=>({k:g.k,v:g.by.get(prMonth)?.total||0,n:g.by.get(prMonth)?.p.size||0})).filter(g=>g.v).sort((a,b)=>b.v-a.v); };
+  // ===== 1) المؤشرات =====
+  let ws=mk('المؤشرات'); ws.columns=[{width:30},{width:18},{width:18},{width:18},{width:18}];
+  let r=title(ws,'مؤشرات الرواتب — '+prMLabel(prMonth),stamp+' — '+fl,5);
+  r=section(ws,r,'المؤشرات الرئيسية',5);
+  const dl=(a,b)=>b==null?'—':a-b;
+  r=table(ws,r,['المؤشر','القيمة','عن الشهر السابق'],[
+    ['إجمالي الرواتب (ر.س)',Math.round(o.total),dl(Math.round(o.total),prev&&Math.round(prev.total))],
+    ['  منها الأساسي',Math.round(o.gross),dl(Math.round(o.gross),prev&&Math.round(prev.gross))],
+    ['  منها الإضافي',Math.round(o.ot),dl(Math.round(o.ot),prev&&Math.round(prev.ot))],
+    ['عدد الموظفين',hc,dl(hc,prev&&prev.pids.size)],
+    ['متوسط الراتب للموظف',hc?Math.round((o.total-o.expTotal)/hc):0,'—'],
+    ['موظفون جدد',o.isNew?o.isNew.length:'—','—'],
+    ['غادروا',o.left?o.left.length:'—','—'],
+    ['مصاريف أخرى (Other Exp)',Math.round(o.expTotal),'—']],[null,NUM,'+#,##0;-#,##0;0']);
+  const B=grp(x=>x.brand);
+  r=section(ws,r,'الرواتب حسب البراند',5);
+  r=table(ws,r,['البراند','عدد الموظفين','إجمالي الرواتب','النسبة','متوسط للموظف'],B.map(g=>[g.k,g.n,Math.round(g.v),g.v/(o.total||1),g.n?Math.round(g.v/g.n):0]),[null,NUM,NUM,PCT,NUM],['الإجمالي',B.reduce((s,g)=>s+g.n,0),Math.round(B.reduce((s,g)=>s+g.v,0)),1,''],2);
+  const N=grp(x=>x.nationality);
+  r=section(ws,r,'حسب الجنسية',5);
+  r=table(ws,r,['الجنسية','عدد الموظفين','إجمالي الرواتب','النسبة','متوسط للموظف'],N.map(g=>[g.k,g.n,Math.round(g.v),g.v/(o.total||1),g.n?Math.round(g.v/g.n):0]),[null,NUM,NUM,PCT,NUM],null,2);
+  const F=grp(x=>x.cost_center);
+  r=section(ws,r,'الفروع (مراكز التكلفة)',5);
+  r=table(ws,r,['الفرع','عدد الموظفين','إجمالي الرواتب','النسبة','متوسط للموظف'],F.map(g=>[g.k,g.n,Math.round(g.v),g.v/(o.total||1),g.n?Math.round(g.v/g.n):0]),[null,NUM,NUM,PCT,NUM],null,2);
+  // ===== 2) الأشهر =====
+  ws=mk('الأشهر',C.blue); ws.columns=[{width:18},{width:14},{width:16},{width:16},{width:16},{width:16},{width:12},{width:12},{width:16}];
+  r=title(ws,'الرواتب الشهرية',stamp+' — '+fl,9);
+  const md=vm.map(m=>{ const x=A.M.get(m), n=x.pids.size; return [prMLabel(m),n,Math.round(x.total),Math.round(x.gross),Math.round(x.ot),Math.round(x.expTotal),x.isNew?x.isNew.length:'—',x.left?x.left.length:'—',n?Math.round((x.total-x.expTotal)/n):0]; });
+  r=table(ws,r,['الشهر','الموظفين','إجمالي الرواتب','الأساسي','الإضافي','مصاريف أخرى','جدد','غادروا','متوسط للموظف'],md,[null,NUM,NUM,NUM,NUM,NUM,NUM,NUM,NUM],['الإجمالي','',...[2,3,4,5].map(k=>md.reduce((s,d)=>s+d[k],0)),'','',''],2);
+  // ===== 3/4) المصفوفات =====
+  const mat=(name,sub,key,tab)=>{ const G=prGroup(A,key); const w=mk(name,tab); w.columns=[{width:30},...vm.map(()=>({width:14})),{width:16},{width:14}];
+    let rr=title(w,sub,stamp+' — '+fl+' — إجمالي الرواتب بالريال',vm.length+3);
+    rr=table(w,rr,[sub.split(' ')[0],...vm.map(prMLabel),'الإجمالي','متوسط شهري'],G.map(g=>[g.k,...vm.map(m=>{ const c=g.by.get(m); return c?Math.round(c.total):null; }),Math.round(g.total),Math.round(g.total/Math.max(1,[...g.by.keys()].filter(m=>vm.includes(m)).length))]),[null,...vm.map(()=>NUM),NUM,NUM],['الإجمالي',...vm.map(m=>Math.round(G.reduce((s,g)=>s+(g.by.get(m)?.total||0),0))),Math.round(G.reduce((s,g)=>s+g.total,0)),''],vm.length+1);
+    w.views=[{rightToLeft:true,showGridLines:false,state:'frozen',xSplit:1,ySplit:4}]; };
+  mat('البراند شهرياً','البراند — الكوست الشهري',x=>x.brand,C.purple);
+  mat('الفروع شهرياً','الفرع — الكوست الشهري',x=>x.cost_center,C.amber);
+  await downloadWorkbook(wb,`مؤشرات-الرواتب-${prMonth.slice(0,7)}.xlsx`);
+}); }
 
 // ===== EMPLOYEES EXPORT (styled) =====
 const E_LBL={expired:'منتهية',soon:'تنتهي قريباً',valid:'سارية',unknown:'تاريخ غير متوفر'};
