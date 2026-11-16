@@ -1463,7 +1463,7 @@ function goEmps(st){ $('#eSearch').value=''; $('#eBrand').value=''; $('#eNat').v
 function iqState(e){ if(!e.iqama_expiry) return 'unknown'; const d=daysTo(e.iqama_expiry); return d<0?'expired':d<=90?'soon':'valid'; }
 function _natOk(a,b){ const n=x=>String(x||'').toLowerCase().replace(/[^a-z]/g,'').slice(0,4); const A=n(a),B=n(b); return !A||!B||A===B; }
 const _NCOMMON=new Set('md mohd mohammed mohamed muhammad mohammad hossain hussain hosain islam ali ahmed ahmad abdul abdel abdulla abdullah rahman khan uddin ullah bin ibn al el'.split(' '));
-function _nameSim(a,b){ const T=x=>String(x||'').toLowerCase().replace(/[^a-z ]/g,' ').split(/\s+/).filter(w=>w.length>=2&&!_NCOMMON.has(w)); const A=T(a),B=T(b); if(!A.length||!B.length) return false;
+function _nameSim(a,b){ const T=x=>{ const r=String(x||'').toLowerCase().replace(/[^a-z ]/g,' ').split(/\s+/).filter(Boolean), o=[]; for(let i=0;i<r.length;i++){ if(/^(abdul|abdel|abdal|abdu|abd|abdulla|abdullah|abu)$/.test(r[i]) && r[i+1]){ o.push(r[i]+r[i+1]); i++; } else o.push(r[i]); } return o.filter(w=>w.length>=2&&!_NCOMMON.has(w)); }; const A=T(a),B=T(b); if(!A.length||!B.length) return false;
   const x=A[0], y=B[0]; if(x===y&&x.length>=3) return true; if(x.length>=5&&y.length>=5&&_lev(x,y)<=1) return true;
   if(x.length>=5&&y.length>=5&&_lev(x,y)<=(x.length>=6&&y.length>=6?3:2) && A.slice(1).some(u=>B.slice(1).some(v=>u.length>=4&&(u===v||_lev(u,v)<=1)))) return true;
   const ja=A.join(''), jb=B.join(''); return ja.length>=4 && _lev(ja,jb)<=1; }
