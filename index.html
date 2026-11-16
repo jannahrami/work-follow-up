@@ -1493,13 +1493,31 @@ const E_COLS=[
   {h:'الجنسية', w:14, get:e=>e.nationality, type:'code'},
   {h:'الرقم الوظيفي', w:12, get:e=>e.emp_no, type:'code'},
   {h:'الجوال', w:14, get:e=>e.phone, type:'code'},
+  {h:'الحالة الوظيفية', w:14, get:e=>EMP_ST_LBL[e.status]||'', type:'code', style:(e,c)=>{ const m={vacation:[C.amberSoft,C.amber],settlement:[C.redSoft,C.red],active:[C.greenSoft,C.green]}[e.status]; if(m){c.fill=fill(m[0]); c.font={name:FONT,size:10,bold:true,color:{argb:m[1]}};} }},
+  {h:'بطاقة بلدية؟', w:12, get:e=>e._c&&e._c.card_expiry?(e._cn>1?`نعم (${e._cn} سجلات)`:'نعم'):'لا', type:'code'},
+  {h:'حالة البطاقة البلدية', w:16, get:e=>e._c?B_LBL[e._ci.state]:'', type:'code', style:(e,c)=>{ const m=e._c&&{expired:[C.redSoft,C.red],soon:[C.amberSoft,C.amber],valid:[C.greenSoft,C.green]}[e._ci.state]; if(m){c.fill=fill(m[0]); c.font={name:FONT,size:10,bold:true,color:{argb:m[1]}};} }},
+  {h:'رقم البطاقة البلدية', w:16, get:e=>e._c?(e._c.baladia_no||''):'', type:'code'},
+  {h:'تاريخ انتهاء البطاقة', w:14, get:e=>e._c?e._c.card_expiry:'', type:'date'},
+  {h:'تاريخ انتهاء التثقيف', w:14, get:e=>e._c?e._c.training_expiry:'', type:'date'},
+  {h:'نتيجة الاختبار', w:12, get:e=>e._c?(e._c.exam_result==='PASSED'?'ناجح':e._c.exam_result?'راسب':''):'', type:'code'},
+  {h:'التحديث', w:22, get:e=>e._c?(e._c.update_cat||''):'', type:'code'},
+  {h:'ملاحظات البطاقة', w:34, get:e=>e._c?[e._c.status_note,e._c.notes].filter(Boolean).join(' | '):'', type:'code'},
+  {h:'السكن', w:22, get:e=>e._h||'', type:'code'},
   {h:'يظهر في', w:18, get:e=>[...e.src].join(' • '), type:'code'},
 ];
+const B_LBL={valid:'سارية',soon:'تنتهي قريباً',expired:'منتهية',none:'بدون بطاقة'};
+function attachEmpExtras(L){ // يربط بكل موظف بطاقته البلدية وسكنه
+  const bm=new Map(), hm=new Map();
+  state.bal.filter(b=>b.active!==false&&b.roster_id).forEach(b=>{ (bm.get(b.roster_id)||bm.set(b.roster_id,[]).get(b.roster_id)).push(b); });
+  state.hpeople.filter(h=>h.active!==false&&h.roster_id).forEach(h=>{ (hm.get(h.roster_id)||hm.set(h.roster_id,[]).get(h.roster_id)).push(h); });
+  L.forEach(e=>{ const bs=(bm.get(e.rid)||[]).slice().sort((a,b)=>(b.card_expiry||'')<(a.card_expiry||'')?-1:1);
+    e._c=bs[0]||null; e._cn=bs.length; e._ci=e._c?bInfo(e._c):null; e._h=[...new Set((hm.get(e.rid)||[]).map(h=>h.accommodation).filter(Boolean))].join(' / '); });
+}
 async function buildEmployeesWorkbook(list, opts={}){
   await loadExcelJS();
   const wb=new ExcelJS.Workbook(); wb.creator='Work follow up'; wb.created=new Date();
   const stamp='تاريخ التقرير: '+new Date().toLocaleDateString('ar-SA-u-ca-gregory-nu-latn',{day:'numeric',month:'long',year:'numeric'});
-  const L=list.slice().sort((a,b)=>((a.iqama_expiry||'9')<(b.iqama_expiry||'9')?-1:1)||a.name.localeCompare(b.name,'en')); L.forEach((e,i)=>e._i=i+1);
+  const L=list.slice().sort((a,b)=>((a.iqama_expiry||'9')<(b.iqama_expiry||'9')?-1:1)||a.name.localeCompare(b.name,'en')); L.forEach((e,i)=>e._i=i+1); attachEmpExtras(L);
   if(opts.summary){
     const ws=wb.addWorksheet('الملخص',{views:[{rightToLeft:true,showGridLines:false}],properties:{tabColor:{argb:C.navy}}});
     sheetTitle(ws,'تقرير الموظفين',stamp,8);
