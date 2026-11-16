@@ -1712,7 +1712,7 @@ async function prApply(){
 // ---------- التصدير ----------
 function prDl(aoa,name,sheet){ const ws=XLSX.utils.aoa_to_sheet(aoa); ws['!views']=[{rightToLeft:true}]; const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,sheet); XLSX.writeFile(wb,name); }
 function prExportMonth(){ const H=['الاسم','الرقم الوظيفي','الإقامة','الجنسية','البراند','الفرع','الوظيفة','الراتب الأساسي','الإضافي','الإجمالي','تاريخ التعيين','بالقائمة؟']; prDl([H,...prLast.map(x=>[x.name,x.emp_no,x.iqama||'',x.nationality,x.brand,x.cost_center,x.job,x.gross,x.overtime,x.total,x.joining_date||'',x.is_expense?'مصاريف':x.roster_id?'نعم':'لا'])],'رواتب-'+prMonth.slice(0,7)+'.xlsx',prMLabel(prMonth)); }
-function prExportMatrix(lbl){ const {rows}=prRows(), A=prAgg(rows), G=prGroup(A,lbl.startsWith('البراند')?(x=>x.brand):(x=>x.cost_center)); prDl([[lbl,...(A.vm||A.months).flatMap(m=>[prMLabel(m)+' - عدد',prMLabel(m)+' - إجمالي']),'الإجمالي'],...G.map(g=>[g.k,...(A.vm||A.months).flatMap(m=>{ const c=g.by.get(m); return [c?c.p.size:0,c?Math.round(c.total):0]; }),Math.round(g.total)])],'كوست-'+(lbl.startsWith('البراند')?'البراند':'الفروع')+'.xlsx','Matrix'); }
+function prExportMatrix(lbl){ const {rows}=prRows(), A=prAgg(rows), G=prGroup(A,lbl.startsWith('البراند')?(x=>x.brand):(x=>x.cost_center)); prDl([[lbl,...(A.vm||A.months).flatMap(m=>[prMLabel(m)+' - عدد',prMLabel(m)+' - إجمالي']),'الإجمالي'],...G.map(g=>[g.k,...(A.vm||A.months).flatMap(m=>{ const c=g.by.get(m); return [c?c.p.size:0,c?Math.round(c.total):0]; }),Math.round(g.total)])],'تكلفة-'+(lbl.startsWith('البراند')?'البراند':'الفروع')+'.xlsx','Matrix'); }
 
 // ---------- تصدير المؤشرات (إكسل منسّق) ----------
 async function prExportDash(btn){ return withBusy(btn, async()=>{
@@ -1766,8 +1766,8 @@ async function prExportDash(btn){ return withBusy(btn, async()=>{
     let rr=title(w,sub,stamp+' — '+fl+' — إجمالي الرواتب بالريال',vm.length+3);
     rr=table(w,rr,[sub.split(' ')[0],...vm.map(prMLabel),'الإجمالي','متوسط شهري'],G.map(g=>[g.k,...vm.map(m=>{ const c=g.by.get(m); return c?Math.round(c.total):null; }),Math.round(g.total),Math.round(g.total/Math.max(1,[...g.by.keys()].filter(m=>vm.includes(m)).length))]),[null,...vm.map(()=>NUM),NUM,NUM],['الإجمالي',...vm.map(m=>Math.round(G.reduce((s,g)=>s+(g.by.get(m)?.total||0),0))),Math.round(G.reduce((s,g)=>s+g.total,0)),''],vm.length+1);
     w.views=[{rightToLeft:true,showGridLines:false,state:'frozen',xSplit:1,ySplit:4}]; };
-  mat('البراند شهرياً','البراند — الكوست الشهري',x=>x.brand,C.purple);
-  mat('الفروع شهرياً','الفرع — الكوست الشهري',x=>x.cost_center,C.amber);
+  mat('البراند شهرياً','البراند — التكلفة الشهرية',x=>x.brand,C.purple);
+  mat('الفروع شهرياً','الفرع — التكلفة الشهرية',x=>x.cost_center,C.amber);
   await downloadWorkbook(wb,`مؤشرات-الرواتب-${prMonth.slice(0,7)}.xlsx`);
 }); }
 
