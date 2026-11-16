@@ -1524,7 +1524,7 @@ function prParseSheet(aoa,month){
   const C={emp:col('worker number'),name:col('worker name'),cc:col('cost center'),brand:col('brand'),company:col('company'),nat:col('nationality'),job:col('job'),gross:col('gross salary','salary'),ot:col('over time','overtime'),total:col('total'),join:col('joining date'),iq:col('id number')};
   if(C.name<0||C.total<0) return null;
   const g=(r,i)=>i<0?'':prStr(r[i]); const out=[];
-  for(let i=1;i<aoa.length;i++){ const r=aoa[i]||[]; const name=g(r,C.name), emp=g(r,C.emp); if(!name&&!emp) continue;
+  for(let i=1;i<aoa.length;i++){ const r=aoa[i]||[]; const name=g(r,C.name).replace(/\s+/g,' ').trim(); let emp=g(r,C.emp); if(!name&&!emp) continue; if(PR_PH.test(emp)&&emp.toUpperCase()!=='OTHER EXP') emp='';
     let iq=g(r,C.iq).replace(/\.0$/,''); if(!/^\d{8,12}$/.test(iq)) iq='';
     const exp=emp.toUpperCase()==='OTHER EXP'||name.toUpperCase()==='OTHER EXP';
     out.push({month,emp_no:emp,name,iqama:iq,nationality:prNatN(g(r,C.nat)),brand:prBrandN(g(r,C.brand)),cost_center:prCC(g(r,C.cc)),job:g(r,C.job),company:g(r,C.company),gross:prNum(r[C.gross]),overtime:prNum(r[C.ot]),total:prNum(r[C.total]),joining_date:C.join<0?null:prDate(r[C.join]),is_expense:exp,roster_id:null}); }
