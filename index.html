@@ -1510,10 +1510,10 @@ const PR_EN={jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11
 const prMLabel=k=>{ const [y,m]=String(k).split('-'); return PR_AR[+m-1]+' '+y; };
 const prFm=n=>Math.round(Number(n)||0).toLocaleString('en-US');
 const prNorm=s=>String(s||'').toLowerCase().replace(/\s+/g,' ').trim();
-const PR_PH=/^(|new hire|other exp|n\/a|-|\d{1,2})$/i;
+const PR_PH=/^(|new hire|other exp|umc|n\/a|-|\d{1,2})$/i;
 function prMonthKey(name){ const m=String(name||'').trim().toLowerCase().match(/^([a-z]{3})[a-z]*\s+(20\d\d)$/); if(!m||!PR_EN[m[1]]) return null; return m[2]+'-'+String(PR_EN[m[1]]).padStart(2,'0')+'-01'; }
 const PR_NAT=[[/bangla|بنجلا|بنغلا/i,'Bangladesh'],[/philip|فلبين|فلبي/i,'Philippines'],[/tunis|تونس/i,'Tunisia'],[/egypt|egyp|مصر/i,'Egypt'],[/india|هند/i,'India'],[/sudan|سودان/i,'Sudan'],[/nepal|نيبال/i,'Nepal'],[/pakist|باكست/i,'Pakistan'],[/yemen|يمن/i,'Yemen'],[/jordan|أردن|اردن/i,'Jordan'],[/saudi|سعود/i,'Saudi Arabia'],[/palest|فلسط/i,'Palestine'],[/leban|لبنان/i,'Lebanon'],[/syria|سوري/i,'Syria'],[/morocc|moroco|مغرب/i,'Morocco'],[/nige|naige|نيجير/i,'Nigeria'],[/myanmar|ميانمار/i,'Myanmar'],[/eritr|إريتر|اريتر|ارتير/i,'Eritrea']];
-function prNatN(s){ s=String(s||'').trim(); if(!s||/^(none|0|n\/a|other exp)$/i.test(s)) return ''; const m=PR_NAT.find(([r])=>r.test(s)); return m?m[1]:s; }
+function prNatN(s){ s=String(s||'').trim(); if(!s||/^(none|0|n\/a|other exp|umc)$/i.test(s)) return ''; const m=PR_NAT.find(([r])=>r.test(s)); return m?m[1]:s; }
 function prBrandN(s){ s=String(s||'').trim(); if(!s||/^none$/i.test(s)) return ''; const k=Object.keys(BRAND_COLOR).find(b=>b.toLowerCase()===s.toLowerCase()); return k||s; }
 function prCC(s){ s=String(s||'').replace(/\s+/g,' ').trim(); const m=s.match(/^(\d+)\s*[-–—]\s*(.+)$/); return m?m[1]+' - '+m[2].trim():s; }
 function prStr(v){ if(v===null||v===undefined) return ''; if(typeof v==='number') return String(Number.isInteger(v)?v:v); return String(v).trim(); }
@@ -1525,10 +1525,10 @@ function prParseSheet(aoa,month){
   const C={emp:col('worker number'),name:col('worker name'),cc:col('cost center'),brand:col('brand'),company:col('company'),nat:col('nationality'),job:col('job'),gross:col('gross salary','salary'),ot:col('over time','overtime'),total:col('total'),join:col('joining date'),iq:col('id number')};
   if(C.name<0||C.total<0) return null;
   const g=(r,i)=>i<0?'':prStr(r[i]); const out=[];
-  for(let i=1;i<aoa.length;i++){ const r=aoa[i]||[]; const name=g(r,C.name).replace(/\s+/g,' ').trim(); let emp=g(r,C.emp); if(!name&&!emp) continue; if(PR_PH.test(emp)&&emp.toUpperCase()!=='OTHER EXP') emp='';
+  for(let i=1;i<aoa.length;i++){ const r=aoa[i]||[]; const name=g(r,C.name).replace(/\s+/g,' ').trim(); let emp=g(r,C.emp); if(!name&&!emp) continue; if(PR_PH.test(emp)&&!/^(OTHER EXP|UMC)$/.test(emp.toUpperCase())) emp='';
     let iq=g(r,C.iq).replace(/\.0$/,''); if(!/^\d{8,12}$/.test(iq)) iq='';
-    const exp=emp.toUpperCase()==='OTHER EXP'||name.toUpperCase()==='OTHER EXP';
-    out.push({month,emp_no:emp,name,iqama:iq,nationality:prNatN(g(r,C.nat)),brand:prBrandN(g(r,C.brand)),cost_center:prCC(g(r,C.cc)),job:g(r,C.job),company:g(r,C.company),gross:prNum(r[C.gross]),overtime:prNum(r[C.ot]),total:prNum(r[C.total]),joining_date:C.join<0?null:prDate(r[C.join]),is_expense:exp,roster_id:null}); }
+    const exp=/^(OTHER EXP|UMC)$/.test(emp.toUpperCase())||/^(OTHER EXP|UMC)$/.test(name.toUpperCase());
+    out.push({month,emp_no:exp?'UMC':emp,name:exp?'UMC':name,iqama:iq,nationality:prNatN(g(r,C.nat)),brand:prBrandN(g(r,C.brand)),cost_center:prCC(g(r,C.cc)),job:g(r,C.job),company:g(r,C.company),gross:prNum(r[C.gross]),overtime:prNum(r[C.ot]),total:prNum(r[C.total]),joining_date:C.join<0?null:prDate(r[C.join]),is_expense:exp,roster_id:null}); }
   return out;
 }
 function prMatch(rows,roster){
@@ -1560,7 +1560,7 @@ function prAgg(rows){
 // تجميع حسب (براند / فرع / جنسية) لكل شهر
 function prGroup(A,keyFn){
   const G=new Map();
-  (A.vm||A.months).forEach(m=>{ const o=A.M.get(m); [...o.rows,...o.exp].forEach(x=>{ const k=keyFn(x)||(x.is_expense?'مصاريف أخرى':'غير محدد'); if(!G.has(k)) G.set(k,{k,by:new Map(),total:0}); const g=G.get(k); if(!g.by.has(m)) g.by.set(m,{total:0,p:new Set()}); const c=g.by.get(m); c.total+=x.total||0; if(!x.is_expense) c.p.add(x._p); g.total+=x.total||0; }); });
+  (A.vm||A.months).forEach(m=>{ const o=A.M.get(m); [...o.rows,...o.exp].forEach(x=>{ const k=keyFn(x)||(x.is_expense?'UMC':'غير محدد'); if(!G.has(k)) G.set(k,{k,by:new Map(),total:0}); const g=G.get(k); if(!g.by.has(m)) g.by.set(m,{total:0,p:new Set()}); const c=g.by.get(m); c.total+=x.total||0; if(!x.is_expense) c.p.add(x._p); g.total+=x.total||0; }); });
   return [...G.values()].sort((a,b)=>b.total-a.total);
 }
 
@@ -1599,7 +1599,7 @@ function prTiles(A){
   const i=A.months.indexOf(prMonth), prev=i>0?A.M.get(A.months[i-1]):null, hc=o.pids.size;
   const dlt=(a,b)=>b==null?'':`<em>${a-b>=0?'▲':'▼'} ${prFm(Math.abs(a-b))} عن الشهر السابق</em>`;
   const tile=(l,v,sub,c,go)=>`<div class="stat" style="cursor:pointer" onclick="${go||"prGo('month')"}"><small>${l}</small><b class="num"${c?` style="color:${c}"`:''}>${v}</b>${sub||''}</div>`;
-  const T=`<div class="stats">${tile('إجمالي الرواتب (ر.س)',prFm(o.total),dlt(o.total,prev?.total))}${tile('عدد الموظفين',hc,dlt(hc,prev?.pids.size))}${tile('متوسط الراتب للموظف',hc?prFm((o.total-o.expTotal)/hc):'—')}${tile('موظفين جدد',o.isNew?o.isNew.length:'—','', 'var(--green)',"prGo('move','','prNew')")}${tile('غادروا',o.left?o.left.length:'—','', 'var(--red)',"prGo('move','','prLeft')")}${tile('مصاريف أخرى (Other Exp)',prFm(o.expTotal),'','',"prGo('month','other exp')")}</div>`;
+  const T=`<div class="stats">${tile('إجمالي الرواتب (ر.س)',prFm(o.total),dlt(o.total,prev?.total))}${tile('عدد الموظفين',hc,dlt(hc,prev?.pids.size))}${tile('متوسط الراتب للموظف',hc?prFm((o.total-o.expTotal)/hc):'—')}${tile('موظفين جدد',o.isNew?o.isNew.length:'—','', 'var(--green)',"prGo('move','','prNew')")}${tile('غادروا',o.left?o.left.length:'—','', 'var(--red)',"prGo('move','','prLeft')")}${tile('UMC',prFm(o.expTotal),'','',"prGo('month','umc')")}</div>`;
   return `<div style="display:flex;justify-content:space-between;align-items:center;margin:2px 2px 6px"><span class="meta">مؤشرات ${prMLabel(prMonth)}</span><button class="btn btn-primary btn-sm" onclick="prExportDash(this)">⬇️ إكسل المؤشرات</button></div>`+T;
 }
 function prDash(A,rows){
@@ -1616,9 +1616,9 @@ function prDash(A,rows){
   const ccT=`<table class="tbl"><tr><th>الفرع</th><th>العدد</th><th>الرواتب</th></tr>${ccs.map(g=>`<tr><td>${esc(g.k)}</td><td>${g.n}</td><td>${prFm(g.v)}</td></tr>`).join('')}</table>`;
   const h=t=>`<h3 style="margin:18px 2px 6px">${t}</h3>`;
   const GB=prGroup(A,x=>x.brand), vm=A.vm||A.months;
-  const dn=vm.map(m=>{ let acc=0; const tot=A.M.get(m).total||1; const segs=GB.map(g=>{ const v=g.by.get(m)?.total||0; if(!v) return ''; const c=g.k==='غير محدد'||g.k==='مصاريف أخرى'?'#94a3b8':colr(g.k), a0=acc/tot*100; acc+=v; return `${c} ${a0}% ${acc/tot*100}%`; }).filter(Boolean).join(',');
+  const dn=vm.map(m=>{ let acc=0; const tot=A.M.get(m).total||1; const segs=GB.map(g=>{ const v=g.by.get(m)?.total||0; if(!v) return ''; const c=g.k==='غير محدد'||g.k==='UMC'?'#94a3b8':colr(g.k), a0=acc/tot*100; acc+=v; return `${c} ${a0}% ${acc/tot*100}%`; }).filter(Boolean).join(',');
     return `<div onclick="prMonth='${m}';renderPay()" style="text-align:center;cursor:pointer;padding:6px 2px;border-radius:12px;${m===prMonth?'background:var(--gray-soft)':''}"><div style="position:relative;width:84px;height:84px;margin:0 auto;border-radius:50%;background:conic-gradient(${segs||'#cbd5e1 0 100%'})"><div style="position:absolute;inset:15px;border-radius:50%;background:var(--card,#fff);display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.15"><b style="font-size:13px">${(A.M.get(m).total/1e6).toFixed(2)}M</b><small style="font-size:10px;color:var(--muted)">${A.M.get(m).pids.size} موظف</small></div></div><div style="font-size:12px;margin-top:4px">${PR_AR[+m.split('-')[1]-1]}${A.vm&&!($('#prY')?.value)?' '+m.slice(2,4):''}</div></div>`; }).join('');
-  const leg=GB.map(g=>`<span style="display:inline-flex;align-items:center;gap:4px;margin:2px 6px;font-size:11px"><i style="width:10px;height:10px;border-radius:50%;background:${g.k==='غير محدد'||g.k==='مصاريف أخرى'?'#94a3b8':colr(g.k)}"></i>${esc(g.k)}</span>`).join('');
+  const leg=GB.map(g=>`<span style="display:inline-flex;align-items:center;gap:4px;margin:2px 6px;font-size:11px"><i style="width:10px;height:10px;border-radius:50%;background:${g.k==='غير محدد'||g.k==='UMC'?'#94a3b8':colr(g.k)}"></i>${esc(g.k)}</span>`).join('');
   const rings=h('رواتب كل شهر حسب البراند (اضغط شهر)')+`<div class="item"><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:4px">${dn}</div><div style="margin-top:8px;text-align:center">${leg}</div></div>`;
   return rings+h('الرواتب حسب البراند — '+prMLabel(prMonth))+`<div class="item">${brands||'—'}</div>`+h('اتجاه الرواتب الشهري (اضغط شهر)')+`<div class="item">${trend}</div>`+h('أعلى 10 فروع')+`<div style="overflow:auto">${ccT}</div>`+h('حسب الجنسية')+`<div style="overflow:auto">${nat}</div>`;
 }
@@ -1633,7 +1633,7 @@ function prMonthView(A){
   const keep=q;
   return `<div class="toolbar"><input id="prQ" placeholder="بحث: الاسم، الرقم الوظيفي، الإقامة، الوظيفة..." value="${esc(keep)}" oninput="prShown=100;renderPay();setTimeout(()=>{const e=$('#prQ');e.focus();e.setSelectionRange(e.value.length,e.value.length)},0)"><button class="btn btn-primary btn-sm" onclick="prExportMonth()">⬇️ إكسل</button></div>
   <div class="meta" style="margin:6px 2px"><b>${L.length}</b> سطر • إجمالي <b>${prFm(tot)}</b> ر.س • ${prMLabel(prMonth)}</div>`
-  +L.slice(0,prShown).map((x,i)=>`<div class="item" onclick="prEdit(${x.id})"><div class="row"><div><h3>${esc(x.name||'—')}${x.is_expense?' <span class="chip" style="background:#e2e8f0">مصاريف</span>':!x.roster_id?' <span class="chip" style="background:#fef3c7;color:#92400e">خارج القائمة</span>':''}</h3><div class="meta"><span>${esc(x.emp_no||'—')}</span>${x.nationality?`<span>${esc(x.nationality)}</span>`:''}${x.job?`<span>${esc(x.job)}</span>`:''}</div><div class="meta"><span>📍 ${esc(x.cost_center||'—')}</span>${x.joining_date?`<span>التعيين: ${fmtDate(x.joining_date)}</span>`:''}</div></div><div style="text-align:left">${x.brand?`<span class="chip" style="background:${BRAND_COLOR[x.brand]||'#475569'};color:#fff">${esc(x.brand)}</span>`:''}<div style="margin-top:4px;font-weight:800">${prFm(x.total)}</div><div class="meta">أساسي ${prFm(x.gross)}${x.overtime?` + إضافي ${prFm(x.overtime)}`:''}</div></div></div></div>`).join('')
+  +L.slice(0,prShown).map((x,i)=>`<div class="item" onclick="prEdit(${x.id})"><div class="row"><div><h3>${esc(x.name||'—')}${x.is_expense?' <span class="chip" style="background:#e2e8f0">UMC</span>':!x.roster_id?' <span class="chip" style="background:#fef3c7;color:#92400e">خارج القائمة</span>':''}</h3><div class="meta"><span>${esc(x.emp_no||'—')}</span>${x.nationality?`<span>${esc(x.nationality)}</span>`:''}${x.job?`<span>${esc(x.job)}</span>`:''}</div><div class="meta"><span>📍 ${esc(x.cost_center||'—')}</span>${x.joining_date?`<span>التعيين: ${fmtDate(x.joining_date)}</span>`:''}</div></div><div style="text-align:left">${x.brand?`<span class="chip" style="background:${BRAND_COLOR[x.brand]||'#475569'};color:#fff">${esc(x.brand)}</span>`:''}<div style="margin-top:4px;font-weight:800">${prFm(x.total)}</div><div class="meta">أساسي ${prFm(x.gross)}${x.overtime?` + إضافي ${prFm(x.overtime)}`:''}</div></div></div></div>`).join('')
   +(L.length>prShown?`<button class="btn btn-ghost" style="width:100%;margin-top:8px" onclick="prShown+=150;renderPay()">عرض المزيد (${L.length-prShown})</button>`:'');
 }
 // ---------- مصفوفة براند/فرع ----------
@@ -1669,7 +1669,7 @@ function prEdit(id){
    +prField('pe_brand','البراند',x.brand)+prField('pe_cc','الفرع (مركز التكلفة)',x.cost_center)+prField('pe_job','الوظيفة',x.job)+prField('pe_co','الشركة',x.company)
    +prField('pe_gross','الراتب الأساسي',x.gross,'number')+prField('pe_ot','الإضافي',x.overtime,'number')+prField('pe_total','الإجمالي (Total)',x.total,'number')+prField('pe_join','تاريخ التعيين',x.joining_date||'','date')
    +`<label>الربط بموظف في القائمة</label><select class="field" id="pe_r"><option value="">— غير مربوط (خارج القائمة) —</option>${R.map(r=>`<option value="${r.id}"${r.id===x.roster_id?' selected':''}>${esc(r.name)} — ${esc(r.emp_no||'')}</option>`).join('')}</select>`
-   +`<label><input type="checkbox" id="pe_exp"${x.is_expense?' checked':''}> سطر مصاريف (مو موظف)</label>`+prField('pe_note','ملاحظة',x.note)
+   +`<label><input type="checkbox" id="pe_exp"${x.is_expense?' checked':''}> سطر UMC (مو موظف)</label>`+prField('pe_note','ملاحظة',x.note)
    +`<div class="actions"><button class="btn btn-primary" onclick="prSave(${id},'${x.month}')">حفظ</button>${id?`<button class="btn btn-ghost" style="color:var(--red)" onclick="prDel(${id})">حذف</button>`:''}</div>`);
 }
 async function prSave(id,month){
@@ -1713,7 +1713,7 @@ async function prApply(){
 }
 // ---------- التصدير ----------
 function prDl(aoa,name,sheet){ const ws=XLSX.utils.aoa_to_sheet(aoa); ws['!views']=[{rightToLeft:true}]; const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,sheet); XLSX.writeFile(wb,name); }
-function prExportMonth(){ const H=['الاسم','الرقم الوظيفي','الإقامة','الجنسية','البراند','الفرع','الوظيفة','الراتب الأساسي','الإضافي','الإجمالي','تاريخ التعيين','بالقائمة؟']; prDl([H,...prLast.map(x=>[x.name,x.emp_no,x.iqama||'',x.nationality,x.brand,x.cost_center,x.job,x.gross,x.overtime,x.total,x.joining_date||'',x.is_expense?'مصاريف':x.roster_id?'نعم':'لا'])],'رواتب-'+prMonth.slice(0,7)+'.xlsx',prMLabel(prMonth)); }
+function prExportMonth(){ const H=['الاسم','الرقم الوظيفي','الإقامة','الجنسية','البراند','الفرع','الوظيفة','الراتب الأساسي','الإضافي','الإجمالي','تاريخ التعيين','بالقائمة؟']; prDl([H,...prLast.map(x=>[x.name,x.emp_no,x.iqama||'',x.nationality,x.brand,x.cost_center,x.job,x.gross,x.overtime,x.total,x.joining_date||'',x.is_expense?'UMC':x.roster_id?'نعم':'لا'])],'رواتب-'+prMonth.slice(0,7)+'.xlsx',prMLabel(prMonth)); }
 function prExportMatrix(lbl){ const {rows}=prRows(), A=prAgg(rows), G=prGroup(A,lbl.startsWith('البراند')?(x=>x.brand):(x=>x.cost_center)); prDl([[lbl,...(A.vm||A.months).flatMap(m=>[prMLabel(m)+' - عدد',prMLabel(m)+' - إجمالي']),'الإجمالي'],...G.map(g=>[g.k,...(A.vm||A.months).flatMap(m=>{ const c=g.by.get(m); return [c?c.p.size:0,c?Math.round(c.total):0]; }),Math.round(g.total)])],'تكلفة-'+(lbl.startsWith('البراند')?'البراند':'الفروع')+'.xlsx','Matrix'); }
 
 // ---------- تصدير المؤشرات (إكسل منسّق) ----------
@@ -1748,7 +1748,7 @@ async function prExportDash(btn){ return withBusy(btn, async()=>{
     ['متوسط الراتب للموظف',hc?Math.round((o.total-o.expTotal)/hc):0,'—'],
     ['موظفون جدد',o.isNew?o.isNew.length:'—','—'],
     ['غادروا',o.left?o.left.length:'—','—'],
-    ['مصاريف أخرى (Other Exp)',Math.round(o.expTotal),'—']],[null,NUM,'+#,##0;-#,##0;0']);
+    ['UMC',Math.round(o.expTotal),'—']],[null,NUM,'+#,##0;-#,##0;0']);
   const B=grp(x=>x.brand);
   r=section(ws,r,'الرواتب حسب البراند',5);
   r=table(ws,r,['البراند','عدد الموظفين','إجمالي الرواتب','النسبة','متوسط للموظف'],B.map(g=>[g.k,g.n,Math.round(g.v),g.v/(o.total||1),g.n?Math.round(g.v/g.n):0]),[null,NUM,NUM,PCT,NUM],['الإجمالي',B.reduce((s,g)=>s+g.n,0),Math.round(B.reduce((s,g)=>s+g.v,0)),1,''],2);
@@ -1762,7 +1762,7 @@ async function prExportDash(btn){ return withBusy(btn, async()=>{
   ws=mk('الأشهر',C.blue); ws.columns=[{width:18},{width:14},{width:16},{width:16},{width:16},{width:16},{width:12},{width:12},{width:16}];
   r=title(ws,'الرواتب الشهرية',stamp+' — '+fl,9);
   const md=vm.map(m=>{ const x=A.M.get(m), n=x.pids.size; return [prMLabel(m),n,Math.round(x.total),Math.round(x.gross),Math.round(x.ot),Math.round(x.expTotal),x.isNew?x.isNew.length:'—',x.left?x.left.length:'—',n?Math.round((x.total-x.expTotal)/n):0]; });
-  r=table(ws,r,['الشهر','الموظفين','إجمالي الرواتب','الأساسي','الإضافي','مصاريف أخرى','جدد','غادروا','متوسط للموظف'],md,[null,NUM,NUM,NUM,NUM,NUM,NUM,NUM,NUM],['الإجمالي','',...[2,3,4,5].map(k=>md.reduce((s,d)=>s+d[k],0)),'','',''],2);
+  r=table(ws,r,['الشهر','الموظفين','إجمالي الرواتب','الأساسي','الإضافي','UMC','جدد','غادروا','متوسط للموظف'],md,[null,NUM,NUM,NUM,NUM,NUM,NUM,NUM,NUM],['الإجمالي','',...[2,3,4,5].map(k=>md.reduce((s,d)=>s+d[k],0)),'','',''],2);
   // ===== 3/4) المصفوفات =====
   const mat=(name,sub,key,tab)=>{ const G=prGroup(A,key); const w=mk(name,tab); w.columns=[{width:30},...vm.map(()=>({width:14})),{width:16},{width:14}];
     let rr=title(w,sub,stamp+' — '+fl+' — إجمالي الرواتب بالريال',vm.length+3);
