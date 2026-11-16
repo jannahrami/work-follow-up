@@ -1515,6 +1515,7 @@ function prMonthKey(name){ const m=String(name||'').trim().toLowerCase().match(/
 const PR_NAT=[[/bangla|بنجلا|بنغلا/i,'Bangladesh'],[/philip|فلبين|فلبي/i,'Philippines'],[/tunis|تونس/i,'Tunisia'],[/egypt|egyp|مصر/i,'Egypt'],[/india|هند/i,'India'],[/sudan|سودان/i,'Sudan'],[/nepal|نيبال/i,'Nepal'],[/pakist|باكست/i,'Pakistan'],[/yemen|يمن/i,'Yemen'],[/jordan|أردن|اردن/i,'Jordan'],[/saudi|سعود/i,'Saudi Arabia'],[/palest|فلسط/i,'Palestine'],[/leban|لبنان/i,'Lebanon'],[/syria|سوري/i,'Syria'],[/morocc|moroco|مغرب/i,'Morocco'],[/nige|naige|نيجير/i,'Nigeria'],[/myanmar|ميانمار/i,'Myanmar'],[/eritr|إريتر|اريتر|ارتير/i,'Eritrea']];
 function prNatN(s){ s=String(s||'').trim(); if(!s||/^(none|0|n\/a|other exp|umc)$/i.test(s)) return ''; const m=PR_NAT.find(([r])=>r.test(s)); return m?m[1]:s; }
 function prBrandN(s){ s=String(s||'').trim(); if(!s||/^none$/i.test(s)) return ''; const k=Object.keys(BRAND_COLOR).find(b=>b.toLowerCase()===s.toLowerCase()); return k||s; }
+const PR_CC_PREF={'2302':'2302 - Eater-MAK-SHRE'};
 function prCC(s){ s=String(s||'').replace(/\s+/g,' ').trim(); const m=s.match(/^(\d+)\s*[-–—]\s*(.+)$/); return m?m[1]+' - '+m[2].trim():s; }
 function prStr(v){ if(v===null||v===undefined) return ''; if(typeof v==='number') return String(Number.isInteger(v)?v:v); return String(v).trim(); }
 function prNum(v){ if(typeof v==='number') return isFinite(v)?v:0; const n=parseFloat(String(v||'').replace(/,/g,'')); return isFinite(n)?n:0; }
@@ -1584,7 +1585,7 @@ function prRows(){ const nat=$('#prNat')?.value||'', br=$('#prBrand')?.value||''
   const cnt={}; state.pay.forEach(x=>{ if(x.brand&&x.cost_center){ const c=cnt[x.cost_center]||(cnt[x.cost_center]={}); c[x.brand]=(c[x.brand]||0)+1; } });
   const ccBrand={}; Object.keys(cnt).forEach(k=>{ ccBrand[k]=Object.entries(cnt[k]).sort((a,b)=>b[1]-a[1])[0][0]; });
   const nm={}; state.pay.forEach(x=>{ const m=String(x.cost_center||'').match(/^(\d+)\s*-\s*(.+)$/); if(m){ const o=nm[m[1]]||(nm[m[1]]={}); o[x.cost_center]=(o[x.cost_center]||0)+1; } });
-  const ccName={}; Object.keys(nm).forEach(k=>{ ccName[k]=Object.entries(nm[k]).sort((a,b)=>b[1]-a[1])[0][0]; });
+  const ccName={}; Object.keys(nm).forEach(k=>{ ccName[k]=PR_CC_PREF[k]||Object.entries(nm[k]).sort((a,b)=>b[1]-a[1])[0][0]; });
   const ccFix=c=>{ const m=String(c||'').match(/^(\d+)\s*-/); return m&&ccName[m[1]]?ccName[m[1]]:c; };
   const all=prPeople(state.pay.map(x=>({...x,cost_center:ccFix(x.cost_center),brand:x.brand||(x.is_expense?'':ccBrand[x.cost_center]||'')})));
   return {all,rows:all.filter(x=>(!nat||x.nationality===nat)&&(!br||x.brand===br)&&(!cc||x.cost_center===cc))}; }
