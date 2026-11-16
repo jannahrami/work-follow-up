@@ -1371,9 +1371,13 @@ function empsList(){
 }
 // بطاقات وسكنات غير مربوطة بالقائمة
 function unlinkedList(){
-  const out=[];
-  state.bal.filter(e=>e.active!==false && !e.roster_id).forEach(e=>out.push({key:'ub'+e.id, kind:'bal', id:e.id, iqama:String(e.iqama||'').trim(), name:e.name||'', brand:e.brand||'', nationality:'', phone:'', location:e.location||'', iqama_expiry:e.iqama_expiry||'', emp_no:e.emp_no||'', src:new Set(['بطاقة بلدية — غير مدرج بالقائمة'])}));
-  state.hpeople.filter(e=>e.active!==false && !e.roster_id).forEach(e=>out.push({key:'uh'+e.id, kind:'house', id:e.id, iqama:String(e.id_number||'').trim(), name:e.name||'', brand:e.brand||'', nationality:e.nationality||'', phone:'', location:e.accommodation||'', iqama_expiry:'', emp_no:e.emp_no||'', src:new Set(['سكن — غير مدرج بالقائمة'])}));
+  const G=new Map(), nm=x=>String(x||'').toLowerCase().replace(/\s+/g,' ').trim();
+  const put=(r,kind,lbl)=>{ const k=r.iq?'i'+r.iq:'n'+nm(r.name); let g=G.get(k);
+    if(!g){ g={key:'u'+k, kind:'grp', recs:[], iqama:r.iq, name:r.name, brand:'', nationality:'', phone:'', location:'', iqama_expiry:'', emp_no:'', src:new Set()}; G.set(k,g); }
+    g.recs.push({kind,id:r.id}); g.src.add(lbl); ['brand','nationality','location','iqama_expiry','emp_no'].forEach(f=>{ if(r[f] && !g[f]) g[f]=r[f]; }); if(!g.iqama&&r.iq) g.iqama=r.iq; };
+  state.bal.filter(e=>e.active!==false && !e.roster_id).forEach(e=>put({id:e.id,iq:String(e.iqama||'').trim(),name:e.name||'',brand:e.brand||'',location:e.location||'',iqama_expiry:e.iqama_expiry||'',emp_no:e.emp_no||''},'bal','بطاقة بلدية'));
+  state.hpeople.filter(e=>e.active!==false && !e.roster_id).forEach(e=>put({id:e.id,iq:String(e.id_number||'').trim(),name:e.name||'',brand:e.brand||'',nationality:e.nationality||'',location:e.accommodation||'',emp_no:e.emp_no||''},'house','سكن'));
+  const out=[...G.values()]; out.forEach(g=>{ g.src=new Set([[...g.src].join(' + ')+' — غير مدرج بالقائمة'+(g.recs.length>1?` (${g.recs.length} سجلات)`:'')]); });
   return out.sort((a,b)=>(a.name||'').localeCompare(b.name||'','en'));
 }
 let eUnl=false;
@@ -1396,7 +1400,7 @@ function empsListLegacy(){
 function openEmp(key){ eCur=key||'';
   const e = key ? (scoped(empsList).find(x=>x.key===key) || unlinkedList().find(x=>x.key===key)) : null;
   if(key && !e) return toast('لم يتم العثور على الموظف');
-  if(e && e.kind) return openLink(e.kind,e.id);
+  if(e && e.kind) return openLink(e.recs);
   const x = e || {iqama:'',name:'',brand:'',nationality:'',phone:'',location:'',iqama_expiry:'',emp_no:'',notes:'',src:new Set(),key:''};
   const staff = state.role==='staff';
   const ro = staff ? 'disabled' : '';
@@ -1523,14 +1527,14 @@ async function buildEmployeesWorkbook(list, opts={}){
 function _lev(a,b){ if(Math.abs(a.length-b.length)>2) return 9; const m=[...Array(a.length+1)].map((_,i)=>[i]); for(let j=1;j<=b.length;j++) m[0][j]=j; for(let i=1;i<=a.length;i++) for(let j=1;j<=b.length;j++) m[i][j]=Math.min(m[i-1][j]+1,m[i][j-1]+1,m[i-1][j-1]+(a[i-1]===b[j-1]?0:1)); return m[a.length][b.length]; }
 function _simScore(a,b){ const t=x=>new Set(String(x||'').toLowerCase().replace(/[^a-z0-9؀-ۿ ]/g,' ').split(/\s+/).filter(w=>w.length>1)); const A=t(a),B=t(b); if(!A.size||!B.size) return 0; let n=0; A.forEach(w=>{ if(B.has(w)) n++; }); return n/Math.min(A.size,B.size); }
 let _lk=null;
-function openLink(kind,id){
-  const rec = kind==='bal' ? state.bal.find(x=>x.id===id) : state.hpeople.find(x=>x.id===id); if(!rec) return;
-  const iq = String(kind==='bal' ? (rec.iqama||'') : (rec.id_number||'')).trim();
-  _lk={kind,id,iq,name:rec.name||''};
-  modal(head('ربط بموظف من القائمة') + `<div class="item"><div class="row"><div><h3>${esc(rec.name||'—')}</h3><div class="meta"><span>🪪 ${esc(iq||'بدون إقامة')}</span><span>${kind==='bal'?'بطاقة بلدية':'سكن'}${rec.emp_no?' • '+esc(rec.emp_no):''}</span></div></div></div></div>
+function openLink(recs){
+  const rows=recs.map(r=>({...r, rec: r.kind==='bal' ? state.bal.find(x=>x.id===r.id) : state.hpeople.find(x=>x.id===r.id)})).filter(r=>r.rec); if(!rows.length) return;
+  const f=rows[0].rec, iq=String(rows.map(r=>r.kind==='bal'?r.rec.iqama:r.rec.id_number).find(x=>x)||'').trim();
+  _lk={recs:rows.map(r=>({kind:r.kind,id:r.id})), iq, name:f.name||''};
+  modal(head('ربط بموظف من القائمة') + `<div class="item"><div class="row"><div><h3>${esc(f.name||'—')}</h3><div class="meta"><span>🪪 ${esc(iq||'بدون إقامة')}</span><span>${rows.map(r=>r.kind==='bal'?'بطاقة بلدية':'سكن').join(' + ')}</span></div></div></div></div>
     <label>اختر الموظف الصحيح (ابحث بالاسم أو الإقامة أو الرقم الوظيفي)</label><input class="field" id="lkQ" placeholder="بحث..." oninput="renderLinkList()">
     <div id="lkList"></div>
-    <div class="actions"><button class="btn btn-ghost" onclick="closeModal();${kind==='bal'?`openBal('${id}')`:`openPerson('${id}')`}">فتح البطاقة نفسها</button></div>`);
+    <div class="actions">${rows.map(r=>`<button class="btn btn-ghost" onclick="closeModal();${r.kind==='bal'?`openBal('${r.id}')`:`openPerson('${r.id}')`}">فتح ${r.kind==='bal'?'البطاقة البلدية':'سجل السكن'}</button>`).join('')}</div>`);
   renderLinkList();
 }
 function renderLinkList(){
@@ -1542,8 +1546,7 @@ function renderLinkList(){
 async function doLink(rid){
   if(!_lk) return; const r=(state.roster||[]).find(x=>x.id===rid); if(!r) return;
   if(!confirm(`ربط «${_lk.name}» بالموظف «${r.name}»؟`)) return;
-  const { error } = await sb.from(_lk.kind==='bal'?'wf_baladiya':'wf_housing_people').update({roster_id:rid}).eq('id',_lk.id);
-  if(error) return fail(error);
+  for(const x of _lk.recs){ const { error } = await sb.from(x.kind==='bal'?'wf_baladiya':'wf_housing_people').update({roster_id:rid}).eq('id',x.id); if(error) return fail(error); }
   closeModal(); toast('تم الربط'); await loadAll();
 }
 
