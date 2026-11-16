@@ -1524,6 +1524,8 @@ function prJobFix(rows){ rows.forEach(x=>{ const a=PR_JOB_ALIAS[String(x.job||''
   (state.pay||[]).forEach(x=>add(x.job)); rows.forEach(x=>add(x.job));
   const canon={}; Object.keys(cnt).forEach(k=>{ canon[k]=Object.entries(cnt[k]).sort((a,b)=>b[1]-a[1]||(b[0]!==b[0].toLowerCase()?1:0)-(a[0]!==a[0].toLowerCase()?1:0))[0][0]; });
   rows.forEach(x=>{ const k=key(x.job); if(k) x.job=canon[k]; }); return rows; }
+// أسماء مثبّتة يدوياً حسب رقم الإقامة
+const PR_NAME_FIX={'2055655365':'Khalid Faraj'};
 const PR_CC_PREF={'2302':'2302 - Eater-MAK-SHRE'};
 function prCC(s){ s=String(s||'').replace(/\s+/g,' ').trim(); const m=s.match(/^(\d+)\s*[-–—]\s*(.+)$/); return m?m[1]+' - '+m[2].trim():s; }
 function prStr(v){ if(v===null||v===undefined) return ''; if(typeof v==='number') return String(Number.isInteger(v)?v:v); return String(v).trim(); }
@@ -1600,7 +1602,7 @@ function prRows(){ const nat=$('#prNat')?.value||'', br=$('#prBrand')?.value||''
   const rn=new Map((state.roster||[]).map(r=>[r.id,r.name])), flat=t=>String(t||'').toLowerCase().replace(/[^a-z0-9\u0600-\u06ff]/g,''), gi={}, nameFix={};
   state.pay.forEach(x=>{ if(!x.is_expense&&!x.roster_id&&/^\d{10}$/.test(x.iqama||'')) (gi[x.iqama]||(gi[x.iqama]=[])).push(x); });
   Object.keys(gi).forEach(iq=>{ const cnt={}; gi[iq].forEach(x=>{ const n=String(x.name||'').replace(/\s+/g,' ').trim(); cnt[n]=(cnt[n]||0)+1; }); const ns=Object.keys(cnt); if(ns.length<2) return; const top=ns.sort((a,b)=>cnt[b]-cnt[a])[0]; ns.forEach(n=>{ if(n!==top&&(flat(n)===flat(top)||_nameSim(n,top))) nameFix[iq+'|'+n]=top; }); });
-  const nameOf=x=>{ if(x.is_expense) return x.name; if(x.roster_id&&rn.get(x.roster_id)) return rn.get(x.roster_id); const n=String(x.name||'').replace(/\s+/g,' ').trim(); return nameFix[x.iqama+'|'+n]||x.name; };
+  const nameOf=x=>{ if(x.is_expense) return x.name; if(PR_NAME_FIX[x.iqama]) return PR_NAME_FIX[x.iqama]; if(x.roster_id&&rn.get(x.roster_id)) return rn.get(x.roster_id); const n=String(x.name||'').replace(/\s+/g,' ').trim(); return nameFix[x.iqama+'|'+n]||x.name; };
   const all=prPeople(state.pay.map(x=>({...x,name:nameOf(x),cost_center:ccFix(x.cost_center),brand:x.brand||(x.is_expense?'':ccBrand[x.cost_center]||'')})));
   return {all,rows:all.filter(x=>(!nat||x.nationality===nat)&&(!br||x.brand===br)&&(!cc||x.cost_center===cc))}; }
 function prFill(all){ const fill=(id,lbl,vals)=>{ const s=$(id), keep=s.value, v=[...new Set(vals.filter(Boolean))].sort((a,b)=>String(a).localeCompare(String(b),'en')); if(s.dataset.n!==v.join('|')){ s.innerHTML=`<option value="">${lbl}</option>`+v.map(x=>`<option>${esc(x)}</option>`).join(''); s.value=v.includes(keep)?keep:''; s.dataset.n=v.join('|'); } };
