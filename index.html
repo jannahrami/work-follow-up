@@ -1549,7 +1549,7 @@ function prMatch(rows,roster){
   roster.forEach(r=>{ if(r.emp_no) byE.set(String(r.emp_no).toUpperCase(),r); if(/^\d{10}$/.test(r.iqama||'')) byI.set(r.iqama,r); const k=prNorm(r.name); if(k){ if(!byN.has(k)) byN.set(k,[]); byN.get(k).push(r); } });
   rows.forEach(x=>{ if(x.is_expense){ x.roster_id=null; return; }
     const cs=new Set(); const a=byE.get(String(x.emp_no||'').toUpperCase()); if(a) cs.add(a); const b=byI.get(x.iqama); if(b) cs.add(b); (byN.get(prNorm(x.name))||[]).forEach(r=>cs.add(r));
-    let best=null,bs=0; cs.forEach(r=>{ const exact=prNorm(r.name)===prNorm(x.name), sim=exact||_nameSim(x.name,r.name); let s=(exact?4:sim?1.5:0)+(x.iqama&&r.iqama===x.iqama?2:0)+(x.emp_no&&String(r.emp_no).toUpperCase()===String(x.emp_no).toUpperCase()?1:0); if((s>=2||(s>=1&&sim))&&s>bs){bs=s;best=r;} });
+    let best=null,bs=0; cs.forEach(r=>{ const exact=prNorm(r.name)===prNorm(x.name), sim=exact||_nameSim(x.name,r.name); let s=(exact?4:sim?1.5:0)+(x.iqama&&r.iqama===x.iqama?2:0)+(x.emp_no&&String(r.emp_no).toUpperCase()===String(x.emp_no).toUpperCase()?1:0)+(x.iqama&&r.iqama===x.iqama&&x.emp_no&&String(r.emp_no).toUpperCase()===String(x.emp_no).toUpperCase()?2:0); if((s>=2||(s>=1&&sim))&&s>bs){bs=s;best=r;} });
     x.roster_id=best?best.id:null; });
   return rows;
 }
