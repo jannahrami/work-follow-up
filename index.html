@@ -1530,12 +1530,13 @@ function prStr(v){ if(v===null||v===undefined) return ''; if(typeof v==='number'
 function prNum(v){ if(typeof v==='number') return isFinite(v)?v:0; const n=parseFloat(String(v||'').replace(/,/g,'')); return isFinite(n)?n:0; }
 function prDate(v){ if(v instanceof Date && !isNaN(v)) return new Date(v.getTime()+12*3600e3).toISOString().slice(0,10); const s=prStr(v); return /^\d{4}-\d{2}-\d{2}/.test(s)?s.slice(0,10):null; }
 function prParseSheet(aoa,month){
-  const h=(aoa[0]||[]).map(x=>prStr(x).toLowerCase());
+  let hi=0; for(let k=0;k<Math.min(6,aoa.length);k++){ if((aoa[k]||[]).some(c=>prStr(c).toLowerCase()==='worker name')){ hi=k; break; } }
+  const h=(aoa[hi]||[]).map(x=>prStr(x).toLowerCase());
   const col=(...ns)=>{ for(const n of ns){ const i=h.indexOf(n); if(i>=0) return i; } return -1; };
   const C={emp:col('worker number'),name:col('worker name'),cc:col('cost center'),brand:col('brand'),company:col('company'),nat:col('nationality'),job:col('job'),gross:col('gross salary','salary'),ot:col('over time','overtime'),total:col('total'),join:col('joining date'),iq:col('id number')};
   if(C.name<0||C.total<0) return null;
   const g=(r,i)=>i<0?'':prStr(r[i]); const out=[];
-  for(let i=1;i<aoa.length;i++){ const r=aoa[i]||[]; const name=g(r,C.name).replace(/\s+/g,' ').trim(); let emp=g(r,C.emp); if(!name&&!emp) continue; if(PR_PH.test(emp)&&!/^(OTHER EXP|UMC)$/.test(emp.toUpperCase())) emp='';
+  for(let i=hi+1;i<aoa.length;i++){ const r=aoa[i]||[]; const name=g(r,C.name).replace(/\s+/g,' ').trim(); let emp=g(r,C.emp); if(!name&&!emp) continue; if(PR_PH.test(emp)&&!/^(OTHER EXP|UMC)$/.test(emp.toUpperCase())) emp='';
     let iq=g(r,C.iq).replace(/\.0$/,''); if(!/^\d{8,12}$/.test(iq)) iq='';
     const exp=/^(OTHER EXP|UMC)$/.test(emp.toUpperCase())||/^(OTHER EXP|UMC)$/.test(name.toUpperCase());
     out.push({month,emp_no:exp?'UMC':emp,name:exp?'UMC':name,iqama:iq,nationality:prNatN(g(r,C.nat)),brand:prBrandN(g(r,C.brand)),cost_center:prCC(g(r,C.cc)),job:g(r,C.job),company:prCoN(g(r,C.company)),gross:prNum(r[C.gross]),overtime:prNum(r[C.ot]),total:prNum(r[C.total]),joining_date:C.join<0?null:prDate(r[C.join]),is_expense:exp,roster_id:null}); }
@@ -1737,13 +1738,29 @@ async function prImport(file){
   try{
     const wb=XLSX.read(await file.arrayBuffer(),{cellDates:true}); const by=new Map(), skipped=[];
     wb.SheetNames.forEach(sn=>{ const mk=prMonthKey(sn); if(!mk){ skipped.push(sn); return; } const rows=prParseSheet(XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,raw:true,defval:null}),mk); if(rows&&rows.length) by.set(mk,rows); else skipped.push(sn); });
-    if(!by.size){ $('#prPrev').innerHTML='<div class="bnote">ما لقيت شيتات أشهر بالشكل المطلوب (Worker number / Worker name / Total ...).</div>'; return; }
+    if(!by.size){ const ur=[]; wb.SheetNames.forEach(sn=>{ const rows=prParseSheet(XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,raw:true,defval:null}),''); if(rows) rows.filter(x=>x.is_expense).forEach(x=>ur.push(x)); });
+      if(ur.length){ prJobFix(ur); _pi={umc:ur}; const ms=[...new Set(state.pay.map(x=>x.month))].sort(), last=ms[ms.length-1]||'';
+        $('#prPrev').innerHTML=`<div class="bnote">الملف ما فيه اسم شهر في الشيت، لكن فيه <b>${ur.length}</b> سطر UMC (Other Exp) بإجمالي <b>${prFm(ur.reduce((s,x)=>s+(x.total||0),0))}</b> ريال. اختر الشهر اللي تنتمي له:</div>
+        <div class="toolbar" style="margin-top:8px"><select id="prUmcM">${ms.map(m=>`<option value="${m}"${m===last?' selected':''}>${prMLabel(m)}</option>`).join('')}</select></div>
+        <div class="meta" style="margin:6px 2px">الاعتماد يستبدل سطور UMC الحالية في هذا الشهر فقط (إن وُجدت)، وباقي سطور الشهر ما تتأثر.</div>
+        <table class="tbl"><tr><th>الفرع</th><th>البراند</th><th>المبلغ</th></tr>${ur.map(x=>`<tr><td>${esc(x.cost_center)}</td><td>${esc(x.brand)}</td><td>${prFm(x.total)}</td></tr>`).join('')}</table>
+        <div class="toolbar" style="margin-top:10px"><button class="btn btn-primary" onclick="prUmcApply()">اعتمد سطور UMC</button></div>`; return; }
+      $('#prPrev').innerHTML='<div class="bnote">ما لقيت شيتات أشهر بالشكل المطلوب (Worker number / Worker name / Total ...).</div>'; return; }
     const R=state.roster||[]; const all=[]; by.forEach(r=>{ prMatch(r,R); prJobFix(r); r.forEach(x=>all.push(x)); }); _pi={by,all};
     const ms=[...by.keys()].sort();
     $('#prPrev').innerHTML=`<table class="tbl"><tr><th>الشهر</th><th>السطور</th><th>مربوطين بالقائمة</th><th>خارج القائمة</th><th>موجود حالياً</th></tr>${ms.map(m=>{ const r=by.get(m), e=r.filter(x=>!x.is_expense); const old=state.pay.filter(x=>x.month===m).length; return `<tr><td>${prMLabel(m)}</td><td>${r.length}</td><td>${e.filter(x=>x.roster_id).length}</td><td>${e.filter(x=>!x.roster_id).length}</td><td>${old?old+' (يُستبدل)':'—'}</td></tr>`; }).join('')}</table>
     ${skipped.length?`<div class="meta" style="margin-top:6px">شيتات تم تجاهلها: ${esc(skipped.join('، '))}</div>`:''}
     <div class="toolbar" style="margin-top:10px"><button class="btn btn-primary" onclick="prApply()">اعتمد الاستيراد (${all.length} سطر)</button></div>`;
   }catch(e){ console.error(e); $('#prPrev').innerHTML='<div class="bnote">تعذّر قراءة الملف.</div>'; }
+}
+async function prUmcApply(){
+  if(!_pi||!_pi.umc) return; const m=$('#prUmcM').value, rows=_pi.umc; const old=state.pay.filter(x=>x.month===m&&x.is_expense);
+  if(!confirm(`إضافة ${rows.length} سطر UMC إلى ${prMLabel(m)}؟`+(old.length?`\nسطور UMC الحالية في هذا الشهر (${old.length}) تُستبدل.`:''))) return;
+  const btn=document.querySelector('#prPrev .btn-primary'); if(btn){ btn.disabled=true; btn.textContent='جاري الحفظ...'; }
+  const clean=x=>({month:m,emp_no:'UMC',name:'UMC',iqama:null,nationality:'',brand:x.brand,cost_center:x.cost_center,job:x.job,company:x.company,gross:x.gross,overtime:x.overtime,total:x.total,joining_date:null,roster_id:null,is_expense:true});
+  const r=await sb.from('wf_payroll').insert(rows.map(clean)); if(r.error) return fail(r.error);
+  if(old.length){ const d=await sb.from('wf_payroll').delete().in('id',old.map(x=>x.id)); if(d.error) return fail(d.error); }
+  _pi=null; await prLoad(); prTab='dash'; prMonth=m; toast('تمت إضافة سطور UMC'); renderPay();
 }
 async function prApply(){
   if(!_pi) return; const ms=[...new Set(_pi.all.map(x=>x.month))].sort();
