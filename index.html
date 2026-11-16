@@ -1568,7 +1568,9 @@ function prGroup(A,keyFn){
 state.pay=[]; let prMonth='', prTab='dash', prShown=100;
 async function prLoad(){ let all=[],from=0; for(;;){ const r=await sb.from('wf_payroll').select('*').order('month').order('id').range(from,from+999); if(r.error){ state.pay=[]; return; } all=all.concat(r.data); if(r.data.length<1000) break; from+=1000; } state.pay=all; }
 function prRows(){ const nat=$('#prNat')?.value||'', br=$('#prBrand')?.value||'', cc=$('#prCC')?.value||'';
-  const all=prPeople(state.pay.map(x=>({...x})));
+  const cnt={}; state.pay.forEach(x=>{ if(x.brand&&x.cost_center){ const c=cnt[x.cost_center]||(cnt[x.cost_center]={}); c[x.brand]=(c[x.brand]||0)+1; } });
+  const ccBrand={}; Object.keys(cnt).forEach(k=>{ ccBrand[k]=Object.entries(cnt[k]).sort((a,b)=>b[1]-a[1])[0][0]; });
+  const all=prPeople(state.pay.map(x=>({...x,brand:x.brand||(x.is_expense?'':ccBrand[x.cost_center]||'')})));
   return {all,rows:all.filter(x=>(!nat||x.nationality===nat)&&(!br||x.brand===br)&&(!cc||x.cost_center===cc))}; }
 function prFill(all){ const fill=(id,lbl,vals)=>{ const s=$(id), keep=s.value, v=[...new Set(vals.filter(Boolean))].sort((a,b)=>String(a).localeCompare(String(b),'en')); if(s.dataset.n!==v.join('|')){ s.innerHTML=`<option value="">${lbl}</option>`+v.map(x=>`<option>${esc(x)}</option>`).join(''); s.value=v.includes(keep)?keep:''; s.dataset.n=v.join('|'); } };
   fill('#prNat','كل الجنسيات',all.map(x=>x.nationality)); fill('#prBrand','كل البراندات',all.map(x=>x.brand)); fill('#prCC','كل الفروع',all.map(x=>x.cost_center));
