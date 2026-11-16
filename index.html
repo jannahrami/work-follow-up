@@ -1377,11 +1377,13 @@ function unlinkedList(){
     g.recs.push({kind,id:r.id}); g.src.add(lbl); ['brand','nationality','location','iqama_expiry','emp_no'].forEach(f=>{ if(r[f] && !g[f]) g[f]=r[f]; }); if(!g.iqama&&r.iq) g.iqama=r.iq; };
   state.bal.filter(e=>e.active!==false && !e.roster_id).forEach(e=>put({id:e.id,iq:String(e.iqama||'').trim(),name:e.name||'',brand:e.brand||'',location:e.location||'',iqama_expiry:e.iqama_expiry||'',emp_no:e.emp_no||''},'bal','بطاقة بلدية'));
   state.hpeople.filter(e=>e.active!==false && !e.roster_id).forEach(e=>put({id:e.id,iq:String(e.id_number||'').trim(),name:e.name||'',brand:e.brand||'',nationality:e.nationality||'',location:e.accommodation||'',emp_no:e.emp_no||''},'house','سكن'));
-  const out=[...G.values()]; out.forEach(g=>{ g.src=new Set([[...g.src].join(' + ')+' — غير مدرج بالقائمة'+(g.recs.length>1?` (${g.recs.length} سجلات)`:'')]); });
+  const out=[...G.values()]; const R=state.roster||[];
+  out.forEach(g=>{ let best=null,bs=0; R.forEach(r=>{ let sc=_dice(g.name,r.name); if(g.iqama && r.iqama && g.iqama.length>=8 && _lev(g.iqama,r.iqama)<=2) sc=Math.max(sc,0.9); if(sc>bs){bs=sc;best=r;} }); g.cand=(bs>=0.6&&best)?best.name:''; });
+  out.forEach(g=>{ g.src=new Set([[...g.src].join(' + ')+(g.cand?' — له شبيه بالقائمة: '+g.cand:' — غير موجود بالقائمة')+(g.recs.length>1?` (${g.recs.length} سجلات)`:'')]); });
   return out.sort((a,b)=>(a.name||'').localeCompare(b.name||'','en'));
 }
 let eUnl=false;
-function toggleUnl(){ eUnl=!eUnl; eShown=100; renderEmps(); }
+function toggleUnl(){ eUnl=!eUnl; uSub=''; eShown=100; renderEmps(); }
 
 function empsListLegacy(){
   const norm=x=>String(x||'').toLowerCase().replace(/\s+/g,' ').trim();
@@ -1459,6 +1461,9 @@ let eShown=100, eLast=[], eCur='';
 function openEmpI(i){ openEmp(eLast[i]?eLast[i].key:''); }
 function goEmps(st){ $('#eSearch').value=''; $('#eBrand').value=''; $('#eNat').value=''; $('#eIq').value=st||''; eShown=100; go('emps'); }
 function iqState(e){ if(!e.iqama_expiry) return 'unknown'; const d=daysTo(e.iqama_expiry); return d<0?'expired':d<=90?'soon':'valid'; }
+function _dice(a,b){ const n=x=>String(x||'').toLowerCase().replace(/[^a-z0-9؀-ۿ]/g,''); const A=n(a),B=n(b); if(A.length<2||B.length<2) return 0; const bg=x=>{ const m=new Map(); for(let i=0;i<x.length-1;i++){ const k=x.slice(i,i+2); m.set(k,(m.get(k)||0)+1); } return m; }; const MA=bg(A),MB=bg(B); let o=0; MA.forEach((v,k)=>{ if(MB.has(k)) o+=Math.min(v,MB.get(k)); }); return 2*o/((A.length-1)+(B.length-1)); }
+let uSub='';
+function setUSub(v){ uSub=v; eShown=100; renderEmps(); }
 function setEmpSt(v){ $('#eSt').value=v; eUnl=false; eShown=100; renderEmps(); }
 function renderEmps(){
   { const A=scoped(empsList), has=(state.roster||[]).length>0, c=k=>A.filter(e=>e.status===k).length;
@@ -1471,8 +1476,8 @@ function renderEmps(){
   const nats=[...new Set(all.map(e=>e.nationality).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'en')), nsel=$('#eNat');
   if(nsel.dataset.n!==nats.join('|')){ const keep=nsel.value; nsel.innerHTML='<option value="">كل الجنسيات</option>'+nats.map(n=>`<option>${esc(n)}</option>`).join(''); nsel.value=nats.includes(keep)?keep:''; nsel.dataset.n=nats.join('|'); }
   const q=$('#eSearch').value.trim().toLowerCase(), b=$('#eBrand').value, st=$('#eIq').value, nt=nsel.value, sv=$('#eSt').value;
-  const L=all.filter(e=>(!b||e.brand===b) && (!sv||e.status===sv) && (!nt||e.nationality===nt) && (!st||iqState(e)===st) && (!q||[e.name,e.iqama,e.nationality,e.location,e.emp_no,e.phone].join(' ').toLowerCase().includes(q)));
-  const _u=scoped(unlinkedList).length; $('#eCount').innerHTML=(eUnl?`غير مدرجين بالقائمة: ${L.length} من ${all.length}`:`${L.length} موظف من ${all.length} • على رأس العمل ${all.filter(e=>e.status==='active').length} • إجازة ${all.filter(e=>e.status==='vacation').length} • تصفية ${all.filter(e=>e.status==='settlement').length}`)+((state.role!=='staff'&&(state.roster||[]).length)?` &nbsp; <button class="btn btn-ghost" style="padding:2px 10px" onclick="toggleUnl()">${eUnl?'⬅ رجوع لقائمة الموظفين':'غير مرتبطين بالقائمة ('+_u+')'}</button>`:'');
+  const L=all.filter(e=>(!b||e.brand===b) && (!sv||e.status===sv) && (!nt||e.nationality===nt) && (!st||iqState(e)===st) && (!q||[e.name,e.iqama,e.nationality,e.location,e.emp_no,e.phone].join(' ').toLowerCase().includes(q)) && (!eUnl||!uSub||(uSub==='sim'?!!e.cand:!e.cand)));
+  const _u=scoped(unlinkedList).length; $('#eCount').innerHTML=(eUnl?`غير مدرجين بالقائمة: ${L.length} من ${all.length} &nbsp; <button class="btn ${uSub===''?'':'btn-ghost'}" style="padding:2px 10px" onclick="setUSub('')">الكل</button> <button class="btn ${uSub==='sim'?'':'btn-ghost'}" style="padding:2px 10px" onclick="setUSub('sim')">له شبيه بالقائمة (${all.filter(e=>e.cand).length})</button> <button class="btn ${uSub==='none'?'':'btn-ghost'}" style="padding:2px 10px" onclick="setUSub('none')">غير موجود بالقائمة (${all.filter(e=>!e.cand).length})</button>`:`${L.length} موظف من ${all.length} • على رأس العمل ${all.filter(e=>e.status==='active').length} • إجازة ${all.filter(e=>e.status==='vacation').length} • تصفية ${all.filter(e=>e.status==='settlement').length}`)+((state.role!=='staff'&&(state.roster||[]).length)?` &nbsp; <button class="btn btn-ghost" style="padding:2px 10px" onclick="toggleUnl()">${eUnl?'⬅ رجوع لقائمة الموظفين':'غير مرتبطين بالقائمة ('+_u+')'}</button>`:'');
   { const rb=$('#rosterUpBtn'); if(rb) rb.style.display=state.role==='staff'?'none':''; }
   const SC={expired:['late','منتهية'],soon:['near','تنتهي قريباً'],valid:['ok','سارية'],unknown:['','تاريخ الإقامة غير متوفر']};
   eLast=L; $('#eList').innerHTML=L.slice(0,eShown).map(e=>{ const s=iqState(e), c=SC[s]; return `<div class="item" onclick="openEmpI(${eLast.indexOf(e)})"><div class="row"><div><h3>${esc(e.name||'—')}</h3><div class="meta"><span>🪪 ${esc(e.iqama||'بدون رقم إقامة')}</span>${e.nationality?`<span>${esc(e.nationality)}</span>`:''}${e.location?`<span>📍 ${esc(e.location)}</span>`:''}${e.phone?`<span>📞 ${esc(e.phone)}</span>`:''}</div><div class="meta"><span>${e.iqama_expiry?'تنتهي الإقامة: '+fmtDate(e.iqama_expiry):'تاريخ انتهاء الإقامة: —'}</span><span>${[...e.src].join(' • ')}</span>${e.status?stChip(e.status):''}</div></div><div style="text-align:left">${e.brand?`<span class="chip" style="background:${BRAND_COLOR[e.brand]||'#475569'};color:#fff">${esc(e.brand)}</span>`:''}<div style="margin-top:4px"><span class="dchip ${c[0]}">${c[1]}</span></div></div></div></div>`; }).join('')+(L.length>eShown?`<button class="btn btn-ghost" style="width:100%;margin-top:8px" onclick="eShown+=150;renderEmps()">عرض المزيد (${L.length-eShown})</button>`:'');
