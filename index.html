@@ -1378,7 +1378,7 @@ function unlinkedList(){
   state.bal.filter(e=>e.active!==false && !e.roster_id).forEach(e=>put({id:e.id,iq:String(e.iqama||'').trim(),name:e.name||'',brand:e.brand||'',location:e.location||'',iqama_expiry:e.iqama_expiry||'',emp_no:e.emp_no||''},'bal','بطاقة بلدية'));
   state.hpeople.filter(e=>e.active!==false && !e.roster_id).forEach(e=>put({id:e.id,iq:String(e.id_number||'').trim(),name:e.name||'',brand:e.brand||'',nationality:e.nationality||'',location:e.accommodation||'',emp_no:e.emp_no||''},'house','سكن'));
   const out=[...G.values()]; const R=state.roster||[];
-  out.forEach(g=>{ let best=null,bs=0; R.forEach(r=>{ if(!_natOk(g.nationality,r.nationality)) return; let sc=_nameSim(g.name,r.name)?0.7:0; if(g.iqama && r.iqama && g.iqama.length>=8 && _lev(g.iqama,r.iqama)<=1) sc=Math.max(sc,0.9); if(sc>bs){bs=sc;best=r;} }); g.cand=(bs>=0.6&&best)?best.name:''; });
+  out.forEach(g=>{ let best=null,bs=0; R.forEach(r=>{ const sc=_cand(g.iqama,g.name,g.nationality,r); if(sc>bs){bs=sc;best=r;} }); g.cand=(bs>0&&best)?best.name:''; });
   out.forEach(g=>{ g.src=new Set([[...g.src].join(' + ')+(g.cand?' — له شبيه بالقائمة: '+g.cand:' — غير موجود بالقائمة')+(g.recs.length>1?` (${g.recs.length} سجلات)`:'')]); });
   return out.sort((a,b)=>(a.name||'').localeCompare(b.name||'','en'));
 }
@@ -1463,6 +1463,9 @@ function goEmps(st){ $('#eSearch').value=''; $('#eBrand').value=''; $('#eNat').v
 function iqState(e){ if(!e.iqama_expiry) return 'unknown'; const d=daysTo(e.iqama_expiry); return d<0?'expired':d<=90?'soon':'valid'; }
 function _natOk(a,b){ const n=x=>String(x||'').toLowerCase().replace(/[^a-z]/g,'').slice(0,4); const A=n(a),B=n(b); return !A||!B||A===B; }
 const _NCOMMON=new Set('md mohd mohammed mohamed muhammad mohammad hossain hussain hosain islam ali ahmed ahmad abdul abdel abdulla abdullah rahman khan uddin ullah bin ibn al el'.split(' '));
+function _cand(iq,name,nat,r){ if(!_natOk(nat,r.nationality)) return 0; const a=String(iq||'').trim(), b=String(r.iqama||'').trim();
+  if(a&&b){ if(a===b) return 2; return _lev(a,b)<=1&&_nameSim(name,r.name)?1.5:0; }
+  return _nameSim(name,r.name)?1:0; }
 function _nameSim(a,b){ const T=x=>{ const r=String(x||'').toLowerCase().replace(/[^a-z ]/g,' ').split(/\s+/).filter(Boolean), o=[]; for(let i=0;i<r.length;i++){ if(/^(abdul|abdel|abdal|abdu|abd|abdulla|abdullah|abu)$/.test(r[i]) && r[i+1]){ o.push(r[i]+r[i+1]); i++; } else o.push(r[i]); } return o.filter(w=>w.length>=2&&!_NCOMMON.has(w)); }; const A=T(a),B=T(b); if(!A.length||!B.length) return false;
   const x=A[0], y=B[0], oth=A.length<2||B.length<2||A.slice(1).some(u=>B.slice(1).some(v=>(u===v&&u.length>=3)||(u.length>=4&&v.length>=4&&_lev(u,v)<=1))); if(oth&&((x===y&&x.length>=3)||(x.length>=5&&y.length>=5&&_lev(x,y)<=1))) return true;
   if(x.length>=5&&y.length>=5&&_lev(x,y)<=(x.length>=6&&y.length>=6?3:2) && A.slice(1).some(u=>B.slice(1).some(v=>u.length>=4&&(u===v||_lev(u,v)<=1)))) return true;
@@ -1569,7 +1572,7 @@ function openLink(recs){
 function renderLinkList(){
   const q=($('#lkQ').value||'').trim().toLowerCase(); let L;
   if(q) L=(state.roster||[]).filter(r=>[r.name,r.iqama,r.emp_no].join(' ').toLowerCase().includes(q)).slice(0,30).map(r=>({r,why:''}));
-  else L=(state.roster||[]).filter(r=>_natOk(_lk.nat,r.nationality)).map(r=>{ let sc=_nameSim(_lk.name,r.name)?0.6:0, why=sc>=0.5?'اسم قريب':''; if(_lk.iq && r.iqama && _lev(_lk.iq,r.iqama)<=1){ sc+=1; why='إقامة قريبة'; } return {r,sc,why}; }).filter(x=>x.sc>=0.5).sort((a,b)=>b.sc-a.sc).slice(0,8);
+  else L=(state.roster||[]).map(r=>{ const sc=_cand(_lk.iq,_lk.name,_lk.nat,r); return {r,sc,why:sc>=2?'نفس الإقامة':sc>=1.5?'إقامة قريبة + اسم':sc>0?'اسم قريب':''}; }).filter(x=>x.sc>0).sort((a,b)=>b.sc-a.sc).slice(0,8);
   $('#lkList').innerHTML = L.length ? L.map(x=>`<div class="item" style="margin-top:8px" onclick="doLink(${x.r.id})"><div class="row"><div><h3>${esc(x.r.name)}</h3><div class="meta"><span>🪪 ${esc(x.r.iqama||'بدون إقامة')}</span><span>${esc(x.r.emp_no)}</span>${ROSTER_ST[x.r.status]?`<span class="chip late">${ROSTER_ST[x.r.status]}</span>`:''}</div></div><span class="chip c-new">${x.why||'ربط'}</span></div></div>`).join('') : `<div class="bnote">${q?'ما لقيت موظف بهذا البحث.':'ما فيه اقتراح قريب — اكتب في البحث.'}</div>`;
 }
 async function doLink(rid){
