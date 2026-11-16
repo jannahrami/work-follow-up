@@ -1590,7 +1590,7 @@ function prFill(all){ const fill=(id,lbl,vals)=>{ const s=$(id), keep=s.value, v
   const yrs=[...new Set(all.map(x=>x.month.slice(0,4)))].sort(), ys=$('#prY'); if(ys.dataset.n!==yrs.join('|')){ const keep=ys.value; ys.innerHTML=yrs.map(y=>`<option value="${y}">${y}</option>`).join('')+'<option value="">كل السنوات</option>'; ys.value=ys.dataset.n?(keep===''||yrs.includes(keep)?keep:yrs[yrs.length-1]):yrs[yrs.length-1]; ys.dataset.n=yrs.join('|'); }
   const yv=ys.value; const ms=[...new Set(all.map(x=>x.month))].sort().filter(m=>!yv||m.startsWith(yv)); const ms2=$('#prM'); ms2.dataset.n=ms2.dataset.n===ms.join('|')?ms2.dataset.n:''; if(ms2.dataset.n!==ms.join('|')){ ms2.innerHTML=ms.map(m=>`<option value="${m}">${prMLabel(m)}</option>`).join(''); ms2.dataset.n=ms.join('|'); }
   if(!ms.includes(prMonth)) prMonth=ms[ms.length-1]||''; ms2.value=prMonth; }
-const PR_TABS=[['dash','📊 اللوحة'],['month','📋 تقرير الشهر'],['brand','🏷️ البراند'],['cc','📍 الفروع'],['move','🔄 جدد ومغادرين'],['imp','⬆ استيراد']];
+const PR_TABS=[['dash','📊 اللوحة'],['month','📋 تقرير الشهر'],['brand','🏷️ البراند'],['cc','📍 الفروع'],['move','🔄 جدد ومغادرين'],['natavg','🌍 معدل متوسط الرواتب حسب الجنسية'],['imp','⬆ استيراد']];
 function prGo(t,q,anchor){ prTab=t; prShown=100; if(t==='month'){ renderPay(); const e=$('#prQ'); if(e){ e.value=q||''; } } renderPay();
   window.scrollTo({top:0}); if(anchor) setTimeout(()=>{ const e=document.getElementById(anchor); if(e) e.scrollIntoView({behavior:'smooth',block:'start'}); },50); }
 function setPrTab(t){ prTab=t; prShown=100; renderPay(); }
@@ -1604,7 +1604,7 @@ function renderPay(){
   if(!state.pay.length && prTab!=='imp'){ B.innerHTML=`<div class="bnote">ما فيه بيانات رواتب بعد. افتح تبويب «استيراد» وارفع ملف الرواتب (Excel).</div>`; return; }
   const A=prAgg(rows);
   $('#prKpi').innerHTML=prTab==='imp'?'':prTiles(A);
-  B.innerHTML = prTab==='dash'?prDash(A,rows):prTab==='month'?prMonthView(A):prTab==='brand'?prMatrix(A,x=>x.brand,'البراند'):prTab==='cc'?prMatrix(A,x=>x.cost_center,'الفرع (مركز التكلفة)'):prTab==='move'?prMove(A):prImportView();
+  B.innerHTML = prTab==='dash'?prDash(A,rows):prTab==='month'?prMonthView(A):prTab==='brand'?prMatrix(A,x=>x.brand,'البراند'):prTab==='cc'?prMatrix(A,x=>x.cost_center,'الفرع (مركز التكلفة)'):prTab==='move'?prMove(A):prTab==='natavg'?prNatAvg(A):prImportView();
 }
 ['#prY','#prM','#prNat','#prBrand','#prCC'].forEach(id=>$(id).addEventListener('input',()=>{ if(id==='#prM') prMonth=$('#prM').value; if(id==='#prY'){ prMonth=''; } prShown=100; renderPay(); }));
 function prTiles(A){
@@ -1658,6 +1658,22 @@ function prMatrix(A,keyFn,lbl){
   const foot=`<tr><td><b>الإجمالي</b></td>${ms.map(m=>`<td><b>${prFm(G.reduce((s,g)=>s+(g.by.get(m)?.total||0),0))}</b></td>`).join('')}<td><b>${prFm(G.reduce((s,g)=>s+g.total,0))}</b></td><td></td></tr>`;
   return `<div class="toolbar"><button class="btn btn-primary btn-sm" onclick="prExportMatrix('${lbl}')">⬇️ إكسل</button></div><div class="meta" style="margin:6px 2px">الأرقام = إجمالي الراتب (Total) بالريال، وتحته عدد الموظفين</div><div style="overflow:auto"><table class="tbl" style="min-width:760px">${head}${G.map(row).join('')}${foot}</table></div>`;
 }
+// ---------- معدل متوسط الرواتب حسب الجنسية ----------
+function prNatData(A){ const vm=A.vm||A.months, G=new Map();
+  vm.forEach(m=>{ A.M.get(m).rows.forEach(x=>{ const k=x.nationality||'غير محدد'; if(!G.has(k)) G.set(k,{k,by:new Map(),sum:0,pm:0}); const g=G.get(k); if(!g.by.has(m)) g.by.set(m,{sum:0,p:new Set()}); const c=g.by.get(m); c.sum+=x.total||0; c.p.add(x._p); }); });
+  G.forEach(g=>g.by.forEach(c=>{ g.sum+=c.sum; g.pm+=c.p.size; }));
+  return {vm,G:[...G.values()].sort((a,b)=>(b.by.get(prMonth)?.p.size||0)-(a.by.get(prMonth)?.p.size||0)||b.pm-a.pm)}; }
+function prNatAvg(A){
+  const {vm,G}=prNatData(A); if(!G.length) return '<div class="bnote">ما فيه بيانات</div>';
+  const av=c=>c&&c.p.size?prFm(c.sum/c.p.size):'—';
+  const tS=G.reduce((s,g)=>s+g.sum,0), tP=G.reduce((s,g)=>s+g.pm,0);
+  const head=`<tr><th>الجنسية</th><th>العدد (${prMLabel(prMonth)})</th><th>متوسط ${prMLabel(prMonth)}</th>${vm.map(m=>`<th>${PR_AR[+m.split('-')[1]-1]}</th>`).join('')}<th>المعدل العام</th></tr>`;
+  const row=g=>{ const c=g.by.get(prMonth); return `<tr><td><b>${esc(g.k)}</b></td><td>${c?c.p.size:'—'}</td><td><b>${av(c)}</b></td>${vm.map(m=>`<td>${av(g.by.get(m))}</td>`).join('')}<td><b>${g.pm?prFm(g.sum/g.pm):'—'}</b></td></tr>`; };
+  const oc=A.M.get(prMonth), oh=oc?oc.pids.size:0, osum=oc?oc.total-oc.expTotal:0;
+  const foot=`<tr><td><b>الكل</b></td><td><b>${oh}</b></td><td><b>${oh?prFm(osum/oh):'—'}</b></td>${vm.map(m=>{ const o=A.M.get(m), n=o.pids.size; return `<td><b>${n?prFm((o.total-o.expTotal)/n):'—'}</b></td>`; }).join('')}<td><b>${tP?prFm(tS/tP):'—'}</b></td></tr>`;
+  return `<div class="toolbar"><button class="btn btn-primary btn-sm" onclick="prExportNatAvg()">⬇️ إكسل</button></div><div class="meta" style="margin:6px 2px">متوسط الراتب الشهري للموظف الواحد (عمود Total بالريال) حسب الجنسية. لا يشمل UMC. «المعدل العام» = إجمالي الرواتب ÷ مجموع أشهر الموظفين في الفترة المعروضة.</div><div style="overflow:auto"><table class="tbl" style="min-width:${360+vm.length*70}px">${head}${G.map(row).join('')}${foot}</table></div>`; }
+function prExportNatAvg(){ const {rows}=prRows(), A=prAgg(rows), {vm,G}=prNatData(A); const av=c=>c&&c.p.size?Math.round(c.sum/c.p.size):'';
+  prDl([['الجنسية','العدد ('+prMLabel(prMonth)+')','متوسط '+prMLabel(prMonth),...vm.map(prMLabel),'المعدل العام'],...G.map(g=>{ const c=g.by.get(prMonth); return [g.k,c?c.p.size:0,av(c),...vm.map(m=>av(g.by.get(m))),g.pm?Math.round(g.sum/g.pm):'']; })],'معدل-متوسط-الرواتب-حسب-الجنسية.xlsx','متوسط حسب الجنسية'); }
 // ---------- جدد ومغادرين ----------
 function prMove(A){
   const i=A.months.indexOf(prMonth), o=A.M.get(prMonth); if(!o) return '';
