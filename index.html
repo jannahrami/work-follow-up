@@ -836,6 +836,7 @@ body.staff[data-sec="home"] #subnav{display:none!important}
     </div>
     <div id="sec-pay" class="hidden">
       <div class="sec-bar"><h1>💰 الرواتب</h1><button class="btn btn-primary btn-sm" onclick="prAdd()">➕ سطر</button></div>
+      <div id="prKpi"></div>
       <div class="toolbar" id="prTabs"></div>
       <div id="prFilters">
         <div class="toolbar"><select id="prM"></select><select id="prNat"><option value="">كل الجنسيات</option></select></div>
@@ -1581,17 +1582,23 @@ function renderPay(){
   $('#prTabs').innerHTML=PR_TABS.map(([k,l])=>`<button class="btn ${prTab===k?'btn-primary':'btn-ghost'} btn-sm" onclick="setPrTab('${k}')">${l}</button>`).join('');
   $('#prFilters').style.display=prTab==='imp'?'none':'';
   const B=$('#prBody');
+  $('#prKpi').innerHTML='';
   if(!state.pay.length && prTab!=='imp'){ B.innerHTML=`<div class="bnote">ما فيه بيانات رواتب بعد. افتح تبويب «استيراد» وارفع ملف الرواتب (Excel).</div>`; return; }
   const A=prAgg(rows);
+  $('#prKpi').innerHTML=prTab==='imp'?'':prTiles(A);
   B.innerHTML = prTab==='dash'?prDash(A,rows):prTab==='month'?prMonthView(A):prTab==='brand'?prMatrix(A,x=>x.brand,'البراند'):prTab==='cc'?prMatrix(A,x=>x.cost_center,'الفرع (مركز التكلفة)'):prTab==='move'?prMove(A):prImportView();
 }
 ['#prM','#prNat','#prBrand','#prCC'].forEach(id=>$(id).addEventListener('input',()=>{ if(id==='#prM') prMonth=$('#prM').value; prShown=100; renderPay(); }));
-function prDash(A,rows){
+function prTiles(A){
   const o=A.M.get(prMonth); if(!o) return '';
   const i=A.months.indexOf(prMonth), prev=i>0?A.M.get(A.months[i-1]):null, hc=o.pids.size;
   const dlt=(a,b)=>b==null?'':`<em>${a-b>=0?'▲':'▼'} ${prFm(Math.abs(a-b))} عن الشهر السابق</em>`;
   const tile=(l,v,sub,c)=>`<div class="stat"><small>${l}</small><b class="num"${c?` style="color:${c}"`:''}>${v}</b>${sub||''}</div>`;
   const T=`<div class="stats">${tile('إجمالي الرواتب (ر.س)',prFm(o.total),dlt(o.total,prev?.total))}${tile('عدد الموظفين',hc,dlt(hc,prev?.pids.size))}${tile('متوسط الراتب للموظف',hc?prFm((o.total-o.expTotal)/hc):'—')}${tile('موظفين جدد',o.isNew?o.isNew.length:'—','', 'var(--green)')}${tile('غادروا',o.left?o.left.length:'—','', 'var(--red)')}${tile('مصاريف أخرى (Other Exp)',prFm(o.expTotal))}</div>`;
+  return `<div class="meta" style="margin:2px 2px 6px">مؤشرات ${prMLabel(prMonth)}</div>`+T;
+}
+function prDash(A,rows){
+  const o=A.M.get(prMonth); if(!o) return '';
   const colr=b=>BRAND_COLOR[b]||'#475569';
   const gb=prGroup({months:[prMonth],M:new Map([[prMonth,o]])},x=>x.brand), mx=Math.max(1,...gb.map(g=>g.by.get(prMonth)?.total||0));
   const brands=gb.map(g=>({k:g.k,v:g.by.get(prMonth)?.total||0,n:g.by.get(prMonth)?.p.size||0})).filter(g=>g.v).sort((a,b)=>b.v-a.v)
@@ -1603,7 +1610,7 @@ function prDash(A,rows){
   const ccs=prGroup({months:[prMonth],M:new Map([[prMonth,o]])},x=>x.cost_center).map(g=>({k:g.k,v:g.by.get(prMonth)?.total||0,n:g.by.get(prMonth)?.p.size||0})).filter(g=>g.v).sort((a,b)=>b.v-a.v).slice(0,10);
   const ccT=`<table class="tbl"><tr><th>الفرع</th><th>العدد</th><th>الرواتب</th></tr>${ccs.map(g=>`<tr><td>${esc(g.k)}</td><td>${g.n}</td><td>${prFm(g.v)}</td></tr>`).join('')}</table>`;
   const h=t=>`<h3 style="margin:18px 2px 6px">${t}</h3>`;
-  return T+h('الرواتب حسب البراند — '+prMLabel(prMonth))+`<div class="item">${brands||'—'}</div>`+h('اتجاه الرواتب الشهري (اضغط شهر)')+`<div class="item">${trend}</div>`+h('أعلى 10 فروع')+`<div style="overflow:auto">${ccT}</div>`+h('حسب الجنسية')+`<div style="overflow:auto">${nat}</div>`;
+  return h('الرواتب حسب البراند — '+prMLabel(prMonth))+`<div class="item">${brands||'—'}</div>`+h('اتجاه الرواتب الشهري (اضغط شهر)')+`<div class="item">${trend}</div>`+h('أعلى 10 فروع')+`<div style="overflow:auto">${ccT}</div>`+h('حسب الجنسية')+`<div style="overflow:auto">${nat}</div>`;
 }
 // ---------- تقرير الشهر ----------
 let prLast=[];
