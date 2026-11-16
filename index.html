@@ -834,6 +834,15 @@ body.staff[data-sec="home"] #subnav{display:none!important}
       <div id="eCount" class="meta" style="margin:6px 2px"></div>
       <div id="eList"></div>
     </div>
+    <div id="sec-pay" class="hidden">
+      <div class="sec-bar"><h1>💰 الرواتب</h1><button class="btn btn-primary btn-sm" onclick="prAdd()">➕ سطر</button></div>
+      <div class="toolbar" id="prTabs"></div>
+      <div id="prFilters">
+        <div class="toolbar"><select id="prM"></select><select id="prNat"><option value="">كل الجنسيات</option></select></div>
+        <div class="toolbar"><select id="prBrand"><option value="">كل البراندات</option></select><select id="prCC"><option value="">كل الفروع</option></select></div>
+      </div>
+      <div id="prBody"></div>
+    </div>
     <div id="sec-reqs" class="hidden">
       <div class="sec-bar"><h1>📨 طلباتي</h1></div>
       <div class="bnote" style="margin-bottom:12px">كل إضافة أو تعديل أو حذف تقوم به يصل المدير أولاً، ولا يظهر في البيانات إلا بعد موافقته.</div>
@@ -1038,7 +1047,7 @@ async function loadAll(){
   ]);
   for(const r of [v,vu,t,tu,h,hu,bl,bu,hn,hp,hs,ls,lu,fu]) if(r.error) return fail(r.error);
   state.viol=v.data; state.vupd=vu.data; state.topics=t.data; state.tupd=tu.data; state.health=h.data; state.hupd=hu.data; state.bal=bl.data; state.bupd=bu.data; state.hunits=hn.data; state.hpeople=hp.data; state.hsupd=hs.data; state.leases=ls.data; state.lupd=lu.data; state.fu=Object.fromEntries(fu.data.map(r=>[r.item_key,r]));
-  if(state.role!=='staff'){ const em=await sb.from('wf_employees').select('*'); state.emps=em.error?[]:em.data; const rr=await sb.from('wf_roster').select('*').limit(3000); state.roster=rr.error?[]:rr.data; } else state.roster=[];
+  if(state.role!=='staff'){ const em=await sb.from('wf_employees').select('*'); state.emps=em.error?[]:em.data; const rr=await sb.from('wf_roster').select('*').limit(3000); state.roster=rr.error?[]:rr.data; await prLoad(); } else { state.roster=[]; state.pay=[]; }
   await loadReqs(); fillFilters(); fillHealthFilters(); fillBalFilters(); fillHousingFilters(); fillLeaseFilters(); render(); applyRoute();
 }
 function fillFilters(){
@@ -1051,7 +1060,7 @@ function fillFilters(){
 }
 
 // ===== RENDER =====
-function render(){ renderSide(); scoped(()=>{ renderTiles(); renderRecent(); renderHomeDash(); renderViolDash(); renderViol(); renderHealthDash(); renderHealth(); renderBalDash(); renderBal(); renderHousingDash(); renderUnits(); renderPeople(); renderLeaseDash(); renderLeases(); }); renderTopics(); if(state.section==='emps') renderEmps(); if(state.section==='report') renderReport(); }
+function render(){ renderSide(); scoped(()=>{ renderTiles(); renderRecent(); renderHomeDash(); renderViolDash(); renderViol(); renderHealthDash(); renderHealth(); renderBalDash(); renderBal(); renderHousingDash(); renderUnits(); renderPeople(); renderLeaseDash(); renderLeases(); }); renderTopics(); if(state.section==='emps') renderEmps(); if(state.section==='pay') renderPay(); if(state.section==='report') renderReport(); }
 
 function violCard(v){
   return `<div class="item" onclick="openViol('${v.id}')">
@@ -1160,7 +1169,7 @@ const SUBTABS = {
   lease:  [['dash','لوحة المتابعة'],['list','العقود']],
 };
 
-const NAV = [['home','📊','المؤشرات'],['viol','🚨','المخالفات'],['bal','🏛️','البطاقات البلدية'],['house','🏠','السكنات'],['lease','📄','عقود الإيجار'],['emps','👥','الموظفين'],['report','📈','التقرير'],['backup','💾','نسخة احتياطية']];
+const NAV = [['home','📊','المؤشرات'],['viol','🚨','المخالفات'],['bal','🏛️','البطاقات البلدية'],['house','🏠','السكنات'],['lease','📄','عقود الإيجار'],['emps','👥','الموظفين'],['pay','💰','الرواتب'],['report','📈','التقرير'],['backup','💾','نسخة احتياطية']];
 const TABS = [['home','📊','الرئيسية'],['viol','🚨','المخالفات'],['bal','🏛️','البلدية'],['emps','👥','الموظفين'],['more','☰','المزيد']];
 function allowedSec(k){ if(state.role!=='staff') return !['reqs'].includes(k); if(k==='report') return false; if(['home','reqs'].includes(k)) return true;
   if(k==='emps') return ['bal','health'].some(x=>state.staff.sections.includes(x)); return state.staff.sections.includes(k); }
@@ -1291,13 +1300,13 @@ function go(section, sub){
 }
 function applyRoute(){
   const [sec, sub] = (location.hash.replace('#','')||'home').split('/');
-  let section = ['viol','bal','house','lease','topics','backup','emps','report','reqs','appr','staff'].includes(sec) ? sec : 'home';
-  if(state.role==='staff' && (['topics','backup','report','appr','staff'].includes(section) || !allowedSec(section))) section='home';
+  let section = ['viol','bal','house','lease','topics','backup','emps','pay','report','reqs','appr','staff'].includes(sec) ? sec : 'home';
+  if(state.role==='staff' && (['topics','backup','report','appr','staff','pay'].includes(section) || !allowedSec(section))) section='home';
   if(state.role!=='staff' && section==='reqs') section='home';
   state.section = section; document.body.classList.toggle('home-wide', section==='home'); renderBrandBar();
   if(sub && SUBTABS[section]?.some(x=>x[0]===sub)) state.sub[section] = sub;
   if(state.role==='staff' && section==='home') state.sub.home='secs';
-  ['home','viol','health','bal','house','lease','topics','backup','emps','report','reqs','appr','staff'].forEach(s=>$('#sec-'+s).classList.toggle('hidden', s!==section));
+  ['home','viol','health','bal','house','lease','topics','backup','emps','pay','report','reqs','appr','staff'].forEach(s=>$('#sec-'+s).classList.toggle('hidden', s!==section));
   $('#backBtn').classList.toggle('hidden', section==='home');
   const nav = $('#subnav'), tabs = SUBTABS[section];
   if(tabs){
@@ -1305,9 +1314,10 @@ function applyRoute(){
     nav.innerHTML = tabs.map(([k,l])=>`<button class="${state.sub[section]===k?'active':''}" onclick="${section==='home'?'':k==='list'?({health:'clearHealthFilters();',viol:'clearViolFilters();',bal:'clearBalFilters();',lease:'clearLeaseFilters();'}[section]||''):k==='people'?'clearPeopleFilters();':''}go('${section}','${k}')">${l}${section==='home'&&k==='todo'?(()=>{const n=dashVisible().filter(x=>x.d<=7).length;return n?` <span class="tabn">${n}</span>`:''})():''}</button>`).join('');
     tabs.forEach(([k])=>$(`#${section}-${k}`).classList.toggle('hidden', state.sub[section]!==k));
   } else { nav.classList.add('hidden'); nav.innerHTML=''; }
-  $('#fab').classList.toggle('hidden', ['backup','emps','report','reqs','appr','staff'].includes(section));
+  $('#fab').classList.toggle('hidden', ['backup','emps','pay','report','reqs','appr','staff'].includes(section));
   if(section==='backup') renderBackup(); if(section==='report') renderReport();
   if(section==='emps') renderEmps();
+  if(section==='pay') renderPay();
   if(section==='reqs') renderReqs(); if(section==='appr') renderAppr(); if(section==='staff') renderStaff();
   document.body.dataset.hsub = state.sub.home; document.body.dataset.sec = section; renderSide();
   window.scrollTo(0,0);
@@ -1492,6 +1502,202 @@ function renderEmps(){
   eLast=L; $('#eList').innerHTML=L.slice(0,eShown).map(e=>{ const s=iqState(e), c=SC[s]; return `<div class="item" onclick="openEmpI(${eLast.indexOf(e)})"><div class="row"><div><h3>${esc(e.name||'—')}</h3><div class="meta"><span>🪪 ${esc(e.iqama||'بدون رقم إقامة')}</span>${e.nationality?`<span>${esc(e.nationality)}</span>`:''}${e.location?`<span>📍 ${esc(e.location)}</span>`:''}${e.phone?`<span>📞 ${esc(e.phone)}</span>`:''}</div><div class="meta"><span>${e.iqama_expiry?'تنتهي الإقامة: '+fmtDate(e.iqama_expiry):'تاريخ انتهاء الإقامة: —'}</span><span>${[...e.src].join(' • ')}</span>${e.status?stChip(e.status):''}</div></div><div style="text-align:left">${e.brand?`<span class="chip" style="background:${BRAND_COLOR[e.brand]||'#475569'};color:#fff">${esc(e.brand)}</span>`:''}<div style="margin-top:4px"><span class="dchip ${c[0]}">${c[1]}</span></div></div></div></div>`; }).join('')+(L.length>eShown?`<button class="btn btn-ghost" style="width:100%;margin-top:8px" onclick="eShown+=150;renderEmps()">عرض المزيد (${L.length-eShown})</button>`:'');
 }
 ['#eSearch','#eBrand','#eNat','#eIq'].forEach(id=>{ $(id).addEventListener('input',()=>{ eShown=100; renderEmps(); }); });
+
+// ===== PAYROLL (الرواتب) — للمالك فقط =====
+const PR_AR=['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+const PR_EN={jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12};
+const prMLabel=k=>{ const [y,m]=String(k).split('-'); return PR_AR[+m-1]+' '+y; };
+const prFm=n=>Math.round(Number(n)||0).toLocaleString('en-US');
+const prNorm=s=>String(s||'').toLowerCase().replace(/\s+/g,' ').trim();
+const PR_PH=/^(|new hire|other exp|n\/a|-|\d{1,2})$/i;
+function prMonthKey(name){ const m=String(name||'').trim().toLowerCase().match(/^([a-z]{3})[a-z]*\s+(20\d\d)$/); if(!m||!PR_EN[m[1]]) return null; return m[2]+'-'+String(PR_EN[m[1]]).padStart(2,'0')+'-01'; }
+const PR_NAT=[[/bangla|بنجلا|بنغلا/i,'Bangladesh'],[/philip|فلبين|فلبي/i,'Philippines'],[/tunis|تونس/i,'Tunisia'],[/egypt|egyp|مصر/i,'Egypt'],[/india|هند/i,'India'],[/sudan|سودان/i,'Sudan'],[/nepal|نيبال/i,'Nepal'],[/pakist|باكست/i,'Pakistan'],[/yemen|يمن/i,'Yemen'],[/jordan|أردن|اردن/i,'Jordan'],[/saudi|سعود/i,'Saudi Arabia'],[/palest|فلسط/i,'Palestine'],[/leban|لبنان/i,'Lebanon'],[/syria|سوري/i,'Syria'],[/morocc|moroco|مغرب/i,'Morocco'],[/nige|naige|نيجير/i,'Nigeria'],[/myanmar|ميانمار/i,'Myanmar'],[/eritr|إريتر|اريتر|ارتير/i,'Eritrea']];
+function prNatN(s){ s=String(s||'').trim(); if(!s||/^(none|0|n\/a|other exp)$/i.test(s)) return ''; const m=PR_NAT.find(([r])=>r.test(s)); return m?m[1]:s; }
+function prBrandN(s){ s=String(s||'').trim(); if(!s||/^none$/i.test(s)) return ''; const k=Object.keys(BRAND_COLOR).find(b=>b.toLowerCase()===s.toLowerCase()); return k||s; }
+function prCC(s){ s=String(s||'').replace(/\s+/g,' ').trim(); const m=s.match(/^(\d+)\s*[-–—]\s*(.+)$/); return m?m[1]+' - '+m[2].trim():s; }
+function prStr(v){ if(v===null||v===undefined) return ''; if(typeof v==='number') return String(Number.isInteger(v)?v:v); return String(v).trim(); }
+function prNum(v){ if(typeof v==='number') return isFinite(v)?v:0; const n=parseFloat(String(v||'').replace(/,/g,'')); return isFinite(n)?n:0; }
+function prDate(v){ if(v instanceof Date && !isNaN(v)) return new Date(v.getTime()+12*3600e3).toISOString().slice(0,10); const s=prStr(v); return /^\d{4}-\d{2}-\d{2}/.test(s)?s.slice(0,10):null; }
+function prParseSheet(aoa,month){
+  const h=(aoa[0]||[]).map(x=>prStr(x).toLowerCase());
+  const col=(...ns)=>{ for(const n of ns){ const i=h.indexOf(n); if(i>=0) return i; } return -1; };
+  const C={emp:col('worker number'),name:col('worker name'),cc:col('cost center'),brand:col('brand'),company:col('company'),nat:col('nationality'),job:col('job'),gross:col('gross salary','salary'),ot:col('over time','overtime'),total:col('total'),join:col('joining date'),iq:col('id number')};
+  if(C.name<0||C.total<0) return null;
+  const g=(r,i)=>i<0?'':prStr(r[i]); const out=[];
+  for(let i=1;i<aoa.length;i++){ const r=aoa[i]||[]; const name=g(r,C.name), emp=g(r,C.emp); if(!name&&!emp) continue;
+    let iq=g(r,C.iq).replace(/\.0$/,''); if(!/^\d{8,12}$/.test(iq)) iq='';
+    const exp=emp.toUpperCase()==='OTHER EXP'||name.toUpperCase()==='OTHER EXP';
+    out.push({month,emp_no:emp,name,iqama:iq,nationality:prNatN(g(r,C.nat)),brand:prBrandN(g(r,C.brand)),cost_center:prCC(g(r,C.cc)),job:g(r,C.job),company:g(r,C.company),gross:prNum(r[C.gross]),overtime:prNum(r[C.ot]),total:prNum(r[C.total]),joining_date:C.join<0?null:prDate(r[C.join]),is_expense:exp,roster_id:null}); }
+  return out;
+}
+function prMatch(rows,roster){
+  const byE=new Map(),byI=new Map(),byN=new Map();
+  roster.forEach(r=>{ if(r.emp_no) byE.set(String(r.emp_no).toUpperCase(),r); if(/^\d{10}$/.test(r.iqama||'')) byI.set(r.iqama,r); const k=prNorm(r.name); if(k){ if(!byN.has(k)) byN.set(k,[]); byN.get(k).push(r); } });
+  rows.forEach(x=>{ if(x.is_expense){ x.roster_id=null; return; }
+    const cs=new Set(); const a=byE.get(String(x.emp_no||'').toUpperCase()); if(a) cs.add(a); const b=byI.get(x.iqama); if(b) cs.add(b); (byN.get(prNorm(x.name))||[]).forEach(r=>cs.add(r));
+    let best=null,bs=0; cs.forEach(r=>{ const exact=prNorm(r.name)===prNorm(x.name), sim=exact||_nameSim(x.name,r.name); let s=(exact?4:sim?1.5:0)+(x.iqama&&r.iqama===x.iqama?2:0)+(x.emp_no&&String(r.emp_no).toUpperCase()===String(x.emp_no).toUpperCase()?1:0); if((s>=2||(s>=1&&sim))&&s>bs){bs=s;best=r;} });
+    x.roster_id=best?best.id:null; });
+  return rows;
+}
+// مفتاح الشخص عبر الأشهر (للجدد والمغادرين)
+function prPeople(rows){
+  const par=new Map(); const find=x=>{ let r=x; while((par.get(r)??r)!==r) r=par.get(r); while((par.get(x)??x)!==r){ const n=par.get(x)??x; par.set(x,r); x=n; } return r; };
+  const uni=(a,b)=>{ const ra=find(a),rb=find(b); if(ra!==rb) par.set(ra,rb); };
+  rows.forEach(x=>{ if(x.is_expense) return; let ks;
+    if(x.roster_id) ks=['r'+x.roster_id]; else { ks=[]; if(/^\d{10}$/.test(x.iqama||'')) ks.push('i'+x.iqama); if(!PR_PH.test(x.emp_no||'')) ks.push('w'+String(x.emp_no).toUpperCase()); if(!ks.length) ks.push('n'+prNorm(x.name)); }
+    x._k=ks[0]; ks.slice(1).forEach(k=>uni(ks[0],k)); find(ks[0]); });
+  rows.forEach(x=>{ x._p=x.is_expense?null:find(x._k); });
+  return rows;
+}
+function prAgg(rows){
+  const months=[...new Set(rows.map(x=>x.month))].sort(), M=new Map(months.map(m=>[m,{rows:[],exp:[],pids:new Set(),total:0,gross:0,ot:0,expTotal:0}]));
+  rows.forEach(x=>{ const o=M.get(x.month); o.total+=x.total||0; o.gross+=x.gross||0; o.ot+=x.overtime||0; if(x.is_expense){ o.exp.push(x); o.expTotal+=x.total||0; } else { o.rows.push(x); o.pids.add(x._p); } });
+  const first=new Map(); months.forEach((m,i)=>M.get(m).pids.forEach(p=>{ if(!first.has(p)) first.set(p,i); }));
+  months.forEach((m,i)=>{ const o=M.get(m); o.isNew=i===0?null:[...o.pids].filter(p=>first.get(p)===i); o.left=i===0?null:[...M.get(months[i-1]).pids].filter(p=>!o.pids.has(p)); });
+  return {months,M,first};
+}
+// تجميع حسب (براند / فرع / جنسية) لكل شهر
+function prGroup(A,keyFn){
+  const G=new Map();
+  A.months.forEach(m=>{ const o=A.M.get(m); [...o.rows,...o.exp].forEach(x=>{ const k=keyFn(x)||(x.is_expense?'مصاريف أخرى':'غير محدد'); if(!G.has(k)) G.set(k,{k,by:new Map(),total:0}); const g=G.get(k); if(!g.by.has(m)) g.by.set(m,{total:0,p:new Set()}); const c=g.by.get(m); c.total+=x.total||0; if(!x.is_expense) c.p.add(x._p); g.total+=x.total||0; }); });
+  return [...G.values()].sort((a,b)=>b.total-a.total);
+}
+
+// ---------- الحالة والتحميل ----------
+state.pay=[]; let prMonth='', prTab='dash', prShown=100;
+async function prLoad(){ let all=[],from=0; for(;;){ const r=await sb.from('wf_payroll').select('*').order('month').order('id').range(from,from+999); if(r.error){ state.pay=[]; return; } all=all.concat(r.data); if(r.data.length<1000) break; from+=1000; } state.pay=all; }
+function prRows(){ const nat=$('#prNat')?.value||'', br=$('#prBrand')?.value||'', cc=$('#prCC')?.value||'';
+  const all=prPeople(state.pay.map(x=>({...x})));
+  return {all,rows:all.filter(x=>(!nat||x.nationality===nat)&&(!br||x.brand===br)&&(!cc||x.cost_center===cc))}; }
+function prFill(all){ const fill=(id,lbl,vals)=>{ const s=$(id), keep=s.value, v=[...new Set(vals.filter(Boolean))].sort((a,b)=>String(a).localeCompare(String(b),'en')); if(s.dataset.n!==v.join('|')){ s.innerHTML=`<option value="">${lbl}</option>`+v.map(x=>`<option>${esc(x)}</option>`).join(''); s.value=v.includes(keep)?keep:''; s.dataset.n=v.join('|'); } };
+  fill('#prNat','كل الجنسيات',all.map(x=>x.nationality)); fill('#prBrand','كل البراندات',all.map(x=>x.brand)); fill('#prCC','كل الفروع',all.map(x=>x.cost_center));
+  const ms=[...new Set(all.map(x=>x.month))].sort(); const ms2=$('#prM'); if(ms2.dataset.n!==ms.join('|')){ ms2.innerHTML=ms.map(m=>`<option value="${m}">${prMLabel(m)}</option>`).join(''); ms2.dataset.n=ms.join('|'); }
+  if(!ms.includes(prMonth)) prMonth=ms[ms.length-1]||''; ms2.value=prMonth; }
+const PR_TABS=[['dash','📊 اللوحة'],['month','📋 تقرير الشهر'],['brand','🏷️ البراند'],['cc','📍 الفروع'],['move','🔄 جدد ومغادرين'],['imp','⬆ استيراد']];
+function setPrTab(t){ prTab=t; prShown=100; renderPay(); }
+function renderPay(){
+  if(state.role==='staff') return;
+  const {all,rows}=prRows(); prFill(all);
+  $('#prTabs').innerHTML=PR_TABS.map(([k,l])=>`<button class="btn ${prTab===k?'btn-primary':'btn-ghost'} btn-sm" onclick="setPrTab('${k}')">${l}</button>`).join('');
+  $('#prFilters').style.display=prTab==='imp'?'none':'';
+  const B=$('#prBody');
+  if(!state.pay.length && prTab!=='imp'){ B.innerHTML=`<div class="bnote">ما فيه بيانات رواتب بعد. افتح تبويب «استيراد» وارفع ملف الرواتب (Excel).</div>`; return; }
+  const A=prAgg(rows);
+  B.innerHTML = prTab==='dash'?prDash(A,rows):prTab==='month'?prMonthView(A):prTab==='brand'?prMatrix(A,x=>x.brand,'البراند'):prTab==='cc'?prMatrix(A,x=>x.cost_center,'الفرع (مركز التكلفة)'):prTab==='move'?prMove(A):prImportView();
+}
+['#prM','#prNat','#prBrand','#prCC'].forEach(id=>$(id).addEventListener('input',()=>{ if(id==='#prM') prMonth=$('#prM').value; prShown=100; renderPay(); }));
+function prDash(A,rows){
+  const o=A.M.get(prMonth); if(!o) return '';
+  const i=A.months.indexOf(prMonth), prev=i>0?A.M.get(A.months[i-1]):null, hc=o.pids.size;
+  const dlt=(a,b)=>b==null?'':`<em>${a-b>=0?'▲':'▼'} ${prFm(Math.abs(a-b))} عن الشهر السابق</em>`;
+  const tile=(l,v,sub,c)=>`<div class="stat"><small>${l}</small><b class="num"${c?` style="color:${c}"`:''}>${v}</b>${sub||''}</div>`;
+  const T=`<div class="stats">${tile('إجمالي الرواتب (ر.س)',prFm(o.total),dlt(o.total,prev?.total))}${tile('عدد الموظفين',hc,dlt(hc,prev?.pids.size))}${tile('متوسط الراتب للموظف',hc?prFm((o.total-o.expTotal)/hc):'—')}${tile('موظفين جدد',o.isNew?o.isNew.length:'—','', 'var(--green)')}${tile('غادروا',o.left?o.left.length:'—','', 'var(--red)')}${tile('مصاريف أخرى (Other Exp)',prFm(o.expTotal))}</div>`;
+  const colr=b=>BRAND_COLOR[b]||'#475569';
+  const gb=prGroup({months:[prMonth],M:new Map([[prMonth,o]])},x=>x.brand), mx=Math.max(1,...gb.map(g=>g.by.get(prMonth)?.total||0));
+  const brands=gb.map(g=>({k:g.k,v:g.by.get(prMonth)?.total||0,n:g.by.get(prMonth)?.p.size||0})).filter(g=>g.v).sort((a,b)=>b.v-a.v)
+    .map(g=>`<div style="margin:9px 0"><div style="display:flex;justify-content:space-between;font-size:13px"><span>${esc(g.k)} <small style="color:var(--muted)">(${g.n})</small></span><b>${prFm(g.v)}</b></div><div style="height:8px;background:var(--gray-soft);border-radius:99px"><div style="height:8px;width:${Math.max(2,g.v/mx*100)}%;background:${colr(g.k)};border-radius:99px"></div></div></div>`).join('');
+  const tmx=Math.max(1,...A.months.map(m=>A.M.get(m).total));
+  const trend=`<div style="display:flex;gap:6px;align-items:flex-end;height:130px;margin-top:8px">${A.months.map(m=>{ const t=A.M.get(m).total; return `<div style="flex:1;text-align:center;cursor:pointer" onclick="prMonth='${m}';renderPay()"><div style="font-size:10px;color:var(--muted)">${prFm(t/1000)}k</div><div style="height:${Math.max(3,t/tmx*95)}px;background:${m===prMonth?'var(--primary,#0f766e)':'#94a3b8'};border-radius:4px 4px 0 0"></div><div style="font-size:11px;margin-top:2px">${PR_AR[+m.split('-')[1]-1].slice(0,4)}</div></div>`; }).join('')}</div>`;
+  const gn=prGroup({months:[prMonth],M:new Map([[prMonth,o]])},x=>x.nationality).map(g=>({k:g.k,v:g.by.get(prMonth)?.total||0,n:g.by.get(prMonth)?.p.size||0})).filter(g=>g.v);
+  const nat=`<table class="tbl"><tr><th>الجنسية</th><th>العدد</th><th>الرواتب</th></tr>${gn.sort((a,b)=>b.v-a.v).map(g=>`<tr><td>${esc(g.k)}</td><td>${g.n}</td><td>${prFm(g.v)}</td></tr>`).join('')}</table>`;
+  const ccs=prGroup({months:[prMonth],M:new Map([[prMonth,o]])},x=>x.cost_center).map(g=>({k:g.k,v:g.by.get(prMonth)?.total||0,n:g.by.get(prMonth)?.p.size||0})).filter(g=>g.v).sort((a,b)=>b.v-a.v).slice(0,10);
+  const ccT=`<table class="tbl"><tr><th>الفرع</th><th>العدد</th><th>الرواتب</th></tr>${ccs.map(g=>`<tr><td>${esc(g.k)}</td><td>${g.n}</td><td>${prFm(g.v)}</td></tr>`).join('')}</table>`;
+  const h=t=>`<h3 style="margin:18px 2px 6px">${t}</h3>`;
+  return T+h('الرواتب حسب البراند — '+prMLabel(prMonth))+`<div class="item">${brands||'—'}</div>`+h('اتجاه الرواتب الشهري (اضغط شهر)')+`<div class="item">${trend}</div>`+h('أعلى 10 فروع')+`<div style="overflow:auto">${ccT}</div>`+h('حسب الجنسية')+`<div style="overflow:auto">${nat}</div>`;
+}
+// ---------- تقرير الشهر ----------
+let prLast=[];
+function prMonthView(A){
+  const o=A.M.get(prMonth); if(!o) return '';
+  const q=($('#prQ')?.value||'').trim().toLowerCase();
+  const L=[...o.rows,...o.exp].filter(x=>!q||[x.name,x.emp_no,x.iqama,x.job,x.nationality].join(' ').toLowerCase().includes(q)).sort((a,b)=>(b.total||0)-(a.total||0));
+  prLast=L; const tot=L.reduce((s,x)=>s+(x.total||0),0);
+  const rosterIds=new Set((state.roster||[]).map(r=>r.id));
+  const keep=q;
+  return `<div class="toolbar"><input id="prQ" placeholder="بحث: الاسم، الرقم الوظيفي، الإقامة، الوظيفة..." value="${esc(keep)}" oninput="prShown=100;renderPay();setTimeout(()=>{const e=$('#prQ');e.focus();e.setSelectionRange(e.value.length,e.value.length)},0)"><button class="btn btn-primary btn-sm" onclick="prExportMonth()">⬇️ إكسل</button></div>
+  <div class="meta" style="margin:6px 2px"><b>${L.length}</b> سطر • إجمالي <b>${prFm(tot)}</b> ر.س • ${prMLabel(prMonth)}</div>`
+  +L.slice(0,prShown).map((x,i)=>`<div class="item" onclick="prEdit(${x.id})"><div class="row"><div><h3>${esc(x.name||'—')}${x.is_expense?' <span class="chip" style="background:#e2e8f0">مصاريف</span>':!x.roster_id?' <span class="chip" style="background:#fef3c7;color:#92400e">خارج القائمة</span>':''}</h3><div class="meta"><span>${esc(x.emp_no||'—')}</span>${x.nationality?`<span>${esc(x.nationality)}</span>`:''}${x.job?`<span>${esc(x.job)}</span>`:''}</div><div class="meta"><span>📍 ${esc(x.cost_center||'—')}</span>${x.joining_date?`<span>التعيين: ${fmtDate(x.joining_date)}</span>`:''}</div></div><div style="text-align:left">${x.brand?`<span class="chip" style="background:${BRAND_COLOR[x.brand]||'#475569'};color:#fff">${esc(x.brand)}</span>`:''}<div style="margin-top:4px;font-weight:800">${prFm(x.total)}</div><div class="meta">أساسي ${prFm(x.gross)}${x.overtime?` + إضافي ${prFm(x.overtime)}`:''}</div></div></div></div>`).join('')
+  +(L.length>prShown?`<button class="btn btn-ghost" style="width:100%;margin-top:8px" onclick="prShown+=150;renderPay()">عرض المزيد (${L.length-prShown})</button>`:'');
+}
+// ---------- مصفوفة براند/فرع ----------
+function prMatrix(A,keyFn,lbl){
+  const G=prGroup(A,keyFn), ms=A.months;
+  const head=`<tr><th>${lbl}</th>${ms.map(m=>`<th>${PR_AR[+m.split('-')[1]-1]}</th>`).join('')}<th>الإجمالي</th><th>متوسط شهري</th></tr>`;
+  const row=g=>`<tr><td><b>${esc(g.k)}</b></td>${ms.map(m=>{ const c=g.by.get(m); return `<td>${c?prFm(c.total)+`<br><small style="color:var(--muted)">${c.p.size} موظف</small>`:'—'}</td>`; }).join('')}<td><b>${prFm(g.total)}</b></td><td>${prFm(g.total/Math.max(1,[...g.by.keys()].length))}</td></tr>`;
+  const foot=`<tr><td><b>الإجمالي</b></td>${ms.map(m=>`<td><b>${prFm(G.reduce((s,g)=>s+(g.by.get(m)?.total||0),0))}</b></td>`).join('')}<td><b>${prFm(G.reduce((s,g)=>s+g.total,0))}</b></td><td></td></tr>`;
+  return `<div class="toolbar"><button class="btn btn-primary btn-sm" onclick="prExportMatrix('${lbl}')">⬇️ إكسل</button></div><div class="meta" style="margin:6px 2px">الأرقام = إجمالي الراتب (Total) بالريال، وتحته عدد الموظفين</div><div style="overflow:auto"><table class="tbl" style="min-width:760px">${head}${G.map(row).join('')}${foot}</table></div>`;
+}
+// ---------- جدد ومغادرين ----------
+function prMove(A){
+  const i=A.months.indexOf(prMonth), o=A.M.get(prMonth); if(!o) return '';
+  const sum=`<div style="overflow:auto"><table class="tbl"><tr><th>الشهر</th><th>الموظفين</th><th>جدد</th><th>غادروا</th></tr>${A.months.map(m=>{ const r=A.M.get(m); return `<tr style="cursor:pointer" onclick="prMonth='${m}';renderPay()"><td>${prMLabel(m)}${m===prMonth?' ◀':''}</td><td>${r.pids.size}</td><td style="color:var(--green)">${r.isNew?r.isNew.length:'—'}</td><td style="color:var(--red)">${r.left?r.left.length:'—'}</td></tr>`; }).join('')}</table></div>`;
+  if(i===0) return sum+`<div class="bnote" style="margin-top:10px">أول شهر في البيانات هو نقطة البداية، فما فيه مقارنة. اختر شهر ثاني.</div>`;
+  const prev=A.M.get(A.months[i-1]);
+  const li=(x,sub)=>`<div class="item" onclick="prEdit(${x.id})"><div class="row"><div><h3>${esc(x.name)}</h3><div class="meta"><span>${esc(x.emp_no||'—')}</span>${x.nationality?`<span>${esc(x.nationality)}</span>`:''}<span>${esc(x.job||'')}</span><span>📍 ${esc(x.cost_center||'—')}</span></div></div><div style="text-align:left">${x.brand?`<span class="chip" style="background:${BRAND_COLOR[x.brand]||'#475569'};color:#fff">${esc(x.brand)}</span>`:''}<div style="font-weight:800;margin-top:4px">${prFm(x.total)}</div><div class="meta">${sub}</div></div></div></div>`;
+  const news=o.isNew.map(p=>o.rows.find(r=>r._p===p)).filter(Boolean), lefts=o.left.map(p=>prev.rows.find(r=>r._p===p)).filter(Boolean);
+  const h=(t,c)=>`<h3 style="margin:18px 2px 6px;color:${c}">${t}</h3>`;
+  return sum+h(`جدد في ${prMLabel(prMonth)} (${news.length})`,'var(--green)')+(news.map(x=>li(x,'تعيين: '+(x.joining_date?fmtDate(x.joining_date):'—'))).join('')||'<div class="bnote">ما فيه</div>')
+   +h(`غادروا — كانوا في ${prMLabel(A.months[i-1])} وما انصرف لهم راتب في ${prMLabel(prMonth)} (${lefts.length})`,'var(--red)')+(lefts.map(x=>li(x,'آخر راتب: '+prMLabel(x.month))).join('')||'<div class="bnote">ما فيه</div>')
+   +`<div class="bnote" style="margin-top:10px">«غادر» = ظهر الشهر السابق وغاب هذا الشهر. قد يكون في إجازة بدون راتب أو راتبه تأخر، فراجعه قبل ما تعتمد.</div>`;
+}
+// ---------- تعديل سطر ----------
+function prField(id,l,v,t){ return `<label>${l}</label><input class="field" id="${id}" type="${t||'text'}" value="${esc(v==null?'':v)}">`; }
+function prAdd(){ prEdit(0); }
+function prEdit(id){
+  const x=id?state.pay.find(r=>r.id===id):{month:prMonth,emp_no:'',name:'',iqama:'',nationality:'',brand:'',cost_center:'',job:'',company:'',gross:0,overtime:0,total:0,joining_date:'',roster_id:null,is_expense:false,note:''}; if(!x) return;
+  const R=[...(state.roster||[])].sort((a,b)=>String(a.name).localeCompare(String(b.name),'en'));
+  modal(head(id?'تعديل سطر راتب':'إضافة سطر راتب')
+   +`<div class="meta" style="margin-bottom:6px">${prMLabel(x.month)}</div>`
+   +prField('pe_name','الاسم',x.name)+prField('pe_emp','الرقم الوظيفي',x.emp_no)+prField('pe_iq','رقم الإقامة',x.iqama)+prField('pe_nat','الجنسية',x.nationality)
+   +prField('pe_brand','البراند',x.brand)+prField('pe_cc','الفرع (مركز التكلفة)',x.cost_center)+prField('pe_job','الوظيفة',x.job)+prField('pe_co','الشركة',x.company)
+   +prField('pe_gross','الراتب الأساسي',x.gross,'number')+prField('pe_ot','الإضافي',x.overtime,'number')+prField('pe_total','الإجمالي (Total)',x.total,'number')+prField('pe_join','تاريخ التعيين',x.joining_date||'','date')
+   +`<label>الربط بموظف في القائمة</label><select class="field" id="pe_r"><option value="">— غير مربوط (خارج القائمة) —</option>${R.map(r=>`<option value="${r.id}"${r.id===x.roster_id?' selected':''}>${esc(r.name)} — ${esc(r.emp_no||'')}</option>`).join('')}</select>`
+   +`<label><input type="checkbox" id="pe_exp"${x.is_expense?' checked':''}> سطر مصاريف (مو موظف)</label>`+prField('pe_note','ملاحظة',x.note)
+   +`<div class="actions"><button class="btn btn-primary" onclick="prSave(${id},'${x.month}')">حفظ</button>${id?`<button class="btn btn-ghost" style="color:var(--red)" onclick="prDel(${id})">حذف</button>`:''}</div>`);
+}
+async function prSave(id,month){
+  const v=i=>$('#'+i).value.trim(), n=i=>parseFloat($('#'+i).value)||0;
+  const d={month,name:v('pe_name'),emp_no:v('pe_emp'),iqama:v('pe_iq')||null,nationality:prNatN(v('pe_nat')),brand:prBrandN(v('pe_brand')),cost_center:prCC(v('pe_cc')),job:v('pe_job'),company:v('pe_co'),gross:n('pe_gross'),overtime:n('pe_ot'),total:n('pe_total'),joining_date:v('pe_join')||null,roster_id:$('#pe_r').value?+$('#pe_r').value:null,is_expense:$('#pe_exp').checked,note:v('pe_note')||null};
+  if(!d.name){ toast('اكتب الاسم'); return; }
+  const r=id?await sb.from('wf_payroll').update(d).eq('id',id):await sb.from('wf_payroll').insert(d);
+  if(r.error) return fail(r.error); closeModal(); toast('تم الحفظ'); await prLoad(); renderPay();
+}
+async function prDel(id){ if(!confirm('حذف هذا السطر نهائياً؟')) return; const r=await sb.from('wf_payroll').delete().eq('id',id); if(r.error) return fail(r.error); closeModal(); toast('تم الحذف'); await prLoad(); renderPay(); }
+// ---------- الاستيراد ----------
+let _pi=null;
+function prImportView(){
+  return `<div class="bnote" style="margin-bottom:10px">ارفع ملف الرواتب (Excel) وفيه شيت لكل شهر (مثل «Jan 2026»). الأشهر الموجودة في الملف تُستبدل بياناتها، وباقي الأشهر ما تتأثر. بعد الرفع يتم ربط الموظفين بالقائمة تلقائياً (بالرقم الوظيفي والإقامة والاسم).</div>
+  <div class="toolbar"><button class="btn btn-primary" onclick="$('#prFile').click()">⬆ رفع ملف الرواتب</button><input type="file" id="prFile" accept=".xlsx,.xls" hidden></div>
+  <div id="prPrev"></div>
+  <div class="meta" style="margin-top:14px">الأشهر المحمّلة حالياً: ${[...new Set(state.pay.map(x=>x.month))].sort().map(m=>`${prMLabel(m)} (${state.pay.filter(x=>x.month===m).length})`).join(' • ')||'لا شيء'}</div>`;
+}
+document.addEventListener('change',e=>{ if(e.target&&e.target.id==='prFile'&&e.target.files[0]) prImport(e.target.files[0]); });
+async function prImport(file){
+  try{
+    const wb=XLSX.read(await file.arrayBuffer(),{cellDates:true}); const by=new Map(), skipped=[];
+    wb.SheetNames.forEach(sn=>{ const mk=prMonthKey(sn); if(!mk){ skipped.push(sn); return; } const rows=prParseSheet(XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,raw:true,defval:null}),mk); if(rows&&rows.length) by.set(mk,rows); else skipped.push(sn); });
+    if(!by.size){ $('#prPrev').innerHTML='<div class="bnote">ما لقيت شيتات أشهر بالشكل المطلوب (Worker number / Worker name / Total ...).</div>'; return; }
+    const R=state.roster||[]; const all=[]; by.forEach(r=>{ prMatch(r,R); r.forEach(x=>all.push(x)); }); _pi={by,all};
+    const ms=[...by.keys()].sort();
+    $('#prPrev').innerHTML=`<table class="tbl"><tr><th>الشهر</th><th>السطور</th><th>مربوطين بالقائمة</th><th>خارج القائمة</th><th>موجود حالياً</th></tr>${ms.map(m=>{ const r=by.get(m), e=r.filter(x=>!x.is_expense); const old=state.pay.filter(x=>x.month===m).length; return `<tr><td>${prMLabel(m)}</td><td>${r.length}</td><td>${e.filter(x=>x.roster_id).length}</td><td>${e.filter(x=>!x.roster_id).length}</td><td>${old?old+' (يُستبدل)':'—'}</td></tr>`; }).join('')}</table>
+    ${skipped.length?`<div class="meta" style="margin-top:6px">شيتات تم تجاهلها: ${esc(skipped.join('، '))}</div>`:''}
+    <div class="toolbar" style="margin-top:10px"><button class="btn btn-primary" onclick="prApply()">اعتمد الاستيراد (${all.length} سطر)</button></div>`;
+  }catch(e){ console.error(e); $('#prPrev').innerHTML='<div class="bnote">تعذّر قراءة الملف.</div>'; }
+}
+async function prApply(){
+  if(!_pi) return; const ms=[...new Set(_pi.all.map(x=>x.month))].sort();
+  if(!confirm(`استيراد ${_pi.all.length} سطر لأشهر: ${ms.map(prMLabel).join('، ')}؟\nبيانات هذه الأشهر الحالية تُستبدل.`)) return;
+  const btn=document.querySelector('#prPrev .btn-primary'); if(btn){ btn.disabled=true; btn.textContent='جاري الحفظ...'; }
+  const oldIds=state.pay.filter(x=>ms.includes(x.month)).map(x=>x.id);
+  const clean=x=>({month:x.month,emp_no:x.emp_no,name:x.name,iqama:x.iqama||null,nationality:x.nationality,brand:x.brand,cost_center:x.cost_center,job:x.job,company:x.company,gross:x.gross,overtime:x.overtime,total:x.total,joining_date:x.joining_date,roster_id:x.roster_id,is_expense:x.is_expense});
+  for(let i=0;i<_pi.all.length;i+=400){ const r=await sb.from('wf_payroll').insert(_pi.all.slice(i,i+400).map(clean)); if(r.error){ await prLoad(); renderPay(); return fail(r.error); } }
+  for(let i=0;i<oldIds.length;i+=200){ const r=await sb.from('wf_payroll').delete().in('id',oldIds.slice(i,i+200)); if(r.error) return fail(r.error); }
+  _pi=null; await prLoad(); prTab='dash'; prMonth=''; toast('تم استيراد الرواتب'); renderPay();
+}
+// ---------- التصدير ----------
+function prDl(aoa,name,sheet){ const ws=XLSX.utils.aoa_to_sheet(aoa); ws['!views']=[{rightToLeft:true}]; const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,sheet); XLSX.writeFile(wb,name); }
+function prExportMonth(){ const H=['الاسم','الرقم الوظيفي','الإقامة','الجنسية','البراند','الفرع','الوظيفة','الراتب الأساسي','الإضافي','الإجمالي','تاريخ التعيين','بالقائمة؟']; prDl([H,...prLast.map(x=>[x.name,x.emp_no,x.iqama||'',x.nationality,x.brand,x.cost_center,x.job,x.gross,x.overtime,x.total,x.joining_date||'',x.is_expense?'مصاريف':x.roster_id?'نعم':'لا'])],'رواتب-'+prMonth.slice(0,7)+'.xlsx',prMLabel(prMonth)); }
+function prExportMatrix(lbl){ const {rows}=prRows(), A=prAgg(rows), G=prGroup(A,lbl.startsWith('البراند')?(x=>x.brand):(x=>x.cost_center)); prDl([[lbl,...A.months.flatMap(m=>[prMLabel(m)+' - عدد',prMLabel(m)+' - إجمالي']),'الإجمالي'],...G.map(g=>[g.k,...A.months.flatMap(m=>{ const c=g.by.get(m); return [c?c.p.size:0,c?Math.round(c.total):0]; }),Math.round(g.total)])],'كوست-'+(lbl.startsWith('البراند')?'البراند':'الفروع')+'.xlsx','Matrix'); }
 
 // ===== EMPLOYEES EXPORT (styled) =====
 const E_LBL={expired:'منتهية',soon:'تنتهي قريباً',valid:'سارية',unknown:'تاريخ غير متوفر'};
