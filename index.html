@@ -1378,7 +1378,7 @@ function unlinkedList(){
   state.bal.filter(e=>e.active!==false && !e.roster_id).forEach(e=>put({id:e.id,iq:String(e.iqama||'').trim(),name:e.name||'',brand:e.brand||'',location:e.location||'',iqama_expiry:e.iqama_expiry||'',emp_no:e.emp_no||''},'bal','بطاقة بلدية'));
   state.hpeople.filter(e=>e.active!==false && !e.roster_id).forEach(e=>put({id:e.id,iq:String(e.id_number||'').trim(),name:e.name||'',brand:e.brand||'',nationality:e.nationality||'',location:e.accommodation||'',emp_no:e.emp_no||''},'house','سكن'));
   const out=[...G.values()]; const R=state.roster||[];
-  out.forEach(g=>{ let best=null,bs=0; R.forEach(r=>{ if(!_natOk(g.nationality,r.nationality)) return; let sc=_dice(g.name,r.name); if(g.iqama && r.iqama && g.iqama.length>=8 && _lev(g.iqama,r.iqama)<=1) sc=Math.max(sc,0.9); if(sc>bs){bs=sc;best=r;} }); g.cand=(bs>=0.6&&best)?best.name:''; });
+  out.forEach(g=>{ let best=null,bs=0; R.forEach(r=>{ if(!_natOk(g.nationality,r.nationality)) return; let sc=_nameSim(g.name,r.name)?0.7:0; if(g.iqama && r.iqama && g.iqama.length>=8 && _lev(g.iqama,r.iqama)<=1) sc=Math.max(sc,0.9); if(sc>bs){bs=sc;best=r;} }); g.cand=(bs>=0.6&&best)?best.name:''; });
   out.forEach(g=>{ g.src=new Set([[...g.src].join(' + ')+(g.cand?' — له شبيه بالقائمة: '+g.cand:' — غير موجود بالقائمة')+(g.recs.length>1?` (${g.recs.length} سجلات)`:'')]); });
   return out.sort((a,b)=>(a.name||'').localeCompare(b.name||'','en'));
 }
@@ -1462,6 +1462,10 @@ function openEmpI(i){ openEmp(eLast[i]?eLast[i].key:''); }
 function goEmps(st){ $('#eSearch').value=''; $('#eBrand').value=''; $('#eNat').value=''; $('#eIq').value=st||''; eShown=100; go('emps'); }
 function iqState(e){ if(!e.iqama_expiry) return 'unknown'; const d=daysTo(e.iqama_expiry); return d<0?'expired':d<=90?'soon':'valid'; }
 function _natOk(a,b){ const n=x=>String(x||'').toLowerCase().replace(/[^a-z]/g,'').slice(0,4); const A=n(a),B=n(b); return !A||!B||A===B; }
+const _NCOMMON=new Set('md mohd mohammed mohamed muhammad mohammad hossain hussain hosain islam ali ahmed ahmad abdul abdel abdulla abdullah rahman khan uddin ullah bin ibn al el'.split(' '));
+function _nameSim(a,b){ const T=x=>String(x||'').toLowerCase().replace(/[^a-z ]/g,' ').split(/\s+/).filter(w=>w.length>=2&&!_NCOMMON.has(w)); const A=T(a),B=T(b); if(!A.length||!B.length) return false;
+  for(const x of A) for(const y of B){ if(x===y&&x.length>=3) return true; if(x.length>=4&&y.length>=4&&_lev(x,y)<=1) return true; }
+  const ja=A.join(''), jb=B.join(''); return ja.length>=4 && _lev(ja,jb)<=1; }
 function _dice(a,b){ const n=x=>String(x||'').toLowerCase().replace(/[^a-z0-9؀-ۿ]/g,''); const A=n(a),B=n(b); if(A.length<2||B.length<2) return 0; const bg=x=>{ const m=new Map(); for(let i=0;i<x.length-1;i++){ const k=x.slice(i,i+2); m.set(k,(m.get(k)||0)+1); } return m; }; const MA=bg(A),MB=bg(B); let o=0; MA.forEach((v,k)=>{ if(MB.has(k)) o+=Math.min(v,MB.get(k)); }); return 2*o/((A.length-1)+(B.length-1)); }
 let uSub='';
 function setUSub(v){ uSub=v; eShown=100; renderEmps(); }
@@ -1564,7 +1568,7 @@ function openLink(recs){
 function renderLinkList(){
   const q=($('#lkQ').value||'').trim().toLowerCase(); let L;
   if(q) L=(state.roster||[]).filter(r=>[r.name,r.iqama,r.emp_no].join(' ').toLowerCase().includes(q)).slice(0,30).map(r=>({r,why:''}));
-  else L=(state.roster||[]).filter(r=>_natOk(_lk.nat,r.nationality)).map(r=>{ let sc=_simScore(_lk.name,r.name), why=sc>=0.5?'اسم قريب':''; if(_lk.iq && r.iqama && _lev(_lk.iq,r.iqama)<=1){ sc+=1; why='إقامة قريبة'; } return {r,sc,why}; }).filter(x=>x.sc>=0.5).sort((a,b)=>b.sc-a.sc).slice(0,8);
+  else L=(state.roster||[]).filter(r=>_natOk(_lk.nat,r.nationality)).map(r=>{ let sc=_nameSim(_lk.name,r.name)?0.6:0, why=sc>=0.5?'اسم قريب':''; if(_lk.iq && r.iqama && _lev(_lk.iq,r.iqama)<=1){ sc+=1; why='إقامة قريبة'; } return {r,sc,why}; }).filter(x=>x.sc>=0.5).sort((a,b)=>b.sc-a.sc).slice(0,8);
   $('#lkList').innerHTML = L.length ? L.map(x=>`<div class="item" style="margin-top:8px" onclick="doLink(${x.r.id})"><div class="row"><div><h3>${esc(x.r.name)}</h3><div class="meta"><span>🪪 ${esc(x.r.iqama||'بدون إقامة')}</span><span>${esc(x.r.emp_no)}</span>${ROSTER_ST[x.r.status]?`<span class="chip late">${ROSTER_ST[x.r.status]}</span>`:''}</div></div><span class="chip c-new">${x.why||'ربط'}</span></div></div>`).join('') : `<div class="bnote">${q?'ما لقيت موظف بهذا البحث.':'ما فيه اقتراح قريب — اكتب في البحث.'}</div>`;
 }
 async function doLink(rid){
