@@ -1568,9 +1568,16 @@ function renderLinkList(){
 }
 async function doLink(rid){
   if(!_lk) return; const r=(state.roster||[]).find(x=>x.id===rid); if(!r) return;
-  if(!confirm(`ربط «${_lk.name}» بالموظف «${r.name}»؟`)) return;
-  for(const x of _lk.recs){ const { error } = await sb.from(x.kind==='bal'?'wf_baladiya':'wf_housing_people').update({roster_id:rid}).eq('id',x.id); if(error) return fail(error); }
-  closeModal(); toast('تم الربط'); await loadAll();
+  if(!confirm(`ربط «${_lk.name}» بالموظف «${r.name}»؟\nوتتحدّث بيانات السجل من القائمة (الاسم، الإقامة، الرقم الوظيفي).`)) return;
+  for(const x of _lk.recs){
+    const isB=x.kind==='bal', u={roster_id:rid};
+    if(r.name) u.name=r.name;
+    if(r.iqama) u[isB?'iqama':'id_number']=r.iqama;
+    if(r.emp_no) u.emp_no=r.emp_no;
+    if(!isB && r.nationality) u.nationality=r.nationality;
+    const { error } = await sb.from(isB?'wf_baladiya':'wf_housing_people').update(u).eq('id',x.id); if(error) return fail(error);
+  }
+  closeModal(); toast('تم الربط وتحديث البيانات من القائمة'); await loadAll();
 }
 
 // ===== تحديث القائمة الثابتة من ملف إكسل =====
