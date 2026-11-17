@@ -4677,7 +4677,7 @@ init();
   const fab=document.getElementById('agFab'),panel=document.getElementById('agPanel'),box=document.getElementById('agMsgs'),inp=document.getElementById('agIn');
   let hist=[],busy=false;
   const add=(t,c)=>{const d=document.createElement('div');d.className='agb '+c;d.textContent=t;box.appendChild(d);box.scrollTop=box.scrollHeight;return d};
-  const SUG=['كم مخالفة مفتوحة وكم مبلغها؟','أي بطاقات بلدية تنتهي خلال 60 يوماً؟','أي عقود سكن أو إيجار قريبة الانتهاء؟','كم ساكن بدون سكن؟'];
+  const SUG=['كم مخالفة مفتوحة وكم مبلغها؟','أي بطاقات بلدية تنتهي خلال 60 يوماً؟','أي عقود سكن أو إيجار قريبة الانتهاء؟','كم ساكن بدون سكن؟','كم إجمالي رواتب أكتوبر وكم موظف؟','كم تكلفة كل براند في أكتوبر؟'];
   function welcome(){
     add('أهلاً! أنا وكيل الأعمال. أجيب من بياناتك الحية (قراءة فقط). جرّب:','a');
     const q=document.createElement('div');q.className='agq';
