@@ -1657,7 +1657,10 @@ function prMoveCounts(A,m){ const mv=prMoves(A,m); if(!mv) return null; const c=
 async function prSetMove(m,key,kind,reason,name){ key=decodeURIComponent(key); name=decodeURIComponent(name); const old=state.moves.find(e=>e.month===m&&e.pkey===key&&e.kind===kind); const y=window.scrollY;
   if(!reason){ if(old){ const r=await sb.from('wf_payroll_moves').delete().eq('id',old.id); if(r.error) return fail(r.error); state.moves=state.moves.filter(e=>e!==old); } }
   else { const r=await sb.from('wf_payroll_moves').upsert({month:m,pkey:key,name,kind,reason},{onConflict:'month,pkey,kind'}).select().single(); if(r.error) return fail(r.error); state.moves=state.moves.filter(e=>e!==old).concat(r.data); }
-  toast('تم الحفظ'); renderPay(); window.scrollTo(0,y); }
+  // مزامنة حالة الموظف في قسم الموظفين مع تصنيف الرواتب (الرواتب هي المرجع)
+  { const mm=String(key).match(/^r(\d+)$/), st=kind==='left'?({leave:'vacation',settle:'settlement'}[reason]):(kind==='new'&&(reason==='hire'||reason==='return')?'active':null);
+    if(mm&&st){ const rid=+mm[1], ro=(state.roster||[]).find(x=>x.id===rid); if(ro&&ro.status!==st){ const r2=await sb.from('wf_roster').update({status:st}).eq('id',rid); if(r2.error) return fail(r2.error); ro.status=st; } } }
+  toast('تم الحفظ'); renderPay(); try{ renderEmps(); }catch(_){} window.scrollTo(0,y); }
 async function prLoad(){ let all=[],from=0; for(;;){ const r=await sb.from('wf_payroll').select('*').order('month').order('id').range(from,from+999); if(r.error){ state.pay=[]; return; } all=all.concat(r.data); if(r.data.length<1000) break; from+=1000; } state.pay=all; const mr=await sb.from('wf_payroll_moves').select('*'); state.moves=mr.error?[]:mr.data; }
 function prRows(){ const nat=$('#prNat')?.value||'', br=$('#prBrand')?.value||'', cc=$('#prCC')?.value||'';
   const cnt={}; state.pay.forEach(x=>{ if(x.brand&&x.cost_center){ const c=cnt[x.cost_center]||(cnt[x.cost_center]={}); c[x.brand]=(c[x.brand]||0)+1; } });
