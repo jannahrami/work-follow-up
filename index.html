@@ -1410,6 +1410,24 @@ function empsListLegacy(){
 }
 
 // ===== EMPLOYEES: detail + add/edit (manual layer over the 3 sections) =====
+// بطاقة الراتب داخل نافذة الموظف (للمالك فقط): عرض + تصنيف تعيين/مغادرة + فتح تعديل السطر
+function prEmpCard(e){
+  if(state.role==='staff'||!e||!(state.pay||[]).length) return '';
+  const rows=(e.rid?state.pay.filter(r=>r.roster_id===e.rid):(e.iqama?state.pay.filter(r=>!r.is_expense&&String(r.iqama||'').trim()===e.iqama):[])).filter(r=>!r.is_expense).sort((a,b)=>a.month.localeCompare(b.month));
+  if(!rows.length) return `<div class="bnote" style="margin-top:8px">💰 ما فيه سطر راتب مربوط بهذا الموظف.</div>`;
+  const L=rows[rows.length-1], months=[...new Set(state.pay.map(r=>r.month))].sort(), key=prKey(L);
+  const fi=months.indexOf(rows[0].month), li=months.indexOf(L.month);
+  const ev=[]; if(fi>0) ev.push(['new',months[fi]]); if(li>=0&&li+1<months.length) ev.push(['left',months[li+1]]);
+  const ctl=([kind,m])=>{ const mv=state.moves.find(x=>x.month===m&&x.pkey===key&&x.kind===kind), ops=kind==='new'?[['hire','تعيين'],['return','عودة من إجازة']]:[['terminate','إنهاء خدمة'],['leave','إجازة']];
+    return `<div class="meta" style="margin-top:8px"><span>${kind==='new'?'🟢 جديد في '+prMLabel(m):'🔴 غادر في '+prMLabel(m)}</span></div><select class="field" style="margin-top:4px" onchange="prSetMove('${m}','${prEnc(key)}','${kind}',this.value,'${prEnc(L.name)}')"><option value="">— اختر —</option>${ops.map(([v,l])=>`<option value="${v}"${mv&&mv.reason===v?' selected':''}>${l}</option>`).join('')}</select>`; };
+  const chip=L.brand?`<span class="chip" style="background:${BRAND_COLOR[L.brand]||'#475569'};color:#fff">${esc(L.brand)}</span>`:'';
+  return `<div class="item" style="margin-top:8px;cursor:default"><div class="row"><h3>💰 الراتب — ${prMLabel(L.month)}</h3>${chip}</div>
+    <div class="meta"><span>الأساسي: ${prFm(L.gross)}</span><span>الإضافي: ${prFm(L.overtime)}</span><span style="font-weight:800">الإجمالي: ${prFm(L.total)}</span></div>
+    <div class="meta"><span>📍 ${esc(L.cost_center||'—')}</span><span>${esc(L.job||'')}</span><span>${esc(L.company||'')}</span>${L.joining_date?`<span>تعيين: ${fmtDate(L.joining_date)}</span>`:''}</div>
+    <div class="meta" style="margin-top:6px">${rows.map(r=>`<span>${prMLabel(r.month).split(' ')[0]}: ${prFm(r.total)}</span>`).join('')}</div>
+    ${ev.map(ctl).join('')}
+    <div class="actions" style="margin-top:8px"><button class="btn btn-ghost btn-sm" onclick="prEdit(${L.id})">✏️ تعديل سطر الراتب</button></div></div>`;
+}
 function openEmp(key){ eCur=key||'';
   const e = key ? (scoped(empsList).find(x=>x.key===key) || unlinkedList().find(x=>x.key===key)) : null;
   if(key && !e) return toast('لم يتم العثور على الموظف');
@@ -1429,6 +1447,7 @@ function openEmp(key){ eCur=key||'';
     ${bal.map(b=>{ const i=bInfo(b), SL={valid:'سارية',soon:'تنتهي قريباً',expired:'منتهية',none:'بدون تاريخ بطاقة'}; return `<div class="item" style="margin-top:8px" onclick="closeModal();_empBack=eCur;openBal('${b.id}')"><div class="row"><h3>🏛️ بطاقة بلدية رقم: <span class="num" dir="ltr">${esc(b.baladia_no||'غير مسجل')}</span></h3><span class="chip ${i.state==='expired'?'late':i.state==='soon'?'near':i.state==='valid'?'ok':''}">${SL[i.state]}</span></div><div class="meta">${b.card_expiry?`<span>ينتهي: ${fmtDate(b.card_expiry)}</span>`:''}${b.training_expiry?`<span>التثقيف: ${fmtDate(b.training_expiry)}</span>`:''}${b.exam_result?`<span>الاختبار: ${b.exam_result==='PASSED'?'ناجح':'راسب'}</span>`:''}${b.update_cat?`<span>${esc(b.update_cat)}</span>`:''}<span>${esc(b.brand||'')}</span></div></div>`; }).join('')}
     
     ${hp.map(h=>link('🏠 سكن: '+esc(h.accommodation||'بدون'),`openPerson('${h.id}')`,'فتح')).join('')}
+    ${prEmpCard(e)}
     ${staff?'<div class="bnote">للعرض فقط — التعديل للمدير.</div>':''}
     <label>الاسم</label><input class="field" id="feName" value="${esc(x.name)}" ${ro}>
     <div class="grid2"><div><label>رقم الإقامة</label><input class="field num" id="feIq" value="${esc(x.iqama)}" dir="ltr" inputmode="numeric" ${ro}></div>
