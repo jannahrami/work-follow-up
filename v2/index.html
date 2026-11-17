@@ -1552,7 +1552,7 @@ let uSub='';
 function setUSub(v){ uSub=v; eShown=100; renderEmps(); }
 function setEmpSt(v){ $('#eSt').value=v; eUnl=false; eShown=100; renderEmps(); }
 function renderEmps(){
-  try{ const mk=$('#eMoveKpi'); if(mk){ let h=''; if(state.role!=='staff' && (state.pay||[]).length){ const A=prAgg(prRows().all), last=A.months[A.months.length-1], keep=prMonth; prMonth=last; try{ h=prTiles(A).replace(/prGo\(/g,'empGoPay('); }finally{ prMonth=keep; } } mk.innerHTML=h; } }catch(_){}
+  try{ const mk=$('#eMoveKpi'); if(mk){ let h=''; if(state.role!=='staff' && (state.pay||[]).length){ const A=prAgg(prRows().all), last=A.months[A.months.length-1], keep=prMonth; prMonth=last; try{ h=prTiles(A,'emp').replace(/prGo\(/g,'empGoPay('); }finally{ prMonth=keep; } } mk.innerHTML=h; } }catch(_){}
   { const A=scoped(empsList), has=(state.roster||[]).length>0, c=k=>A.filter(e=>e.status===k).length;
     $('#eStats').innerHTML = has ? `<div class="stat" onclick="setEmpSt('')"><small>إجمالي الموظفين</small><b class="num">${A.length}</b></div>
       <div class="stat" onclick="setEmpSt('active')"><small>على رأس العمل</small><b class="num" style="color:var(--green)">${c('active')}</b></div>
@@ -1699,13 +1699,14 @@ function renderPay(){
   B.innerHTML = prTab==='dash'?prDash(A,rows):prTab==='month'?prMonthView(A):prTab==='brand'?prMatrix(A,x=>x.brand,'البراند'):prTab==='cc'?prMatrix(A,x=>x.cost_center,'الفرع (مركز التكلفة)'):prTab==='move'?prMove(A):prTab==='natavg'?prNatAvg(A):prImportView();
 }
 ['#prY','#prM','#prNat','#prBrand','#prCC'].forEach(id=>$(id).addEventListener('input',()=>{ if(id==='#prM') prMonth=$('#prM').value; if(id==='#prY'){ prMonth=''; } prShown=100; renderPay(); }));
-function prTiles(A){
+function prTiles(A,mode){ mode=mode||'pay';
   const o=A.M.get(prMonth); if(!o) return '';
   const i=A.months.indexOf(prMonth), prev=i>0?A.M.get(A.months[i-1]):null, hc=o.pids.size;
   const dlt=(a,b)=>b==null?'':`<em>${a-b>=0?'▲':'▼'} ${prFm(Math.abs(a-b))} عن الشهر السابق</em>`;
   const MC=prMoveCounts(A,prMonth);
   const tile=(l,v,sub,c,go)=>`<div class="stat" style="cursor:pointer" onclick="${go||"prGo('month')"}"><small>${l}</small><b class="num"${c?` style="color:${c}"`:''}>${v}</b>${sub||''}</div>`;
-  const T=`<div class="stats">${tile('إجمالي الرواتب (ر.س)',prFm(o.total),dlt(o.total,prev?.total))}${tile('عدد الموظفين',hc,dlt(hc,prev?.pids.size))}${tile('متوسط الراتب للموظف',hc?prFm((o.total-o.expTotal)/hc):'—')}${tile('تعيين جديد',MC?MC.hire:'—','', 'var(--green)',"prGo('move','','prNew')")}${tile('عودة من إجازة',MC?MC.return:'—','', '#0e7490',"prGo('move','','prNew')")}${tile('إنهاء خدمة',MC?MC.terminate:'—','', 'var(--red)',"prGo('move','','prLeft')")}${tile('إجازة',MC?MC.leave:'—','', '#b45309',"prGo('move','','prLeft')")}${tile('تصفية',MC?MC.settle:'—','', '#7c3aed',"prGo('move','','prLeft')")}${tile('UMC',prFm(o.expTotal),'','',"prGo('month','umc')")}</div>`+(MC&&MC.un?`<div class="bnote" style="margin:6px 0;cursor:pointer" onclick="prGo('move','','prNew')">⚠️ ${MC.un} موظف بدون تصنيف (جديد/مغادر) — اضغط لتصنيفهم</div>`:'');
+  const T = mode==='emp' ? (`<div class="stats">${tile('تعيين جديد',MC?MC.hire:'—','', 'var(--green)',"prGo('move','','prNew')")}${tile('عودة من إجازة',MC?MC.return:'—','', '#0e7490',"prGo('move','','prNew')")}${tile('إنهاء خدمة',MC?MC.terminate:'—','', 'var(--red)',"prGo('move','','prLeft')")}${tile('إجازة',MC?MC.leave:'—','', '#b45309',"prGo('move','','prLeft')")}${tile('تصفية',MC?MC.settle:'—','', '#7c3aed',"prGo('move','','prLeft')")}</div>`+(MC&&MC.un?`<div class="bnote" style="margin:6px 0;cursor:pointer" onclick="prGo('move','','prNew')">⚠️ ${MC.un} موظف بدون تصنيف (جديد/مغادر) — اضغط لتصنيفهم</div>`:'')) : `<div class="stats">${tile('إجمالي الرواتب (ر.س)',prFm(o.total),dlt(o.total,prev?.total))}${tile('عدد الموظفين',hc,dlt(hc,prev?.pids.size))}${tile('متوسط الراتب للموظف',hc?prFm((o.total-o.expTotal)/hc):'—')}${tile('UMC',prFm(o.expTotal),'','',"prGo('month','umc')")}</div>`;
+  if(mode==='emp') return `<div class="meta" style="margin:2px 2px 6px">حركة الموظفين — ${prMLabel(prMonth)}</div>`+T;
   return `<div style="display:flex;justify-content:space-between;align-items:center;margin:2px 2px 6px"><span class="meta">مؤشرات ${prMLabel(prMonth)}</span><button class="btn btn-primary btn-sm" onclick="prExportDash(this)">⬇️ إكسل المؤشرات</button></div>`+T;
 }
 function prDash(A,rows){
