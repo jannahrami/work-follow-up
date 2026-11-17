@@ -830,7 +830,7 @@ body.staff[data-sec="home"] #subnav{display:none!important}
         <select id="eSt"><option value="">كل الحالات الوظيفية</option><option value="active">على رأس العمل</option><option value="vacation">إجازة</option><option value="settlement">تصفية</option></select>
         <select id="eIq"><option value="">كل حالات الإقامة</option><option value="expired">إقامة منتهية</option><option value="soon">تنتهي خلال 90 يوم</option><option value="valid">إقامة سارية</option><option value="unknown">تاريخ الإقامة غير متوفر</option></select>
       </div>
-      <div class="toolbar"><button class="btn btn-primary btn-sm" id="rosterUpBtn" onclick="$('#rosterFile').click()">⬆ تحديث قائمة الموظفين (Excel)</button><input type="file" id="rosterFile" accept=".xlsx,.xls" hidden><button class="btn btn-ghost btn-sm" id="eExportBtn">⬇ تصدير الموظفين (Excel)</button></div>
+      <div class="toolbar"><button class="btn btn-primary btn-sm" id="rosterUpBtn" onclick="$('#rosterFile').click()">⬆ تحديث قائمة الموظفين (Excel)</button><input type="file" id="rosterFile" accept=".xlsx,.xls" hidden><button class="btn btn-ghost btn-sm" id="eExportBtn">⬇ تصدير الموظفين (Excel)</button><button class="btn btn-ghost btn-sm" id="eNameVarBtn" onclick="exportNameVariants()">⬇ أسماء مختلفة لنفس الإقامة (Excel)</button></div>
       <div id="eCount" class="meta" style="margin:6px 2px"></div>
       <div id="eList"></div>
     </div>
@@ -1410,6 +1410,23 @@ function empsListLegacy(){
 }
 
 // ===== EMPLOYEES: detail + add/edit (manual layer over the 3 sections) =====
+// أسماء مختلفة لنفس رقم الإقامة عبر الأقسام (للمالك فقط)
+function exportNameVariants(){
+  if(state.role==='staff') return;
+  const nm=s=>String(s||'').toLowerCase().replace(/\s+/g,' ').trim(), src=[];
+  (state.roster||[]).forEach(r=>src.push(['القائمة',r.iqama,r.name]));
+  (state.bal||[]).forEach(r=>src.push(['البلدية',r.iqama,r.name]));
+  (state.health||[]).forEach(r=>src.push(['الصحية',r.iqama,r.name]));
+  (state.hpeople||[]).forEach(r=>src.push(['السكن',r.id_number,r.name]));
+  (state.pay||[]).filter(r=>!r.is_expense).forEach(r=>src.push(['الرواتب',r.iqama,r.name]));
+  const G=new Map();
+  src.forEach(([s,iq,n])=>{ iq=String(iq||'').trim(); if(!/^\d{10}$/.test(iq)||!String(n||'').trim()) return; const g=G.get(iq)||G.set(iq,new Map()).get(iq); const k=nm(n); const o=g.get(k)||g.set(k,{n:String(n).trim(),s:new Set()}).get(k); o.s.add(s); });
+  const out=[['رقم الإقامة','عدد الأشكال','الأسماء (القسم)']];
+  [...G.entries()].filter(([,g])=>g.size>1).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([iq,g])=>{ out.push([iq,g.size,[...g.values()].map(o=>o.n+' ['+[...o.s].join('، ')+']').join('  |  ')]); });
+  if(out.length===1) return toast('ما فيه أسماء مختلفة');
+  const wb=XLSX.utils.book_new(), ws=XLSX.utils.aoa_to_sheet(out); ws['!cols']=[{wch:14},{wch:12},{wch:120}]; ws['!views']=[{RTL:true}]; XLSX.utils.book_append_sheet(wb,ws,'أسماء مختلفة'); XLSX.writeFile(wb,`اسماء-مختلفة-لنفس-الاقامة-${today()}.xlsx`);
+  toast('تم تصدير '+(out.length-1)+' إقامة');
+}
 // بطاقة الراتب داخل نافذة الموظف (للمالك فقط): عرض + تصنيف تعيين/مغادرة + فتح تعديل السطر
 function prEmpCard(e){
   if(state.role==='staff'||!e||!(state.pay||[]).length) return '';
