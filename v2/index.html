@@ -823,6 +823,7 @@ body.staff[data-sec="home"] #subnav{display:none!important}
       <div class="sec-bar"><h1>👥 الموظفين</h1></div>
       <div class="stats" id="eStats"></div>
       <div id="eMoveKpi"></div>
+      <div id="eMoveSec"></div>
       <div class="bnote" style="margin-bottom:12px">قائمة الموظفين الثابتة (من ملف الموظفين). البطاقات البلدية والسكنات مربوطة بها، وتقدر تعدّل حالة أي موظف من بطاقته.</div>
       <div class="toolbar"><input id="eSearch" placeholder="بحث: الاسم، رقم الإقامة، الجنسية، الموقع..."></div>
       <div class="toolbar">
@@ -1552,7 +1553,7 @@ let uSub='';
 function setUSub(v){ uSub=v; eShown=100; renderEmps(); }
 function setEmpSt(v){ $('#eSt').value=v; eUnl=false; eShown=100; renderEmps(); }
 function renderEmps(){
-  try{ const mk=$('#eMoveKpi'); if(mk){ let h=''; if(state.role!=='staff' && (state.pay||[]).length){ const A=prAgg(prRows().all), last=A.months[A.months.length-1], keep=prMonth; prMonth=last; try{ h=prTiles(A,'emp').replace(/prGo\(/g,'empGoPay('); }finally{ prMonth=keep; } } mk.innerHTML=h; } }catch(_){}
+  try{ const mk=$('#eMoveKpi'), ms=$('#eMoveSec'); if(mk&&ms){ let h='', h2=''; if(state.role!=='staff' && (state.pay||[]).length){ const A=prAgg(prRows().all); if(!A.months.includes(prMonth)) prMonth=A.months[A.months.length-1]; h=prTiles(A,'emp').replace(/prGo\(/g,'empGoPay('); h2=prMove(A); } mk.innerHTML=h; ms.innerHTML=h2; } }catch(_){}
   { const A=scoped(empsList), has=(state.roster||[]).length>0, c=k=>A.filter(e=>e.status===k).length;
     $('#eStats').innerHTML = has ? `<div class="stat" onclick="setEmpSt('')"><small>إجمالي الموظفين</small><b class="num">${A.length}</b></div>
       <div class="stat" onclick="setEmpSt('active')"><small>على رأس العمل</small><b class="num" style="color:var(--green)">${c('active')}</b></div>
@@ -1681,8 +1682,8 @@ function prFill(all){ const fill=(id,lbl,vals)=>{ const s=$(id), keep=s.value, v
   const yrs=[...new Set(all.map(x=>x.month.slice(0,4)))].sort(), ys=$('#prY'); if(ys.dataset.n!==yrs.join('|')){ const keep=ys.value; ys.innerHTML=yrs.map(y=>`<option value="${y}">${y}</option>`).join('')+'<option value="">كل السنوات</option>'; ys.value=ys.dataset.n?(keep===''||yrs.includes(keep)?keep:yrs[yrs.length-1]):yrs[yrs.length-1]; ys.dataset.n=yrs.join('|'); }
   const yv=ys.value; const ms=[...new Set(all.map(x=>x.month))].sort().filter(m=>!yv||m.startsWith(yv)); const ms2=$('#prM'); ms2.dataset.n=ms2.dataset.n===ms.join('|')?ms2.dataset.n:''; if(ms2.dataset.n!==ms.join('|')){ ms2.innerHTML=ms.map(m=>`<option value="${m}">${prMLabel(m)}</option>`).join(''); ms2.dataset.n=ms.join('|'); }
   if(!ms.includes(prMonth)) prMonth=ms[ms.length-1]||''; ms2.value=prMonth; }
-const PR_TABS=[['dash','📊 اللوحة'],['month','📋 تقرير الشهر'],['brand','🏷️ البراند'],['cc','📍 الفروع'],['move','🔄 جدد ومغادرين'],['natavg','🌍 معدل متوسط الرواتب حسب الجنسية'],['imp','⬆ استيراد']];
-function empGoPay(t,q,anchor){ go('pay'); prGo(t,q,anchor); }
+const PR_TABS=[['dash','📊 اللوحة'],['month','📋 تقرير الشهر'],['brand','🏷️ البراند'],['cc','📍 الفروع'],['natavg','🌍 معدل متوسط الرواتب حسب الجنسية'],['imp','⬆ استيراد']];
+function empGoPay(t,q,anchor){ if(t==='move'){ const e=document.getElementById(anchor||'eMoveSec'); if(e) e.scrollIntoView({behavior:'smooth',block:'start'}); return; } go('pay'); prGo(t,q,anchor); }
 function prGo(t,q,anchor){ prTab=t; prShown=100; if(t==='month'){ renderPay(); const e=$('#prQ'); if(e){ e.value=q||''; } } renderPay();
   window.scrollTo({top:0}); if(anchor) setTimeout(()=>{ const e=document.getElementById(anchor); if(e) e.scrollIntoView({behavior:'smooth',block:'start'}); },50); }
 function setPrTab(t){ prTab=t; prShown=100; renderPay(); }
@@ -1770,7 +1771,7 @@ function prExportNatAvg(){ const {rows}=prRows(), A=prAgg(rows), {vm,G}=prNatDat
 // ---------- جدد ومغادرين ----------
 function prMove(A){
   const i=A.months.indexOf(prMonth), o=A.M.get(prMonth); if(!o) return '';
-  const sum=`<div style="overflow:auto"><table class="tbl"><tr><th>الشهر</th><th>الموظفين</th><th>جدد</th><th>غادروا</th></tr>${(A.vm||A.months).map(m=>{ const r=A.M.get(m); return `<tr style="cursor:pointer" onclick="prMonth='${m}';renderPay()"><td>${prMLabel(m)}${m===prMonth?' ◀':''}</td><td>${r.pids.size}</td><td style="color:var(--green)">${r.isNew?r.isNew.length:'—'}</td><td style="color:var(--red)">${r.left?r.left.length:'—'}</td></tr>`; }).join('')}</table></div>`;
+  const sum=`<h3 style="margin:16px 2px 6px">🔄 جدد ومغادرين</h3><div style="overflow:auto"><table class="tbl"><tr><th>الشهر</th><th>الموظفين</th><th>جدد</th><th>غادروا</th></tr>${(A.vm||A.months).map(m=>{ const r=A.M.get(m); return `<tr style="cursor:pointer" onclick="prMonth='${m}';renderEmps()"><td>${prMLabel(m)}${m===prMonth?' ◀':''}</td><td>${r.pids.size}</td><td style="color:var(--green)">${r.isNew?r.isNew.length:'—'}</td><td style="color:var(--red)">${r.left?r.left.length:'—'}</td></tr>`; }).join('')}</table></div>`;
   if(i===0) return sum+`<div class="bnote" style="margin-top:10px">أول شهر في البيانات هو نقطة البداية، فما فيه مقارنة. اختر شهر ثاني.</div>`;
   const prev=A.M.get(A.months[i-1]);
   const ctl=(x,kind,m)=>{ const e=prMvGet(m,x,kind), ops=PR_OPS; return `<select class="field" style="margin-top:6px;padding:6px;max-width:180px" onclick="event.stopPropagation()" onchange="prSetMove('${m}','${prEnc(prKey(x))}','${kind}',this.value,'${prEnc(x.name)}')"><option value="">— اختر —</option>${ops.map(([v,l])=>`<option value="${v}"${e&&e.reason===v?' selected':''}>${l}</option>`).join('')}</select>`; };
