@@ -4672,14 +4672,14 @@ init();
 </style>
 <button class="agfab hidden" id="agFab" aria-label="وكيل الأعمال">💬</button>
 <div class="agp hidden" id="agPanel">
-  <div class="agh"><span>🤖 وكيل الأعمال</span><button id="agClose" aria-label="إغلاق">✕</button></div>
+  <div class="agh"><span>🤖 وكيل الأعمال</span><span><button id="agSpk" aria-label="الرد الصوتي" title="الرد الصوتي">🔇</button><button id="agClose" aria-label="إغلاق">✕</button></span></div>
   <div class="agm" id="agMsgs"></div>
   <form class="agf" id="agForm"><input id="agIn" placeholder="اسأل عن بياناتك…" autocomplete="off"><button type="button" id="agMic" class="agmic" aria-label="اسأل بصوتك" title="اسأل بصوتك">🎤</button><button>إرسال</button></form>
 </div>
 <script>
 (function(){
   const fab=document.getElementById('agFab'),panel=document.getElementById('agPanel'),box=document.getElementById('agMsgs'),inp=document.getElementById('agIn');
-  let hist=[],busy=false;
+  let hist=[],busy=false,speakOn=false;
   const add=(t,c)=>{const d=document.createElement('div');d.className='agb '+c;d.textContent=t;box.appendChild(d);box.scrollTop=box.scrollHeight;return d};
   const SUG=['كم مخالفة مفتوحة وكم مبلغها؟','أي بطاقات بلدية تنتهي خلال 60 يوماً؟','أي عقود سكن أو إيجار قريبة الانتهاء؟','كم ساكن بدون سكن؟','كم إجمالي رواتب أكتوبر وكم موظف؟','كم تكلفة كل براند في أكتوبر؟'];
   function welcome(){
@@ -4688,6 +4688,17 @@ init();
     SUG.forEach(s=>{const b=document.createElement('button');b.type='button';b.textContent=s;b.onclick=()=>{q.remove();send(s)};q.appendChild(b)});
     box.appendChild(q);
   }
+  const TTS=window.speechSynthesis;
+  function say(t){
+    if(!TTS||!speakOn)return; TTS.cancel();
+    const clean=t.replace(/[*#`_>|]/g,' ').replace(/\s+/g,' ').trim().slice(0,600); if(!clean)return;
+    const u=new SpeechSynthesisUtterance(clean); u.lang='ar-SA'; u.rate=1;
+    const v=TTS.getVoices().find(x=>/^ar/i.test(x.lang)); if(v)u.voice=v;
+    TTS.speak(u);
+  }
+  const spk=document.getElementById('agSpk');
+  if(!TTS) spk.style.display='none';
+  spk.onclick=()=>{speakOn=!speakOn;spk.textContent=speakOn?'🔊':'🔇';if(!speakOn&&TTS)TTS.cancel()};
   async function send(text){
     if(busy||!text.trim())return; busy=true;
     add(text,'u'); hist.push({role:'user',content:text});
@@ -4696,13 +4707,13 @@ init();
       const {data,error}=await sb.functions.invoke('wf-agent',{body:{messages:hist}});
       if(error) throw error;
       if(data&&data.error==='not_configured') w.textContent='الوكيل غير مفعّل بعد: يجب إضافة مفتاح GROQ_API_KEY في Supabase (Edge Functions → Secrets).';
-      else if(data&&data.reply){ w.textContent=data.reply; hist.push({role:'assistant',content:data.reply}); }
+      else if(data&&data.reply){ w.textContent=data.reply; hist.push({role:'assistant',content:data.reply}); say(data.reply); }
       else w.textContent='تعذّر الحصول على جواب'+(data&&data.error?' ('+data.error+')':'');
     }catch(e){ w.textContent='حدث خطأ في الاتصال بالوكيل، حاول مرة أخرى.'; }
     busy=false; box.scrollTop=box.scrollHeight;
   }
   fab.onclick=()=>{panel.classList.remove('hidden');fab.classList.add('hidden');if(!box.children.length)welcome();inp.focus()};
-  document.getElementById('agClose').onclick=()=>{panel.classList.add('hidden');fab.classList.remove('hidden')};
+  document.getElementById('agClose').onclick=()=>{if(TTS)TTS.cancel();panel.classList.add('hidden');fab.classList.remove('hidden')};
   document.getElementById('agForm').onsubmit=e=>{e.preventDefault();const t=inp.value;inp.value='';send(t)};
   // أوامر صوتية: التعرّف على الكلام المدمج في المتصفح (Chrome/Edge)، عربي سعودي
   const mic=document.getElementById('agMic'),SR=window.SpeechRecognition||window.webkitSpeechRecognition;
@@ -4713,6 +4724,7 @@ init();
     mic.onclick=()=>{
       if(rec){rec.stop();return}
       if(busy)return;
+      if(TTS&&!speakOn){speakOn=true;spk.textContent='🔊'}
       heard=''; rec=new SR(); rec.lang='ar-SA'; rec.interimResults=true; rec.continuous=false;
       rec.onresult=e=>{heard=Array.from(e.results).map(r=>r[0].transcript).join(' ');inp.value=heard};
       rec.onerror=e=>{stop(); if(e.error==='not-allowed'||e.error==='service-not-allowed') add('المتصفح ما سمح بالمايك. اسمح له من أيقونة القفل بجانب الرابط ثم جرّب.','a')};
