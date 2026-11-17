@@ -4664,13 +4664,17 @@ init();
 .agq button{border:1px solid #cbd5e1;background:#fff;border-radius:99px;padding:6px 11px;font-size:13px;cursor:pointer;font-family:inherit}
 .agf{display:flex;gap:8px;padding:10px;border-top:1px solid #e5e7eb}
 .agf input{flex:1;border:1px solid #cbd5e1;border-radius:10px;padding:10px;font-size:16px;font-family:inherit}
+.agf .agmic{background:#f1f5f9;color:#0f172a;font-size:20px;padding:0 12px}
+.agf .agmic.rec{background:#dc2626;color:#fff;animation:agpulse 1s infinite}
+.agf .agmic.hidden{display:none}
+@keyframes agpulse{50%{opacity:.55}}
 .agf button{background:var(--brand);color:#fff;border:0;border-radius:10px;padding:0 16px;font-weight:800;cursor:pointer;font-family:inherit}
 </style>
 <button class="agfab hidden" id="agFab" aria-label="وكيل الأعمال">💬</button>
 <div class="agp hidden" id="agPanel">
   <div class="agh"><span>🤖 وكيل الأعمال</span><button id="agClose" aria-label="إغلاق">✕</button></div>
   <div class="agm" id="agMsgs"></div>
-  <form class="agf" id="agForm"><input id="agIn" placeholder="اسأل عن بياناتك…" autocomplete="off"><button>إرسال</button></form>
+  <form class="agf" id="agForm"><input id="agIn" placeholder="اسأل عن بياناتك…" autocomplete="off"><button type="button" id="agMic" class="agmic" aria-label="اسأل بصوتك" title="اسأل بصوتك">🎤</button><button>إرسال</button></form>
 </div>
 <script>
 (function(){
@@ -4691,7 +4695,7 @@ init();
     try{
       const {data,error}=await sb.functions.invoke('wf-agent',{body:{messages:hist}});
       if(error) throw error;
-      if(data&&data.error==='not_configured') w.textContent='الوكيل غير مفعّل بعد: يجب إضافة مفتاح ANTHROPIC_API_KEY في Supabase (Edge Functions → Secrets).';
+      if(data&&data.error==='not_configured') w.textContent='الوكيل غير مفعّل بعد: يجب إضافة مفتاح GROQ_API_KEY في Supabase (Edge Functions → Secrets).';
       else if(data&&data.reply){ w.textContent=data.reply; hist.push({role:'assistant',content:data.reply}); }
       else w.textContent='تعذّر الحصول على جواب'+(data&&data.error?' ('+data.error+')':'');
     }catch(e){ w.textContent='حدث خطأ في الاتصال بالوكيل، حاول مرة أخرى.'; }
@@ -4700,6 +4704,23 @@ init();
   fab.onclick=()=>{panel.classList.remove('hidden');fab.classList.add('hidden');if(!box.children.length)welcome();inp.focus()};
   document.getElementById('agClose').onclick=()=>{panel.classList.add('hidden');fab.classList.remove('hidden')};
   document.getElementById('agForm').onsubmit=e=>{e.preventDefault();const t=inp.value;inp.value='';send(t)};
+  // أوامر صوتية: التعرّف على الكلام المدمج في المتصفح (Chrome/Edge)، عربي سعودي
+  const mic=document.getElementById('agMic'),SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){mic.classList.add('hidden')}
+  else{
+    let rec=null,heard='';
+    const stop=()=>{mic.classList.remove('rec');rec=null};
+    mic.onclick=()=>{
+      if(rec){rec.stop();return}
+      if(busy)return;
+      heard=''; rec=new SR(); rec.lang='ar-SA'; rec.interimResults=true; rec.continuous=false;
+      rec.onresult=e=>{heard=Array.from(e.results).map(r=>r[0].transcript).join(' ');inp.value=heard};
+      rec.onerror=e=>{stop(); if(e.error==='not-allowed'||e.error==='service-not-allowed') add('المتصفح ما سمح بالمايك. اسمح له من أيقونة القفل بجانب الرابط ثم جرّب.','a')};
+      rec.onend=()=>{const t=heard.trim(); stop(); if(t){inp.value='';send(t)}};
+      mic.classList.add('rec');
+      try{rec.start()}catch(_){stop()}
+    };
+  }
   const app=document.getElementById('app');
   const sync=()=>{const on=!app.classList.contains('hidden'); if(!on){panel.classList.add('hidden');fab.classList.add('hidden');hist=[];box.innerHTML=''} else if(panel.classList.contains('hidden')) fab.classList.remove('hidden')};
   new MutationObserver(sync).observe(app,{attributes:true,attributeFilter:['class']}); sync();
