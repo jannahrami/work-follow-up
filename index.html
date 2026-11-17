@@ -830,7 +830,7 @@ body.staff[data-sec="home"] #subnav{display:none!important}
         <select id="eSt"><option value="">كل الحالات الوظيفية</option><option value="active">على رأس العمل</option><option value="vacation">إجازة</option><option value="settlement">تصفية</option></select>
         <select id="eIq"><option value="">كل حالات الإقامة</option><option value="expired">إقامة منتهية</option><option value="soon">تنتهي خلال 90 يوم</option><option value="valid">إقامة سارية</option><option value="unknown">تاريخ الإقامة غير متوفر</option></select>
       </div>
-      <div class="toolbar"><button class="btn btn-primary btn-sm" id="rosterUpBtn" onclick="$('#rosterFile').click()">⬆ تحديث قائمة الموظفين (Excel)</button><input type="file" id="rosterFile" accept=".xlsx,.xls" hidden><button class="btn btn-ghost btn-sm" id="eExportBtn">⬇ تصدير الموظفين (Excel)</button><button class="btn btn-ghost btn-sm" id="eNameVarBtn" onclick="exportNameVariants()">⬇ أسماء مختلفة لنفس الإقامة (Excel)</button></div>
+      <div class="toolbar"><button class="btn btn-primary btn-sm" id="rosterUpBtn" onclick="$('#rosterFile').click()">⬆ تحديث قائمة الموظفين (Excel)</button><input type="file" id="rosterFile" accept=".xlsx,.xls" hidden><button class="btn btn-ghost btn-sm" id="eExportBtn">⬇ تصدير الموظفين (Excel)</button><button class="btn btn-ghost btn-sm" id="eNameVarBtn" onclick="exportNameVariants()">⬇ أسماء مختلفة (Excel)</button><button class="btn btn-ghost btn-sm" id="eUnifyBtn" onclick="openNameUnify()">🧹 توحيد الأسماء</button></div>
       <div id="eCount" class="meta" style="margin:6px 2px"></div>
       <div id="eList"></div>
     </div>
@@ -1411,8 +1411,7 @@ function empsListLegacy(){
 
 // ===== EMPLOYEES: detail + add/edit (manual layer over the 3 sections) =====
 // أسماء مختلفة لنفس رقم الإقامة عبر الأقسام (للمالك فقط)
-function exportNameVariants(){
-  if(state.role==='staff') return;
+function nameVariants(){
   const nm=s=>String(s||'').toLowerCase().replace(/\s+/g,' ').trim(), src=[];
   (state.roster||[]).forEach(r=>src.push(['القائمة',r.iqama,r.name]));
   (state.bal||[]).forEach(r=>src.push(['البلدية',r.iqama,r.name]));
@@ -1421,11 +1420,41 @@ function exportNameVariants(){
   (state.pay||[]).filter(r=>!r.is_expense).forEach(r=>src.push(['الرواتب',r.iqama,r.name]));
   const G=new Map();
   src.forEach(([s,iq,n])=>{ iq=String(iq||'').trim(); if(!/^\d{10}$/.test(iq)||!String(n||'').trim()) return; const g=G.get(iq)||G.set(iq,new Map()).get(iq); const k=nm(n); const o=g.get(k)||g.set(k,{n:String(n).trim(),s:new Set()}).get(k); o.s.add(s); });
-  const out=[['رقم الإقامة','عدد الأشكال','الأسماء (القسم)']];
-  [...G.entries()].filter(([,g])=>g.size>1).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([iq,g])=>{ out.push([iq,g.size,[...g.values()].map(o=>o.n+' ['+[...o.s].join('، ')+']').join('  |  ')]); });
-  if(out.length===1) return toast('ما فيه أسماء مختلفة');
+  return [...G.entries()].filter(([,g])=>g.size>1).sort((a,b)=>a[0].localeCompare(b[0])).map(([iq,g])=>{ const opts=[...g.values()].map(o=>({n:o.n,s:[...o.s]})); let d=opts.findIndex(o=>o.s.includes('القائمة')); if(d<0) d=opts.reduce((b,o,i)=>o.n.length>opts[b].n.length?i:b,0); return {iq,opts,def:d}; });
+}
+function exportNameVariants(){
+  if(state.role==='staff') return;
+  const V=nameVariants(); if(!V.length) return toast('ما فيه أسماء مختلفة');
+  const out=[['رقم الإقامة','عدد الأشكال','الأسماء (القسم)'],...V.map(v=>[v.iq,v.opts.length,v.opts.map(o=>o.n+' ['+o.s.join('، ')+']').join('  |  ')])];
   const wb=XLSX.utils.book_new(), ws=XLSX.utils.aoa_to_sheet(out); ws['!cols']=[{wch:14},{wch:12},{wch:120}]; ws['!views']=[{RTL:true}]; XLSX.utils.book_append_sheet(wb,ws,'أسماء مختلفة'); XLSX.writeFile(wb,`اسماء-مختلفة-لنفس-الاقامة-${today()}.xlsx`);
-  toast('تم تصدير '+(out.length-1)+' إقامة');
+  toast('تم تصدير '+V.length+' إقامة');
+}
+// توحيد الأسماء من الموقع: لكل إقامة تختار الاسم المعتمد وتطبّقه على الأقسام اللي تحددها
+let _nv=[];
+const NV_T=[['roster','القائمة الثابتة','wf_roster','iqama',false],['bal','البطاقات البلدية','wf_baladiya','iqama',true],['health','الكروت الصحية','wf_health_employees','iqama',true],['house','السكنات','wf_housing_people','id_number',true],['pay','الرواتب (كل الأشهر)','wf_payroll','iqama',true]];
+function openNameUnify(){
+  if(state.role==='staff') return; _nv=nameVariants(); if(!_nv.length) return toast('ما فيه أسماء مختلفة');
+  modal(head('🧹 توحيد الأسماء')+`<div class="bnote">${_nv.length} إقامة مكتوبة بأكثر من اسم. اختر الاسم المعتمد لكل إقامة (الافتراضي: اسم القائمة الثابتة)، وحدّد الأقسام اللي تبغى تطبّق عليها. يتم حفظ نسخة احتياطية قبل التنفيذ، ولا يتغير أي شي غير حقل الاسم.</div>
+   <div class="meta" style="margin:8px 0">${NV_T.map(([k,l,,,d])=>`<label style="margin-inline-end:10px"><input type="checkbox" class="nvT" value="${k}"${d?' checked':''}> ${l}</label>`).join('')}</div>
+   <div class="toolbar"><label><input type="checkbox" id="nvAll" checked onchange="document.querySelectorAll('.nvc').forEach(c=>c.checked=this.checked)"> تحديد الكل</label><button class="btn btn-primary btn-sm" id="nvGo" onclick="runNameUnify(this)">تنفيذ التوحيد</button></div>
+   <div id="nvList">${_nv.map((v,i)=>`<div class="item" style="cursor:default"><label><input type="checkbox" class="nvc" data-i="${i}" checked> <span class="num" dir="ltr">${v.iq}</span></label><select class="field nvs" data-i="${i}" style="margin-top:6px">${v.opts.map((o,j)=>`<option value="${j}"${j===v.def?' selected':''}>${esc(o.n)} — ${o.s.join('، ')}</option>`).join('')}</select></div>`).join('')}</div>`);
+}
+async function runNameUnify(btn){
+  const sel=[...document.querySelectorAll('.nvT:checked')].map(c=>c.value), tabs=NV_T.filter(t=>sel.includes(t[0]));
+  const todo=[...document.querySelectorAll('.nvc:checked')].map(c=>{ const i=+c.dataset.i, v=_nv[i], j=+document.querySelector('.nvs[data-i="'+i+'"]').value; return {iq:v.iq,name:v.opts[j].n}; });
+  if(!tabs.length) return toast('حدّد قسم واحد على الأقل'); if(!todo.length) return toast('ما حدّدت أي إقامة');
+  if(!confirm(`توحيد ${todo.length} إقامة في: ${tabs.map(t=>t[1]).join('، ')}؟\nيتم حفظ نسخة احتياطية أولاً.`)) return;
+  await withBusy(btn, async()=>{
+    const b=await sb.rpc('wf_make_backup',{p_kind:'manual'}); if(b.error) return fail(b.error);
+    let changed=0, err=null;
+    for(let i=0;i<todo.length&&!err;i+=8){
+      await Promise.all(todo.slice(i,i+8).flatMap(t=>tabs.map(async([k,,tb,col])=>{
+        let q=sb.from(tb).update(k==='roster'?{name:t.name,updated_at:new Date().toISOString()}:{name:t.name}).eq(col,t.iq).neq('name',t.name); if(k==='pay') q=q.eq('is_expense',false);
+        const r=await q.select('id'); if(r.error) err=err||r.error; else changed+=r.data.length; })));
+    }
+    if(err) return fail(err);
+    closeModal(); toast('تم توحيد الأسماء ('+changed+' سجل)'); await loadAll(); applyRoute();
+  });
 }
 // بطاقة الراتب داخل نافذة الموظف (للمالك فقط): عرض + تصنيف تعيين/مغادرة + فتح تعديل السطر
 function prEmpCard(e){
