@@ -2051,7 +2051,13 @@ async function applyRoster(){
 }
 $('#rosterFile').onchange=e=>{ const f=e.target.files[0]; e.target.value=''; if(f) importRoster(f); };
 
-$('#eExportBtn').onclick = e => withBusy(e.currentTarget, async()=>{ const wb=await buildEmployeesWorkbook(scoped(empsList),{summary:true}); await downloadWorkbook(wb,`الموظفين-${today()}.xlsx`); });
+$('#eExportBtn').onclick = e => withBusy(e.currentTarget, async()=>{
+  // التصدير يتبع الفلاتر الظاهرة (الحالة الوظيفية/العلامة/الجنسية/الإقامة/البحث). بدون فلاتر => كل الموظفين.
+  const filt=!eUnl && ($('#eSt').value||$('#eBrand').value||$('#eNat').value||$('#eIq').value||$('#eSearch').value.trim());
+  const list=filt?eLast.slice():scoped(empsList);
+  if(!list.length){ toast('ما في موظفين بهذا الفلتر'); return; }
+  const sv=$('#eSt').value, tag=filt?('-'+(sv?({active:'على-رأس-العمل',vacation:'إجازة',settlement:'تصفية'}[sv]):'مفلتر')):'';
+  const wb=await buildEmployeesWorkbook(list,{summary:true}); await downloadWorkbook(wb,`الموظفين${tag}-${today()}.xlsx`); if(filt) toast('تم تصدير '+list.length+' موظف حسب الفلتر'); });
 
 
 // ===== REPORT (changes in a date range) =====
