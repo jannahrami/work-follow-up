@@ -513,7 +513,7 @@ body.staff[data-sec="home"] #subnav{display:none!important}
 <section id="login" class="hidden">
   <div class="login-box">
     <div class="logo">Work <span>follow up</span></div>
-    <div class="sub">متابعة المخالفات والكروت الصحية والمعاملات</div>
+    <div class="sub">متابعة المخالفات والبطاقات البلدية والمعاملات</div>
     <form id="loginForm">
       <label>اسم المستخدم</label>
       <input class="field" type="text" id="email" required autocomplete="username" autocapitalize="none" dir="ltr">
@@ -1431,7 +1431,7 @@ function exportNameVariants(){
 }
 // توحيد الأسماء من الموقع: لكل إقامة تختار الاسم المعتمد وتطبّقه على الأقسام اللي تحددها
 let _nv=[];
-const NV_T=[['roster','القائمة الثابتة','w2_roster','iqama',false],['bal','البطاقات البلدية','w2_baladiya','iqama',true],['health','الكروت الصحية','w2_health_employees','iqama',true],['house','السكنات','w2_housing_people','id_number',true],['pay','الرواتب (كل الأشهر)','w2_payroll','iqama',true]];
+const NV_T=[['roster','القائمة الثابتة','w2_roster','iqama',false],['bal','البطاقات البلدية','w2_baladiya','iqama',true],['house','السكنات','w2_housing_people','id_number',true],['pay','الرواتب (كل الأشهر)','w2_payroll','iqama',true]];
 function openNameUnify(){
   if(state.role==='staff') return; _nv=nameVariants(); if(!_nv.length) return toast('ما فيه أسماء مختلفة');
   modal(head('🧹 توحيد الأسماء')+`<div class="bnote">${_nv.length} إقامة مكتوبة بأكثر من اسم. اختر الاسم المعتمد لكل إقامة (الافتراضي: اسم القائمة الثابتة)، وحدّد الأقسام اللي تبغى تطبّق عليها. يتم حفظ نسخة احتياطية قبل التنفيذ، ولا يتغير أي شي غير حقل الاسم.</div>
