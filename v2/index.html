@@ -1371,9 +1371,11 @@ const TAG_LBL={new:'تعيين جديد',return:'عودة من إجازة'};
 function tagChip(t){ return t&&TAG_LBL[t]?`<span class="chip ok">${TAG_LBL[t]}</span>`:''; }
 function stChip(st){ return st&&EMP_ST_LBL[st]?`<span class="chip ${EMP_ST_CLS[st]}">${EMP_ST_LBL[st]}</span>`:''; }
 function rosterChip(rid){ if(!rid) return ''; const r=(state.roster||[]).find(x=>x.id===rid); return r?stChip(r.status||'active'):''; }
+const GENDER_LBL={m:'ذكر',f:'أنثى'};
+function svcLen(d){ if(!d) return ''; const a=new Date(d), n=new Date(); if(isNaN(a)||a>n) return ''; let m=(n.getFullYear()-a.getFullYear())*12+n.getMonth()-a.getMonth(); if(n.getDate()<a.getDate()) m--; if(m<0) m=0; const y=Math.floor(m/12), mm=m%12; return [y?`${y} سنة`:'', mm?`${mm} شهر`:''].filter(Boolean).join(' و ')||'أقل من شهر'; }
 function empsList(){
   const R=state.roster||[]; if(!R.length) return empsListLegacy();
-  const byR=new Map(R.map(r=>[r.id,{key:'r'+r.id, rid:r.id, iqama:r.iqama||'', name:r.name||'', brand:r.brand||'', cost_center:r.cost_center||'', nationality:r.nationality||'', phone:'', location:'', iqama_expiry:'', emp_no:r.emp_no||'', status:r.status||'active', tag:r.move_tag||'', src:new Set(['القائمة'])}]));
+  const byR=new Map(R.map(r=>[r.id,{key:'r'+r.id, rid:r.id, iqama:r.iqama||'', name:r.name||'', brand:r.brand||'', cost_center:r.cost_center||'', hire_date:r.hire_date||'', gender:r.gender||'', nationality:r.nationality||'', phone:'', location:'', iqama_expiry:'', emp_no:r.emp_no||'', status:r.status||'active', tag:r.move_tag||'', src:new Set(['القائمة'])}]));
   const fill=(o,f,v)=>{ if(v && !o[f]) o[f]=v; };
   state.bal.filter(e=>e.active!==false && byR.has(e.roster_id)).forEach(e=>{ const o=byR.get(e.roster_id); fill(o,'brand',e.brand); fill(o,'location',e.location); fill(o,'iqama_expiry',e.iqama_expiry); o.src.add('بلدية'); });
   state.hpeople.filter(e=>e.active!==false && byR.has(e.roster_id)).forEach(e=>{ const o=byR.get(e.roster_id); fill(o,'brand',e.brand); o.src.add('سكن'); });
@@ -1506,6 +1508,7 @@ function openEmp(key){ eCur=key||'';
     <div class="grid2"><div><label>الجوال</label><input class="field num" id="fePhone" value="${esc(x.phone)}" dir="ltr" inputmode="tel" ${ro}></div>
       <div><label>الموقع</label><input class="field" id="feLoc" value="${esc(x.location)}" ${ro}></div></div>
     ${x.cost_center?`<label>مركز التكلفة</label><input class="field" value="${esc(x.cost_center)}" dir="ltr" readonly>`:''}
+    ${x.hire_date||x.gender?`<div class="grid2">${x.hire_date?`<div><label>تاريخ التعيين</label><input class="field" value="${esc(x.hire_date)}" dir="ltr" readonly></div><div><label>مدة الخدمة</label><input class="field" value="${esc(svcLen(x.hire_date))}" readonly></div>`:''}${x.gender?`<div><label>الجنس</label><input class="field" value="${GENDER_LBL[x.gender]||''}" readonly></div>`:''}</div>`:''}
     <div class="grid2"><div><label>الرقم الوظيفي</label><input class="field num" id="feNo" value="${esc(x.emp_no)}" dir="ltr" ${ro}></div>
       <div>${e&&e.rid?`<label>الحالة الوظيفية</label><select class="field" id="feSt" ${ro}>${['active','vacation','settlement','terminated'].map(k=>`<option value="${k}" ${(x.status||'active')===k?'selected':''}>${EMP_ST_LBL[k]}</option>`).join('')}</select><label>العلامة</label><select class="field" id="feTag" ${ro}><option value="">بدون</option>${['new','return'].map(k=>`<option value="${k}" ${(x.tag||'')===k?'selected':''}>${TAG_LBL[k]}</option>`).join('')}</select>`:''}</div></div>
     <label>ملاحظاتي</label><textarea class="field" id="feNotes" style="min-height:60px" ${ro}>${esc(x.notes||'')}</textarea>
@@ -1938,6 +1941,9 @@ const E_COLS=[
   {h:'الجوال', w:14, get:e=>e.phone, type:'code'},
   {h:'الحالة الوظيفية', w:14, get:e=>EMP_ST_LBL[e.status]||'', type:'code', style:(e,c)=>{ const m={vacation:[C.amberSoft,C.amber],settlement:[C.redSoft,C.red],terminated:[C.redSoft,C.red],active:[C.greenSoft,C.green]}[e.status]; if(m){c.fill=fill(m[0]); c.font={name:FONT,size:10,bold:true,color:{argb:m[1]}};} }},
   {h:'مركز التكلفة', w:24, get:e=>e.cost_center||'', type:'code'},
+  {h:'تاريخ التعيين', w:13, get:e=>e.hire_date||'', type:'code'},
+  {h:'مدة الخدمة', w:16, get:e=>svcLen(e.hire_date), type:'code'},
+  {h:'الجنس', w:8, get:e=>GENDER_LBL[e.gender]||'', type:'code'},
   {h:'علامة الحركة', w:14, get:e=>TAG_LBL[e.tag]||'', type:'code'},
   {h:'بطاقة بلدية؟', w:12, get:e=>e._c&&e._c.card_expiry?(e._cn>1?`نعم (${e._cn} سجلات)`:'نعم'):'لا', type:'code'},
   {h:'حالة البطاقة البلدية', w:16, get:e=>e._c?B_LBL[e._ci.state]:'', type:'code', style:(e,c)=>{ const m=e._c&&{expired:[C.redSoft,C.red],soon:[C.amberSoft,C.amber],valid:[C.greenSoft,C.green]}[e._ci.state]; if(m){c.fill=fill(m[0]); c.font={name:FONT,size:10,bold:true,color:{argb:m[1]}};} }},
