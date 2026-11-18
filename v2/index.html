@@ -1515,6 +1515,15 @@ function openEmp(key){ eCur=key||'';
     ${staff?'':`<div class="actions"><button class="btn btn-primary" onclick="saveEmp()">حفظ</button>${e&&e.master?`<button class="btn btn-danger" onclick="delEmp()">حذف تعديلاتي</button>`:''}</div>
     <div class="bnote" style="margin-top:8px">الحفظ هنا يضيف بياناتك فوق بيانات الأقسام الأخرى، ولا يغيّرها.</div>`}`);
 }
+// توحيد الاسم/الرقم الوظيفي/الإقامة بين بطاقة الموظف وسطور الرواتب: يغيّر فقط السطور اللي قيمتها القديمة تطابق القيمة القديمة للبطاقة
+async function syncIdent(rid, oldR, newR){
+  for(const f of ['name','emp_no','iqama']){
+    const o=(oldR[f]||'').trim(), n=(newR[f]||'').trim(); if(!o || o===n) continue;
+    const r=await sb.from('w2_payroll').update({[f]:n||null}).eq('roster_id',rid).eq('is_expense',false).eq(f,o);
+    if(r.error) return r.error;
+  }
+  return null;
+}
 async function saveEmp(){ const key=eCur;
   const e = key ? empsList().find(x=>x.key===key) : null;
   const v = id => $('#'+id).value.trim();
@@ -1522,8 +1531,10 @@ async function saveEmp(){ const key=eCur;
   if(!row.name && !row.iqama) return toast('اكتب الاسم أو رقم الإقامة');
   if(row.iqama && !/^\d{10}$/.test(row.iqama)) { if(!confirm('رقم الإقامة ليس 10 أرقام. تبغى تكمل؟')) return; }
   if(e && e.rid){ // موظف من القائمة الثابتة: الاسم والرقم الوظيفي والجنسية والحالة تُحفظ في القائمة
+    const _old={...((state.roster||[]).find(q=>q.id===e.rid)||{})};
     const rr=await sb.from('w2_roster').update({name:row.name, emp_no:row.emp_no, nationality:row.nationality, status:$('#feSt').value, move_tag:($('#feTag').value||null), name_ok:!!($('#feNameOk')&&$('#feNameOk').checked), review_note:null, iqama:(row.iqama&&/^\d{10}$/.test(row.iqama))?row.iqama:'', updated_at:new Date().toISOString()}).eq('id',e.rid);
     if(rr.error) return fail(rr.error);
+    { const se=await syncIdent(e.rid,_old,{name:row.name,emp_no:row.emp_no,iqama:(row.iqama&&/^\d{10}$/.test(row.iqama))?row.iqama:''}); if(se) return fail(se); }
     if(!row.iqama){ toast('تم الحفظ'); await loadAll(); applyRoute(); return openEmp(e.key); }
   }
   let mid = e && e.master;
@@ -1822,8 +1833,16 @@ async function prSave(id,month){
   const v=i=>$('#'+i).value.trim(), n=i=>parseFloat($('#'+i).value)||0;
   const d={month,name:v('pe_name'),emp_no:v('pe_emp'),iqama:v('pe_iq')||null,nationality:prNatN(v('pe_nat')),brand:prBrandN(v('pe_brand')),cost_center:prCC(v('pe_cc')),job:prJobFix([{job:v('pe_job')}])[0].job,company:prCoN(v('pe_co')),gross:n('pe_gross'),overtime:n('pe_ot'),total:n('pe_total'),joining_date:v('pe_join')||null,roster_id:$('#pe_r').value?+$('#pe_r').value:null,is_expense:$('#pe_exp').checked,note:v('pe_note')||null};
   if(!d.name){ toast('اكتب الاسم'); return; }
+  const _prev=id?state.pay.find(q=>q.id===id):null;
   const r=id?await sb.from('w2_payroll').update(d).eq('id',id):await sb.from('w2_payroll').insert(d);
-  if(r.error) return fail(r.error); closeModal(); toast('تم الحفظ'); await prLoad(); renderPay();
+  if(r.error) return fail(r.error);
+  // توحيد: إذا غيّرت الاسم/الرقم/الإقامة في سطر مربوط بموظف، يتحدّث الموظف وباقي سطوره
+  if(_prev && d.roster_id && !d.is_expense && d.roster_id===_prev.roster_id){
+    const ro=(state.roster||[]).find(q=>q.id===d.roster_id);
+    if(ro){ const ch={}; ['name','emp_no','iqama'].forEach(f=>{ const nv=(d[f]||'').trim(), pv=(_prev[f]||'').trim(); if(nv!==pv && nv) ch[f]=nv; });
+      if(Object.keys(ch).length){ const rr=await sb.from('w2_roster').update({...ch,updated_at:new Date().toISOString()}).eq('id',ro.id); if(rr.error) return fail(rr.error);
+        const se=await syncIdent(ro.id,ro,{name:ch.name||ro.name,emp_no:ch.emp_no||ro.emp_no,iqama:ch.iqama||ro.iqama}); if(se) return fail(se); await loadAll(); } } }
+  closeModal(); toast('تم الحفظ'); await prLoad(); renderPay();
 }
 async function prDel(id){ if(!confirm('حذف هذا السطر نهائياً؟')) return; const r=await sb.from('w2_payroll').delete().eq('id',id); if(r.error) return fail(r.error); closeModal(); toast('تم الحذف'); await prLoad(); renderPay(); }
 // ---------- الاستيراد ----------
