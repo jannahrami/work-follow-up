@@ -1510,7 +1510,7 @@ function openEmp(key){ eCur=key||'';
     ${x.cost_center?`<label>مركز التكلفة</label><input class="field" value="${esc(x.cost_center)}" dir="ltr" readonly>`:''}
     ${x.hire_date||x.gender?`<div class="grid2">${x.hire_date?`<div><label>تاريخ التعيين</label><input class="field" value="${esc(x.hire_date)}" dir="ltr" readonly></div><div><label>مدة الخدمة</label><input class="field" value="${esc(svcLen(x.hire_date))}" readonly></div>`:''}${x.gender?`<div><label>الجنس</label><input class="field" value="${GENDER_LBL[x.gender]||''}" readonly></div>`:''}</div>`:''}
     <div class="grid2"><div><label>الرقم الوظيفي</label><input class="field num" id="feNo" value="${esc(x.emp_no)}" dir="ltr" ${ro}></div>
-      <div>${e&&e.rid?`<label>الحالة الوظيفية</label><select class="field" id="feSt" ${ro}>${['active','vacation','settlement','terminated'].map(k=>`<option value="${k}" ${(x.status||'active')===k?'selected':''}>${EMP_ST_LBL[k]}</option>`).join('')}</select><label>العلامة</label><select class="field" id="feTag" ${ro}><option value="">بدون</option>${['new','return'].map(k=>`<option value="${k}" ${(x.tag||'')===k?'selected':''}>${TAG_LBL[k]}</option>`).join('')}</select>`:''}</div></div>
+      <div>${e&&e.rid?`<label>الحالة الوظيفية</label><select class="field" id="feSt" ${ro}>${['active','vacation','settlement','terminated'].map(k=>`<option value="${k}" ${(x.status||'active')===k?'selected':''}>${EMP_ST_LBL[k]}</option>`).join('')}</select><label>العلامة</label><select class="field" id="feTag" ${ro}><option value="">بدون</option>${['new','return'].map(k=>`<option value="${k}" ${(x.tag||'')===k?'selected':''}>${TAG_LBL[k]}</option>`).join('')}</select><label style="display:flex;gap:6px;align-items:center;margin-top:8px"><input type="checkbox" id="feNameOk" ${((state.roster||[]).find(q=>q.id===e.rid)||{}).name_ok?'checked':''} ${ro}> شخص مختلف، نفس الاسم</label>`:''}</div></div>
     <label>ملاحظاتي</label><textarea class="field" id="feNotes" style="min-height:60px" ${ro}>${esc(x.notes||'')}</textarea>
     ${staff?'':`<div class="actions"><button class="btn btn-primary" onclick="saveEmp()">حفظ</button>${e&&e.master?`<button class="btn btn-danger" onclick="delEmp()">حذف تعديلاتي</button>`:''}</div>
     <div class="bnote" style="margin-top:8px">الحفظ هنا يضيف بياناتك فوق بيانات الأقسام الأخرى، ولا يغيّرها.</div>`}`);
@@ -1522,7 +1522,7 @@ async function saveEmp(){ const key=eCur;
   if(!row.name && !row.iqama) return toast('اكتب الاسم أو رقم الإقامة');
   if(row.iqama && !/^\d{10}$/.test(row.iqama)) { if(!confirm('رقم الإقامة ليس 10 أرقام. تبغى تكمل؟')) return; }
   if(e && e.rid){ // موظف من القائمة الثابتة: الاسم والرقم الوظيفي والجنسية والحالة تُحفظ في القائمة
-    const rr=await sb.from('w2_roster').update({name:row.name, emp_no:row.emp_no, nationality:row.nationality, status:$('#feSt').value, move_tag:($('#feTag').value||null), review_note:null, iqama:(row.iqama&&/^\d{10}$/.test(row.iqama))?row.iqama:'', updated_at:new Date().toISOString()}).eq('id',e.rid);
+    const rr=await sb.from('w2_roster').update({name:row.name, emp_no:row.emp_no, nationality:row.nationality, status:$('#feSt').value, move_tag:($('#feTag').value||null), name_ok:!!($('#feNameOk')&&$('#feNameOk').checked), review_note:null, iqama:(row.iqama&&/^\d{10}$/.test(row.iqama))?row.iqama:'', updated_at:new Date().toISOString()}).eq('id',e.rid);
     if(rr.error) return fail(rr.error);
     if(!row.iqama){ toast('تم الحفظ'); await loadAll(); applyRoute(); return openEmp(e.key); }
   }
@@ -1564,7 +1564,7 @@ function reviewItems(){
     if(!(r.iqama||'').trim()) p.push('بدون رقم إقامة');
     if(/^new hire/i.test(n)) p.push('الرقم الوظيفي مؤقت («NEW HIRE») — يحتاج الرقم الحقيقي');
     else if(n && byNo.get(n).length>1) p.push(`الرقم الوظيفي ${n} مكرر مع: `+byNo.get(n).filter(x=>x.id!==r.id).map(x=>x.name).join('، '));
-    const dn=(byNm.get(norm(r.name))||[]).filter(x=>x.id!==r.id); if(dn.length) p.push('اسم مشابه لموظف آخر ('+dn.map(x=>x.emp_no).join('، ')+') — فرّق الاسم إذا هم شخصان مختلفان');
+    const dn=(byNm.get(norm(r.name))||[]).filter(x=>x.id!==r.id); if(dn.length && !r.name_ok) p.push('اسم مشابه لموظف آخر ('+dn.map(x=>x.emp_no).join('، ')+') — فرّق الاسم إذا هم شخصان مختلفان');
     if(r.review_note) p.push(r.review_note);
     return p.length?{r,p}:null; }).filter(Boolean);
 }
