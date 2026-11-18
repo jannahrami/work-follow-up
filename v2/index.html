@@ -1663,7 +1663,7 @@ function prPeople(rows){
 }
 function prAgg(rows){
   const months=[...new Set(rows.map(x=>x.month))].sort(), M=new Map(months.map(m=>[m,{rows:[],exp:[],pids:new Set(),total:0,gross:0,ot:0,expTotal:0}]));
-  rows.forEach(x=>{ const o=M.get(x.month); o.total+=x.total||0; o.gross+=x.gross||0; o.ot+=x.overtime||0; if(x.is_expense){ o.exp.push(x); o.expTotal+=x.total||0; } else { o.rows.push(x); o.pids.add(x._p); } });
+  rows.forEach(x=>{ const o=M.get(x.month); if(x.is_expense){ o.exp.push(x); o.expTotal+=x.total||0; } else { o.total+=x.total||0; o.gross+=x.gross||0; o.ot+=x.overtime||0; o.rows.push(x); o.pids.add(x._p); } });
   const first=new Map(); months.forEach((m,i)=>M.get(m).pids.forEach(p=>{ if(!first.has(p)) first.set(p,i); }));
   months.forEach((m,i)=>{ const o=M.get(m); o.isNew=i===0?null:[...o.pids].filter(p=>first.get(p)===i); o.left=i===0?null:[...M.get(months[i-1]).pids].filter(p=>!o.pids.has(p)); });
   const yv=(typeof $==='function'&&$('#prY'))?$('#prY').value:''; return {months,M,first,vm:months.filter(m=>!yv||m.startsWith(yv))};
@@ -1671,7 +1671,7 @@ function prAgg(rows){
 // تجميع حسب (براند / فرع / جنسية) لكل شهر
 function prGroup(A,keyFn){
   const G=new Map();
-  (A.vm||A.months).forEach(m=>{ const o=A.M.get(m); [...o.rows,...o.exp].forEach(x=>{ const k=keyFn(x)||(x.is_expense?'UMC':'غير محدد'); if(!G.has(k)) G.set(k,{k,by:new Map(),total:0}); const g=G.get(k); if(!g.by.has(m)) g.by.set(m,{total:0,p:new Set()}); const c=g.by.get(m); c.total+=x.total||0; if(!x.is_expense) c.p.add(x._p); g.total+=x.total||0; }); });
+  (A.vm||A.months).forEach(m=>{ const o=A.M.get(m); o.rows.forEach(x=>{ const k=keyFn(x)||'غير محدد'; if(!G.has(k)) G.set(k,{k,by:new Map(),total:0}); const g=G.get(k); if(!g.by.has(m)) g.by.set(m,{total:0,p:new Set()}); const c=g.by.get(m); c.total+=x.total||0; if(!x.is_expense) c.p.add(x._p); g.total+=x.total||0; }); });
   return [...G.values()].sort((a,b)=>b.total-a.total);
 }
 
