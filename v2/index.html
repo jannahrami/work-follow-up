@@ -1563,13 +1563,13 @@ function reviewItems(){
   return R.map(r=>{ const p=[]; const n=(r.emp_no||'').trim();
     if(!(r.iqama||'').trim()) p.push('بدون رقم إقامة');
     if(/^new hire/i.test(n)) p.push('الرقم الوظيفي مؤقت («NEW HIRE») — يحتاج الرقم الحقيقي');
-    else if(n && byNo.get(n).length>1) p.push(`الرقم الوظيفي ${n} مكرر مع: `+byNo.get(n).filter(x=>x.id!==r.id).map(x=>x.name).join('، '));
-    const dn=(byNm.get(norm(r.name))||[]).filter(x=>x.id!==r.id); if(dn.length && !r.name_ok) p.push('اسم مشابه لموظف آخر ('+dn.map(x=>x.emp_no).join('، ')+') — فرّق الاسم إذا هم شخصان مختلفان');
+    else if(n && byNo.get(n).length>1) p.push({t:`الرقم الوظيفي ${n} مكرر مع: `, o:byNo.get(n).filter(x=>x.id!==r.id)});
+    const dn=(byNm.get(norm(r.name))||[]).filter(x=>x.id!==r.id); if(dn.length && !r.name_ok) p.push({t:'اسم مشابه لموظف آخر — فعّل «شخص مختلف، نفس الاسم» إذا هم شخصان مختلفان: ', o:dn});
     if(r.review_note) p.push(r.review_note);
     return p.length?{r,p}:null; }).filter(Boolean);
 }
 function renderEmps(){
-  try{ const rv=$('#eReview'); if(rv){ const L=state.role==='staff'?[]:reviewItems(); rv.innerHTML=L.length?`<details class="bnote" style="margin:8px 0;background:#fef3c7;border:1px solid #f59e0b;color:#92400e"><summary style="cursor:pointer"><b>⚠️ يحتاج مراجعة (${L.length})</b> — اضغط للعرض. عدّل المشكلة في بطاقة الموظف واحفظ، وبعدها يختفي من هنا.</summary>${L.map(x=>`<div style="margin-top:8px;padding-top:8px;border-top:1px dashed #f59e0b"><a href="javascript:void(0)" style="color:inherit;text-decoration:underline" onclick="openEmp('r${x.r.id}')"><b>${esc(x.r.name)}</b> (${esc(x.r.emp_no)})</a>${x.p.map(t=>`<div class="sm">• ${esc(t)}</div>`).join('')}</div>`).join('')}</details>`:''; } }catch(_){}
+  try{ const rv=$('#eReview'); if(rv){ const L=state.role==='staff'?[]:reviewItems(); rv.innerHTML=L.length?`<details class="bnote" style="margin:8px 0;background:#fef3c7;border:1px solid #f59e0b;color:#92400e"><summary style="cursor:pointer"><b>⚠️ يحتاج مراجعة (${L.length})</b> — اضغط للعرض. عدّل المشكلة في بطاقة الموظف واحفظ، وبعدها يختفي من هنا.</summary>${L.map(x=>`<div style="margin-top:8px;padding-top:8px;border-top:1px dashed #f59e0b"><a href="javascript:void(0)" style="color:inherit;text-decoration:underline" onclick="openEmp('r${x.r.id}')"><b>${esc(x.r.name)}</b> (${esc(x.r.emp_no)})</a>${x.p.map(t=>typeof t==='string'?`<div class="sm">• ${esc(t)}</div>`:`<div class="sm">• ${esc(t.t)}${t.o.map(y=>`<a href="javascript:void(0)" style="color:inherit;text-decoration:underline;margin-inline-end:8px" onclick="openEmp('r${y.id}')"><b>${esc(y.name)}</b> (${esc(y.emp_no)})</a>`).join('')}</div>`).join('')}</div>`).join('')}</details>`:''; } }catch(_){}
   { const A=scoped(empsList), has=(state.roster||[]).length>0, c=k=>A.filter(e=>e.status===k).length;
     $('#eStats').innerHTML = has ? `<div class="stat" onclick="setEmpSt('')"><small>إجمالي الموظفين</small><b class="num">${A.length}</b></div>
       <div class="stat" onclick="setEmpSt('active')"><small>على رأس العمل</small><b class="num" style="color:var(--green)">${c('active')}</b></div>
