@@ -828,7 +828,7 @@ body.staff[data-sec="home"] #subnav{display:none!important}
       <div class="toolbar">
         <select id="eBrand"><option value="">كل العلامات</option></select>
         <select id="eNat"><option value="">كل الجنسيات</option></select>
-        <select id="eSt"><option value="">كل الحالات الوظيفية</option><option value="active">على رأس العمل</option><option value="vacation">إجازة</option><option value="settlement">تصفية</option><option value="terminated">إنهاء خدمة</option></select>
+        <select id="eSt"><option value="">كل الحالات الوظيفية</option><option value="active">على رأس العمل</option><option value="vacation">إجازة</option><option value="settlement">تصفية</option><option value="terminated">إنهاء خدمة</option><option value="tag:new">تعيين جديد</option><option value="tag:return">عودة من إجازة</option></select>
         <select id="eIq"><option value="">كل حالات الإقامة</option><option value="expired">إقامة منتهية</option><option value="soon">تنتهي خلال 90 يوم</option><option value="valid">إقامة سارية</option><option value="unknown">تاريخ الإقامة غير متوفر</option></select>
       </div>
       <div class="toolbar"><button class="btn btn-primary btn-sm" id="rosterUpBtn" onclick="$('#rosterFile').click()">⬆ تحديث قائمة الموظفين (Excel)</button><input type="file" id="rosterFile" accept=".xlsx,.xls" hidden><button class="btn btn-ghost btn-sm" id="eExportBtn">⬇ تصدير الموظفين (Excel)</button><button class="btn btn-ghost btn-sm" id="eNameVarBtn" onclick="exportNameVariants()">⬇ أسماء مختلفة (Excel)</button><button class="btn btn-ghost btn-sm" id="eUnifyBtn" onclick="openNameUnify()">🧹 توحيد الأسماء</button></div>
@@ -1367,11 +1367,13 @@ function _renderTiles(){
 // القائمة الثابتة (w2_roster) هي مصدر الموظفين؛ البطاقات والسكنات مربوطة بها عبر roster_id
 const ROSTER_ST={active:'',vacation:'إجازة',settlement:'تصفية',terminated:'إنهاء خدمة'};
 const EMP_ST_LBL={active:'على رأس العمل',vacation:'إجازة',settlement:'تصفية',terminated:'إنهاء خدمة'}, EMP_ST_CLS={active:'ok',vacation:'near',settlement:'late',terminated:'late'};
+const TAG_LBL={new:'تعيين جديد',return:'عودة من إجازة'};
+function tagChip(t){ return t&&TAG_LBL[t]?`<span class="chip ok">${TAG_LBL[t]}</span>`:''; }
 function stChip(st){ return st&&EMP_ST_LBL[st]?`<span class="chip ${EMP_ST_CLS[st]}">${EMP_ST_LBL[st]}</span>`:''; }
 function rosterChip(rid){ if(!rid) return ''; const r=(state.roster||[]).find(x=>x.id===rid); return r?stChip(r.status||'active'):''; }
 function empsList(){
   const R=state.roster||[]; if(!R.length) return empsListLegacy();
-  const byR=new Map(R.map(r=>[r.id,{key:'r'+r.id, rid:r.id, iqama:r.iqama||'', name:r.name||'', brand:'', nationality:r.nationality||'', phone:'', location:'', iqama_expiry:'', emp_no:r.emp_no||'', status:r.status||'active', src:new Set(['القائمة'])}]));
+  const byR=new Map(R.map(r=>[r.id,{key:'r'+r.id, rid:r.id, iqama:r.iqama||'', name:r.name||'', brand:'', nationality:r.nationality||'', phone:'', location:'', iqama_expiry:'', emp_no:r.emp_no||'', status:r.status||'active', tag:r.move_tag||'', src:new Set(['القائمة'])}]));
   const fill=(o,f,v)=>{ if(v && !o[f]) o[f]=v; };
   state.bal.filter(e=>e.active!==false && byR.has(e.roster_id)).forEach(e=>{ const o=byR.get(e.roster_id); fill(o,'brand',e.brand); fill(o,'location',e.location); fill(o,'iqama_expiry',e.iqama_expiry); o.src.add('بلدية'); });
   state.hpeople.filter(e=>e.active!==false && byR.has(e.roster_id)).forEach(e=>{ const o=byR.get(e.roster_id); fill(o,'brand',e.brand); o.src.add('سكن'); });
@@ -1490,7 +1492,7 @@ function openEmp(key){ eCur=key||'';
   const link=(t,fn,txt)=>`<div class="item" style="margin-top:8px" onclick="closeModal();_empBack=eCur;${fn}"><div class="row"><h3>${t}</h3><span class="chip c-new">${txt}</span></div></div>`;
   const s = e ? iqState(e) : 'unknown', SCx={expired:'منتهية',soon:'تنتهي قريباً',valid:'سارية',unknown:'تاريخ الإقامة غير متوفر'};
   modal(head(e?esc(x.name||'—'):'موظف جديد') + `
-    ${e&&e.status?`<div class="meta">${stChip(e.status)}</div>`:''}${e?`<div class="meta"><span class="chip ${s==='expired'?'late':s==='soon'?'near':s==='valid'?'ok':''}">${SCx[s]}</span><span>${[...x.src].join(' • ')||'—'}</span></div>`:''}
+    ${e&&e.status?`<div class="meta">${stChip(e.status)}${tagChip(e.tag)}</div>`:''}${e?`<div class="meta"><span class="chip ${s==='expired'?'late':s==='soon'?'near':s==='valid'?'ok':''}">${SCx[s]}</span><span>${[...x.src].join(' • ')||'—'}</span></div>`:''}
     ${bal.map(b=>{ const i=bInfo(b), SL={valid:'سارية',soon:'تنتهي قريباً',expired:'منتهية',none:'بدون تاريخ بطاقة'}; return `<div class="item" style="margin-top:8px" onclick="closeModal();_empBack=eCur;openBal('${b.id}')"><div class="row"><h3>🏛️ بطاقة بلدية رقم: <span class="num" dir="ltr">${esc(b.baladia_no||'غير مسجل')}</span></h3><span class="chip ${i.state==='expired'?'late':i.state==='soon'?'near':i.state==='valid'?'ok':''}">${SL[i.state]}</span></div><div class="meta">${b.card_expiry?`<span>ينتهي: ${fmtDate(b.card_expiry)}</span>`:''}${b.training_expiry?`<span>التثقيف: ${fmtDate(b.training_expiry)}</span>`:''}${b.exam_result?`<span>الاختبار: ${b.exam_result==='PASSED'?'ناجح':'راسب'}</span>`:''}${b.update_cat?`<span>${esc(b.update_cat)}</span>`:''}<span>${esc(b.brand||'')}</span></div></div>`; }).join('')}
     
     ${hp.map(h=>link('🏠 سكن: '+esc(h.accommodation||'بدون'),`openPerson('${h.id}')`,'فتح')).join('')}
@@ -1504,7 +1506,7 @@ function openEmp(key){ eCur=key||'';
     <div class="grid2"><div><label>الجوال</label><input class="field num" id="fePhone" value="${esc(x.phone)}" dir="ltr" inputmode="tel" ${ro}></div>
       <div><label>الموقع</label><input class="field" id="feLoc" value="${esc(x.location)}" ${ro}></div></div>
     <div class="grid2"><div><label>الرقم الوظيفي</label><input class="field num" id="feNo" value="${esc(x.emp_no)}" dir="ltr" ${ro}></div>
-      <div>${e&&e.rid?`<label>الحالة الوظيفية</label><select class="field" id="feSt" ${ro}>${['active','vacation','settlement','terminated'].map(k=>`<option value="${k}" ${(x.status||'active')===k?'selected':''}>${EMP_ST_LBL[k]}</option>`).join('')}</select>`:''}</div></div>
+      <div>${e&&e.rid?`<label>الحالة الوظيفية</label><select class="field" id="feSt" ${ro}>${['active','vacation','settlement','terminated'].map(k=>`<option value="${k}" ${(x.status||'active')===k?'selected':''}>${EMP_ST_LBL[k]}</option>`).join('')}</select><label>العلامة</label><select class="field" id="feTag" ${ro}><option value="">بدون</option>${['new','return'].map(k=>`<option value="${k}" ${(x.tag||'')===k?'selected':''}>${TAG_LBL[k]}</option>`).join('')}</select>`:''}</div></div>
     <label>ملاحظاتي</label><textarea class="field" id="feNotes" style="min-height:60px" ${ro}>${esc(x.notes||'')}</textarea>
     ${staff?'':`<div class="actions"><button class="btn btn-primary" onclick="saveEmp()">حفظ</button>${e&&e.master?`<button class="btn btn-danger" onclick="delEmp()">حذف تعديلاتي</button>`:''}</div>
     <div class="bnote" style="margin-top:8px">الحفظ هنا يضيف بياناتك فوق بيانات الأقسام الأخرى، ولا يغيّرها.</div>`}`);
@@ -1516,7 +1518,7 @@ async function saveEmp(){ const key=eCur;
   if(!row.name && !row.iqama) return toast('اكتب الاسم أو رقم الإقامة');
   if(row.iqama && !/^\d{10}$/.test(row.iqama)) { if(!confirm('رقم الإقامة ليس 10 أرقام. تبغى تكمل؟')) return; }
   if(e && e.rid){ // موظف من القائمة الثابتة: الاسم والرقم الوظيفي والجنسية والحالة تُحفظ في القائمة
-    const rr=await sb.from('w2_roster').update({name:row.name, emp_no:row.emp_no, nationality:row.nationality, status:$('#feSt').value, iqama:(row.iqama&&/^\d{10}$/.test(row.iqama))?row.iqama:'', updated_at:new Date().toISOString()}).eq('id',e.rid);
+    const rr=await sb.from('w2_roster').update({name:row.name, emp_no:row.emp_no, nationality:row.nationality, status:$('#feSt').value, move_tag:($('#feTag').value||null), iqama:(row.iqama&&/^\d{10}$/.test(row.iqama))?row.iqama:'', updated_at:new Date().toISOString()}).eq('id',e.rid);
     if(rr.error) return fail(rr.error);
     if(!row.iqama){ toast('تم الحفظ'); await loadAll(); applyRoute(); return openEmp(e.key); }
   }
@@ -1558,17 +1560,19 @@ function renderEmps(){
       <div class="stat" onclick="setEmpSt('active')"><small>على رأس العمل</small><b class="num" style="color:var(--green)">${c('active')}</b></div>
       <div class="stat" onclick="setEmpSt('vacation')"><small>إجازة</small><b class="num" style="color:var(--amber)">${c('vacation')}</b></div>
       <div class="stat" onclick="setEmpSt('settlement')"><small>تصفية</small><b class="num" style="color:var(--red)">${c('settlement')}</b></div>
-      <div class="stat" onclick="setEmpSt('terminated')"><small>إنهاء خدمة</small><b class="num" style="color:var(--red)">${c('terminated')}</b></div>` : ''; }
+      <div class="stat" onclick="setEmpSt('terminated')"><small>إنهاء خدمة</small><b class="num" style="color:var(--red)">${c('terminated')}</b></div>
+      <div class="stat" onclick="setEmpSt('tag:new')"><small>تعيين جديد</small><b class="num" style="color:var(--green)">${A.filter(e=>e.tag==='new').length}</b></div>
+      <div class="stat" onclick="setEmpSt('tag:return')"><small>عودة من إجازة</small><b class="num" style="color:#0e7490">${A.filter(e=>e.tag==='return').length}</b></div>` : ''; }
   const all=eUnl?scoped(unlinkedList):scoped(empsList), brands=[...new Set(all.map(e=>e.brand).filter(Boolean))].sort();
   const bsel=$('#eBrand'); if(bsel.options.length<=1 || bsel.dataset.n!=String(brands.length)){ const keep=bsel.value; bsel.innerHTML='<option value="">كل العلامات</option>'+brands.map(b=>`<option>${esc(b)}</option>`).join(''); bsel.value=keep; bsel.dataset.n=brands.length; }
   const nats=[...new Set(all.map(e=>e.nationality).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'en')), nsel=$('#eNat');
   if(nsel.dataset.n!==nats.join('|')){ const keep=nsel.value; nsel.innerHTML='<option value="">كل الجنسيات</option>'+nats.map(n=>`<option>${esc(n)}</option>`).join(''); nsel.value=nats.includes(keep)?keep:''; nsel.dataset.n=nats.join('|'); }
   const q=$('#eSearch').value.trim().toLowerCase(), b=$('#eBrand').value, st=$('#eIq').value, nt=nsel.value, sv=$('#eSt').value;
-  const L=all.filter(e=>(!b||e.brand===b) && (!sv||e.status===sv) && (!nt||e.nationality===nt) && (!st||iqState(e)===st) && (!q||[e.name,e.iqama,e.nationality,e.location,e.emp_no,e.phone].join(' ').toLowerCase().includes(q)) && (!eUnl||!uSub||(uSub==='sim'?!!e.cand:!e.cand)));
+  const L=all.filter(e=>(!b||e.brand===b) && (!sv||(sv.startsWith('tag:')?e.tag===sv.slice(4):e.status===sv)) && (!nt||e.nationality===nt) && (!st||iqState(e)===st) && (!q||[e.name,e.iqama,e.nationality,e.location,e.emp_no,e.phone].join(' ').toLowerCase().includes(q)) && (!eUnl||!uSub||(uSub==='sim'?!!e.cand:!e.cand)));
   const _u=scoped(unlinkedList).length; $('#eCount').innerHTML=(eUnl?`غير مدرجين بالقائمة: ${L.length} من ${all.length} &nbsp; <button class="btn ${uSub===''?'':'btn-ghost'}" style="padding:2px 10px" onclick="setUSub('')">الكل</button> <button class="btn ${uSub==='sim'?'':'btn-ghost'}" style="padding:2px 10px" onclick="setUSub('sim')">له شبيه بالقائمة (${all.filter(e=>e.cand).length})</button> <button class="btn ${uSub==='none'?'':'btn-ghost'}" style="padding:2px 10px" onclick="setUSub('none')">غير موجود بالقائمة (${all.filter(e=>!e.cand).length})</button>`:`${L.length} موظف من ${all.length} • على رأس العمل ${all.filter(e=>e.status==='active').length} • إجازة ${all.filter(e=>e.status==='vacation').length} • تصفية ${all.filter(e=>e.status==='settlement').length} • إنهاء خدمة ${all.filter(e=>e.status==='terminated').length}`)+((state.role!=='staff'&&(state.roster||[]).length)?` &nbsp; <button class="btn btn-ghost" style="padding:2px 10px" onclick="toggleUnl()">${eUnl?'⬅ رجوع لقائمة الموظفين':'غير مرتبطين بالقائمة ('+_u+')'}</button>`:'');
   { const rb=$('#rosterUpBtn'); if(rb) rb.style.display=state.role==='staff'?'none':''; }
   const SC={expired:['late','منتهية'],soon:['near','تنتهي قريباً'],valid:['ok','سارية'],unknown:['','تاريخ الإقامة غير متوفر']};
-  eLast=L; $('#eList').innerHTML=L.slice(0,eShown).map(e=>{ const s=iqState(e), c=SC[s]; return `<div class="item" onclick="openEmpI(${eLast.indexOf(e)})"><div class="row"><div><h3>${esc(e.name||'—')}</h3><div class="meta"><span>🪪 ${esc(e.iqama||'بدون رقم إقامة')}</span>${e.nationality?`<span>${esc(e.nationality)}</span>`:''}${e.location?`<span>📍 ${esc(e.location)}</span>`:''}${e.phone?`<span>📞 ${esc(e.phone)}</span>`:''}</div><div class="meta"><span>${e.iqama_expiry?'تنتهي الإقامة: '+fmtDate(e.iqama_expiry):'تاريخ انتهاء الإقامة: —'}</span><span>${[...e.src].join(' • ')}</span>${e.status?stChip(e.status):''}</div></div><div style="text-align:left">${e.brand?`<span class="chip" style="background:${BRAND_COLOR[e.brand]||'#475569'};color:#fff">${esc(e.brand)}</span>`:''}<div style="margin-top:4px"><span class="dchip ${c[0]}">${c[1]}</span></div></div></div></div>`; }).join('')+(L.length>eShown?`<button class="btn btn-ghost" style="width:100%;margin-top:8px" onclick="eShown+=150;renderEmps()">عرض المزيد (${L.length-eShown})</button>`:'');
+  eLast=L; $('#eList').innerHTML=L.slice(0,eShown).map(e=>{ const s=iqState(e), c=SC[s]; return `<div class="item" onclick="openEmpI(${eLast.indexOf(e)})"><div class="row"><div><h3>${esc(e.name||'—')}</h3><div class="meta"><span>🪪 ${esc(e.iqama||'بدون رقم إقامة')}</span>${e.nationality?`<span>${esc(e.nationality)}</span>`:''}${e.location?`<span>📍 ${esc(e.location)}</span>`:''}${e.phone?`<span>📞 ${esc(e.phone)}</span>`:''}</div><div class="meta"><span>${e.iqama_expiry?'تنتهي الإقامة: '+fmtDate(e.iqama_expiry):'تاريخ انتهاء الإقامة: —'}</span><span>${[...e.src].join(' • ')}</span>${e.status?stChip(e.status):''}${tagChip(e.tag)}</div></div><div style="text-align:left">${e.brand?`<span class="chip" style="background:${BRAND_COLOR[e.brand]||'#475569'};color:#fff">${esc(e.brand)}</span>`:''}<div style="margin-top:4px"><span class="dchip ${c[0]}">${c[1]}</span></div></div></div></div>`; }).join('')+(L.length>eShown?`<button class="btn btn-ghost" style="width:100%;margin-top:8px" onclick="eShown+=150;renderEmps()">عرض المزيد (${L.length-eShown})</button>`:'');
 }
 ['#eSearch','#eBrand','#eNat','#eIq'].forEach(id=>{ $(id).addEventListener('input',()=>{ eShown=100; renderEmps(); }); });
 
