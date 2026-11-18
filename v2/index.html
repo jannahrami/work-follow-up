@@ -1936,6 +1936,7 @@ const E_COLS=[
   {h:'الرقم الوظيفي', w:12, get:e=>e.emp_no, type:'code'},
   {h:'الجوال', w:14, get:e=>e.phone, type:'code'},
   {h:'الحالة الوظيفية', w:14, get:e=>EMP_ST_LBL[e.status]||'', type:'code', style:(e,c)=>{ const m={vacation:[C.amberSoft,C.amber],settlement:[C.redSoft,C.red],terminated:[C.redSoft,C.red],active:[C.greenSoft,C.green]}[e.status]; if(m){c.fill=fill(m[0]); c.font={name:FONT,size:10,bold:true,color:{argb:m[1]}};} }},
+  {h:'العلامة', w:14, get:e=>TAG_LBL[e.tag]||'', type:'code'},
   {h:'بطاقة بلدية؟', w:12, get:e=>e._c&&e._c.card_expiry?(e._cn>1?`نعم (${e._cn} سجلات)`:'نعم'):'لا', type:'code'},
   {h:'حالة البطاقة البلدية', w:16, get:e=>e._c?B_LBL[e._ci.state]:'', type:'code', style:(e,c)=>{ const m=e._c&&{expired:[C.redSoft,C.red],soon:[C.amberSoft,C.amber],valid:[C.greenSoft,C.green]}[e._ci.state]; if(m){c.fill=fill(m[0]); c.font={name:FONT,size:10,bold:true,color:{argb:m[1]}};} }},
   {h:'رقم البطاقة البلدية', w:16, get:e=>e._c?(e._c.baladia_no||''):'', type:'code'},
