@@ -822,8 +822,6 @@ body.staff[data-sec="home"] #subnav{display:none!important}
     <div id="sec-emps" class="hidden">
       <div class="sec-bar"><h1>👥 الموظفين</h1></div>
       <div class="stats" id="eStats"></div>
-      <div id="eMoveKpi"></div>
-      <div id="eMoveSec"></div>
       <div id="eReview"></div>
       <div class="bnote" style="margin-bottom:12px">قائمة الموظفين الثابتة (من ملف الموظفين). البطاقات البلدية والسكنات مربوطة بها، وتقدر تعدّل حالة أي موظف من بطاقته.</div>
       <div class="toolbar"><input id="eSearch" placeholder="بحث: الاسم، رقم الإقامة، الجنسية، الموقع..."></div>
@@ -1555,7 +1553,6 @@ function setUSub(v){ uSub=v; eShown=100; renderEmps(); }
 function setEmpSt(v){ $('#eSt').value=v; eUnl=false; eShown=100; renderEmps(); }
 function renderEmps(){
   try{ const rv=$('#eReview'); if(rv){ const REVIEW=['MW_25','MW_27','MW_28','MW_29','MW-26']; const L=state.role==='staff'?[]:(state.roster||[]).filter(r=>REVIEW.includes(r.emp_no)); rv.innerHTML=L.length?`<div class="bnote" style="margin:8px 0;background:#fef3c7;border:1px solid #f59e0b;color:#92400e">⚠️ <b>يحتاج مراجعة (${L.length})</b> — ${L.map(r=>`<a href="javascript:void(0)" style="color:inherit;text-decoration:underline;margin-inline-end:10px" onclick="openEmp('r${r.id}')">${esc(r.name)} (${esc(r.emp_no)})</a>`).join('')}</div>`:''; } }catch(_){}
-  try{ const mk=$('#eMoveKpi'), ms=$('#eMoveSec'); if(mk&&ms){ let h='', h2=''; if(state.role!=='staff' && (state.pay||[]).length){ const A=prAgg(prRows().all); if(!A.months.includes(prMonth)) prMonth=A.months[A.months.length-1]; h=prTiles(A,'emp').replace(/prGo\(/g,'empGoPay('); h2=prMove(A); } mk.innerHTML=h; ms.innerHTML=h2; } }catch(_){}
   { const A=scoped(empsList), has=(state.roster||[]).length>0, c=k=>A.filter(e=>e.status===k).length;
     $('#eStats').innerHTML = has ? `<div class="stat" onclick="setEmpSt('')"><small>إجمالي الموظفين</small><b class="num">${A.length}</b></div>
       <div class="stat" onclick="setEmpSt('active')"><small>على رأس العمل</small><b class="num" style="color:var(--green)">${c('active')}</b></div>
