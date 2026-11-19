@@ -1499,6 +1499,7 @@ function openEmp(key){ eCur=key||'';
     
     ${hp.map(h=>link('🏠 سكن: '+esc(h.accommodation||'بدون'),`openPerson('${h.id}')`,'فتح')).join('')}
     ${prEmpCard(e)}
+    ${(!staff&&e&&e.rid)?`<button class="btn btn-primary" style="margin-top:8px;width:100%" onclick="empReportBtn(this,'${e.key}')">📄 تقرير الموظف (Excel)</button>`:''}
     ${staff?'<div class="bnote">للعرض فقط — التعديل للمدير.</div>':''}
     <label>الاسم</label><input class="field" id="feName" value="${esc(x.name)}" ${ro}>
     <div class="grid2"><div><label>رقم الإقامة</label><input class="field num" id="feIq" value="${esc(x.iqama)}" dir="ltr" inputmode="numeric" ${ro}></div>
@@ -2026,6 +2027,39 @@ async function buildEmployeesWorkbook(list, opts={}){
   }
   return wb;
 }
+// ===== تقرير موظف واحد (إكسل) — يجمع الموظف + البلدية + السكن + الرواتب =====
+async function buildEmpReport(key){
+  const e = empsList().find(x=>x.key===key); if(!e) throw new Error('لم يتم العثور على الموظف');
+  await loadExcelJS();
+  const iq=String(e.iqama||'').trim();
+  const bal = e.rid ? state.bal.filter(b=>b.roster_id===e.rid) : (iq ? state.bal.filter(b=>String(b.iqama||'').trim()===iq) : []);
+  const hp  = e.rid ? state.hpeople.filter(h=>h.roster_id===e.rid) : (iq ? state.hpeople.filter(h=>String(h.id_number||'').trim()===iq) : []);
+  const pay = (e.rid ? state.pay.filter(r=>r.roster_id===e.rid) : (iq ? state.pay.filter(r=>String(r.iqama||'').trim()===iq) : [])).filter(r=>!r.is_expense).sort((a,b)=>a.month.localeCompare(b.month));
+  const wb=new ExcelJS.Workbook(); wb.creator='Work follow up'; wb.created=new Date();
+  const stamp='تاريخ التقرير: '+new Date().toLocaleDateString('ar-SA-u-ca-gregory-nu-latn',{day:'numeric',month:'long',year:'numeric'});
+  const ws=wb.addWorksheet('تقرير الموظف',{views:[{rightToLeft:true,showGridLines:false}],properties:{tabColor:{argb:C.teal}}});
+  sheetTitle(ws,'تقرير موظف: '+(e.name||'—'),stamp,6);
+  let r=4;
+  const sec=t=>{ ws.mergeCells(r,1,r,6); const h=ws.getCell(r,1); h.value=t; h.font={name:FONT,size:13,bold:true,color:{argb:C.navy}}; h.alignment={horizontal:'right',readingOrder:'rtl'}; r++; };
+  const tbl=(cols,items,empty)=>{ if(!items.length){ const c=ws.getCell(r,1); c.value=empty; c.font={name:FONT,size:10,color:{argb:C.muted}}; c.alignment={horizontal:'right',readingOrder:'rtl'}; r+=2; return; } r=writeTable(ws,r,cols,items,false)+1; };
+  const T=(h,get,type,wrap)=>({h,get,type:type||'code',wrap});
+  sec('البيانات الأساسية');
+  const info=[['الاسم',e.name],['رقم الإقامة',e.iqama],['تاريخ انتهاء الإقامة',e.iqama_expiry],['الرقم الوظيفي',e.emp_no],['الجنسية',e.nationality],['العلامة',e.brand],['مركز التكلفة',e.cost_center],['الموقع',e.location],['الجوال',e.phone],['الحالة الوظيفية',EMP_ST_LBL[e.status]||''],['تاريخ التعيين',e.hire_date],['مدة الخدمة',svcLen(e.hire_date)],['الجنس',GENDER_LBL[e.gender]||''],['ملاحظات',e.notes]].filter(x=>x[1]!==''&&x[1]!=null).map(([k,v])=>({k,v}));
+  tbl([T('البند',x=>x.k),T('القيمة',x=>x.v,'code',true)],info,'—');
+  sec('البطاقات البلدية');
+  tbl([T('رقم البطاقة',x=>x.baladia_no||''),T('انتهاء البطاقة',x=>x.card_expiry,'date'),T('الحالة',x=>B_LBL[bInfo(x).state]||''),T('انتهاء التثقيف',x=>x.training_expiry,'date'),T('نتيجة الاختبار',x=>x.exam_result==='PASSED'?'ناجح':x.exam_result?'راسب':''),T('ملاحظات',x=>[x.status_note,x.notes].filter(Boolean).join(' | '),'code',true)],bal,'لا توجد بطاقة بلدية مربوطة');
+  sec('السكن');
+  tbl([T('السكن',x=>x.accommodation||''),T('رقم العقد',x=>{ const u=state.hunits.find(u=>u.code===x.accommodation); return u?u.contract_no||'':''; }),T('نهاية العقد',x=>{ const u=state.hunits.find(u=>u.code===x.accommodation); return u?u.end_date:''; },'date'),T('المؤجر',x=>{ const u=state.hunits.find(u=>u.code===x.accommodation); return u?u.lessor||'':''; })],hp,'لا يوجد سكن مربوط');
+  sec('الرواتب (بالأشهر)');
+  tbl([T('الشهر',x=>prMLabel(x.month)),T('الأساسي',x=>x.gross,'money'),T('الإضافي',x=>x.overtime,'money'),T('الإجمالي',x=>x.total,'money'),T('الوظيفة',x=>x.job||''),T('مركز التكلفة',x=>x.cost_center||'')],pay,'ما فيه سطر راتب مربوط');
+  const upd=[...bal.flatMap(b=>state.bupd.filter(u=>u.card_id===b.id).map(u=>({s:'بلدية',u}))),...hp.flatMap(h=>state.hsupd.filter(u=>u.person_id===h.id).map(u=>({s:'سكن',u})))].sort((a,b)=>String(b.u.created_at).localeCompare(String(a.u.created_at)));
+  sec('سجل المتابعة');
+  tbl([T('القسم',x=>x.s),T('التاريخ',x=>String(x.u.created_at||'').slice(0,10),'date'),T('التحديث',x=>x.u.body||'','code',true)],upd,'لا توجد تحديثات مسجلة');
+  ws.autoFilter=null; [26,20,20,20,22,40].forEach((w,i)=>ws.getColumn(i+1).width=w);
+  ws.pageSetup={orientation:'portrait',fitToPage:true,fitToWidth:1,fitToHeight:0,paperSize:9};
+  return wb;
+}
+function empReportBtn(b,key){ withBusy(b, async()=>{ try{ const wb=await buildEmpReport(key); const e=empsList().find(x=>x.key===key); await downloadWorkbook(wb,`تقرير-${String((e&&e.name)||'موظف').replace(/[\\/:*?"<>|]/g,'').trim()}-${today()}.xlsx`); }catch(err){ fail(err); } }); }
 // ===== ربط بطاقة/سكن بموظف من القائمة =====
 function _lev(a,b){ if(Math.abs(a.length-b.length)>2) return 9; const m=[...Array(a.length+1)].map((_,i)=>[i]); for(let j=1;j<=b.length;j++) m[0][j]=j; for(let i=1;i<=a.length;i++) for(let j=1;j<=b.length;j++) m[i][j]=Math.min(m[i-1][j]+1,m[i][j-1]+1,m[i-1][j-1]+(a[i-1]===b[j-1]?0:1)); return m[a.length][b.length]; }
 function _simScore(a,b){ const t=x=>new Set(String(x||'').toLowerCase().replace(/[^a-z0-9؀-ۿ ]/g,' ').split(/\s+/).filter(w=>w.length>1)); const A=t(a),B=t(b); if(!A.size||!B.size) return 0; let n=0; A.forEach(w=>{ if(B.has(w)) n++; }); return n/Math.min(A.size,B.size); }
