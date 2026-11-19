@@ -2049,7 +2049,7 @@ async function buildEmpReport(key){
   sec('البطاقات البلدية');
   tbl([T('رقم البطاقة',x=>x.baladia_no||''),T('انتهاء البطاقة',x=>x.card_expiry,'date'),T('الحالة',x=>B_LBL[bInfo(x).state]||''),T('انتهاء التثقيف',x=>x.training_expiry,'date'),T('نتيجة الاختبار',x=>x.exam_result==='PASSED'?'ناجح':x.exam_result?'راسب':''),T('ملاحظات',x=>[x.status_note,x.notes].filter(Boolean).join(' | '),'code',true)],bal,'لا توجد بطاقة بلدية مربوطة');
   sec('السكن');
-  tbl([T('السكن',x=>x.accommodation||''),T('رقم العقد',x=>{ const u=state.hunits.find(u=>u.code===x.accommodation); return u?u.contract_no||'':''; }),T('نهاية العقد',x=>{ const u=state.hunits.find(u=>u.code===x.accommodation); return u?u.end_date:''; },'date'),T('المؤجر',x=>{ const u=state.hunits.find(u=>u.code===x.accommodation); return u?u.lessor||'':''; })],hp,'لا يوجد سكن مربوط');
+  tbl([T('موقع السكن',x=>x.accommodation||'')],hp,'لا يوجد سكن مربوط');
   sec('الرواتب (بالأشهر)');
   tbl([T('الشهر',x=>prMLabel(x.month)),T('الأساسي',x=>x.gross,'money'),T('الإضافي',x=>x.overtime,'money'),T('الإجمالي',x=>x.total,'money'),T('الوظيفة',x=>x.job||''),T('مركز التكلفة',x=>x.cost_center||'')],pay,'ما فيه سطر راتب مربوط');
   const upd=[...bal.flatMap(b=>state.bupd.filter(u=>u.card_id===b.id).map(u=>({s:'بلدية',u}))),...hp.flatMap(h=>state.hsupd.filter(u=>u.person_id===h.id).map(u=>({s:'سكن',u})))].sort((a,b)=>String(b.u.created_at).localeCompare(String(a.u.created_at)));
