@@ -2805,8 +2805,8 @@ function toDate(v){
 }
 function statusOf(raw){
   const r = raw||'';
-  if(r.includes('قبول الاعتراض')) return 'accepted';
-  if(r.includes('رفض')) return 'rejected';
+  if(r.includes('قبول الاعتراض')||r.includes('مقبول')) return 'accepted';
+  if(r.includes('رفض')||r.includes('مرفوض')) return 'rejected';
   if(r.includes('قيد النظر') || r==='تحت اجراء الاعتراض' || r==='تحت إجراء الاعتراض') return 'objection_pending';
   if(r.includes('رفع الاعتراض')) return 'objection_prep';
   if(r.includes('تم السداد') || r==='مسددة') return 'paid';
@@ -2825,14 +2825,16 @@ function normAuthority(s){
 }
 // header name -> field
 const MAP = [
-  [/^الجهة$/, 'authority'], [/رقم الرخصة/, 'license_no'], [/^الفرع/, 'branch'],
+  [/^الجهة$/, 'authority'], [/^الشركة$/, 'company'], [/^ملاحظات$/, 'notes'], [/^رقم الاعتراض$/, 'objection_col'], [/^التاريخ الهجري$/, 'hijri'], [/^آخر تحديث متابعة$/, 'last_update'], [/^التصنيف\s*\/\s*النظام$/, 'category'], [/رقم الرخصة/, 'license_no'], [/^الفرع/, 'branch'],
   [/^رقم المخالفة/, 'violation_no'], [/رقم (فاتورة|الفاتورة)/, 'invoice_no'],
-  [/تاريخ رصد|^التاريخ$|تاريخ الفاتورة|تاريخ المخالفة/, 'date'], [/اخر موعد|آخر موعد/, 'deadline'],
+  [/تاريخ (ال)?رصد|^التاريخ$|تاريخ الفاتورة|تاريخ المخالفة/, 'date'], [/اخر موعد|آخر موعد/, 'deadline'],
   [/حالة الاعتراض|^الحالة$/, 'raw_status'], [/حالة (فاتورة|الفاتورة)/, 'inv_status'],
   [/قيمة|^المبلغ/, 'amount'], [/سبب المخالفة|اسم المخالفة|تفاصيل المخالفة/, 'reason'],
   [/نوع المخالفة|اسم النظام|^التصنيف$/, 'category'], [/^الاجراء|^الإجراء/, 'action'],
   [/السجل التجاري/, 'company_or_cr'], [/الرقم الموحد|رقم السجل/, 'cr_no'], [/وقت المخالفة/, 'time']
 ];
+// مفتاح المخالفة: برقم المخالفة/الفاتورة، وإذا ما فيه أرقام (مثل هيئة الغذاء) يعتمد الجهة+الشركة+المبلغ+التاريخ عشان ما تتكرر عند كل رفعة
+const vKey = r => (r.violation_no||r.invoice_no) ? [r.authority,r.violation_no||'',r.invoice_no||''].join('|') : ['NK',r.authority,r.company||'',Number(r.amount)||0,r.violation_date||''].join('|');
 function parseWorkbook(wb){
   const out = [];
   for(const name of wb.SheetNames){
@@ -2856,17 +2858,18 @@ function parseWorkbook(wb){
       const g = f => cols[f]===undefined ? null : r[cols[f]];
       const [vno] = numText(g('violation_no')), [inv, invNote] = numText(g('invoice_no'));
       const branch = clean(g('branch')), reason = clean(g('reason')), category = clean(g('category'));
-      if(!vno && !inv && !branch && !reason && !category) continue; // total rows
+      if(!vno && !inv && !branch && !reason && !category && !clean(g('company'))) continue; // total rows
       if(!vno && !inv && !(Number(String(g('amount')??'0').replace(/[^\d.]/g,''))>0)) continue; // not a violation row
       let authority = normAuthority(g('authority')) || sheetAuth;
       const branchIsAuth = !!branch && /هيئة|وزارة|أمانة|امانة/.test(branch) && AUTHORITIES.includes(normAuthority(branch));
       if(branchIsAuth) authority = normAuthority(branch);
       const coc = clean(g('company_or_cr'));
-      let company='', cr = numText(g('cr_no'))[0];
+      let company=clean(g('company')), cr = numText(g('cr_no'))[0];
       if(coc){ if(/^\d+$/.test(coc)) cr = cr||coc; else company = coc; }
-      const [vd, vh] = toDate(g('date')); const [dl] = toDate(g('deadline'));
+      const [vd, vh0] = toDate(g('date')); const vh = vh0 || clean(g('hijri')); const [dl] = toDate(g('deadline'));
       const raw = clean(g('raw_status'));
-      const obj = (raw.match(/OBJ-\d+/)||[''])[0];
+      const obj = (raw.match(/OBJ-\d+/)||[''])[0] || clean(g('objection_col'));
+      const xnotes = [clean(g('notes')), invNote].filter(Boolean).join(' — ');
       let t = g('time'); if(t instanceof Date) t = `${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}`;
       const amt = Number(String(g('amount')??'0').replace(/[^\d.]/g,'')) || 0;
       out.push({
@@ -2875,18 +2878,18 @@ function parseWorkbook(wb){
         violation_no:vno, invoice_no:inv, category, reason,
         violation_date:vd, violation_date_hijri:vh, violation_time:clean(t), objection_deadline:dl,
         status:statusOf(raw), objection_ref:obj, raw_status:raw, invoice_status:clean(g('inv_status')),
-        amount:amt, action:clean(g('action')), source:clean(name), ...(invNote?{notes:invNote}:{})
+        amount:amt, action:clean(g('action')), source:clean(name), ...(xnotes?{notes:xnotes}:{}), ...(clean(g('last_update'))?{_last:clean(g('last_update'))}:{})
       });
     }
   }
   // dedupe inside file (same key) – keep last
-  const m = new Map(); out.forEach(r=>m.set([r.authority,r.violation_no,r.invoice_no].join('|'), r));
+  const m = new Map(); out.forEach(r=>m.set(vKey(r), r));
   return [...m.values()];
 }
 let pendingImport = [];
 function previewImport(rows, fname){
   pendingImport = rows;
-  const key = r => [r.authority,r.violation_no,r.invoice_no].join('|');
+  const key = vKey;
   const existing = new Map(state.viol.map(v=>[key(v),v]));
   const fresh = rows.filter(r=>!existing.has(key(r)));
   const changed = rows.filter(r=>{ const e=existing.get(key(r)); return e && (e.status!==r.status || Number(e.amount)!==r.amount); });
@@ -2897,28 +2900,40 @@ function previewImport(rows, fname){
     ${Object.entries(byA).map(([a,x])=>`<tr><td>${esc(a)}</td><td class="num">${x.n}</td><td class="num">${money(x.amt)}</td></tr>`).join('')}
     <tr><td><b>الإجمالي</b></td><td class="num"><b>${rows.length}</b></td><td class="num"><b>${money(sum(rows))}</b></td></tr></table>
     <dl class="kv"><dt>مخالفات جديدة</dt><dd>${fresh.length}</dd><dt>موجودة وتغيرت حالتها/مبلغها</dt><dd>${changed.length}</dd><dt>موجودة بدون تغيير</dt><dd>${rows.length-fresh.length-changed.length}</dd></dl>
-    ${hasNoKey?`<div class="warn">${hasNoKey} صف بدون رقم مخالفة أو فاتورة — بيتم إضافتها لكن ممكن تتكرر لو استوردت نفس الملف مرة ثانية.</div>`:''}
-    <div class="warn" style="background:var(--gray-soft);color:#334155">المخالفات الموجودة تتحدث حالتها ومبلغها من الملف. ملاحظاتك وسجل المتابعة ما يتأثرون.</div>
+    ${hasNoKey?`<div class="warn" style="background:var(--gray-soft);color:#334155">${hasNoKey} صف بدون رقم مخالفة أو فاتورة — يتعرف عليها بالجهة والشركة والمبلغ والتاريخ، فما تتكرر.</div>`:''}
+    <div class="warn" style="background:var(--gray-soft);color:#334155">الملف هو المرجع: كل مخالفة موجودة تتحدث بياناتها (الحالة والمبلغ والشركة والفرع وغيرها) من الملف، وما يُحذف شي من الموقع. الملاحظات تتحدث إذا كتبت لها قيمة في الملف، وسجل المتابعة ما يتأثر.</div>
     <div class="actions"><button class="btn btn-primary" id="doImport">استيراد ${rows.length}</button><button class="btn btn-ghost" onclick="closeModal()">إلغاء</button></div>`);
   $('#doImport').onclick = runImport;
 }
 async function runImport(){
   $('#doImport').disabled = true; $('#doImport').textContent = 'جاري الاستيراد...';
-  const key = r => [r.authority,r.violation_no,r.invoice_no].join('|');
-  const existing = new Map(state.viol.map(v=>[key(v),v]));
-  const noKey = pendingImport.filter(r=>!r.violation_no && !r.invoice_no && !existing.has(key(r)));
-  const keyed = pendingImport.filter(r=>r.violation_no || r.invoice_no);
+  const key = vKey, existing = new Map(state.viol.map(v=>[key(v),v]));
+  const strip = ({notes,_last,...rest})=>rest;
+  const keyed = pendingImport.filter(r=>r.violation_no || r.invoice_no), noKey = pendingImport.filter(r=>!r.violation_no && !r.invoice_no);
   const changes = [];
-  keyed.forEach(r=>{ const e=existing.get(key(r)); if(e && e.status!==r.status) changes.push({id:e.id, body:`تحديث من ملف إكسل: ${VSTATUS[e.status]} ← ${VSTATUS[r.status]}`}); });
-  for(let i=0;i<keyed.length;i+=200){
-    const { error } = await sb.from('w2_violations').upsert(keyed.slice(i,i+200).map(({notes, ...rest})=>rest), { onConflict:'authority,violation_no,invoice_no' });
+  pendingImport.forEach(r=>{ const e=existing.get(key(r)); if(e && e.status!==r.status) changes.push({id:e.id, body:`تحديث من ملف إكسل: ${VSTATUS[e.status]} ← ${VSTATUS[r.status]}`}); });
+  // الصفوف اللي فيها ملاحظات تُحدّث ملاحظاتها من الملف، والباقي ملاحظاتها الحالية ما تتأثر
+  const withN = keyed.filter(r=>r.notes), withoutN = keyed.filter(r=>!r.notes);
+  for(const [grp,hasN] of [[withN,true],[withoutN,false]]) for(let i=0;i<grp.length;i+=200){
+    const part = grp.slice(i,i+200).map(r=>hasN ? {...strip(r),notes:r.notes} : strip(r));
+    const { error } = await sb.from('w2_violations').upsert(part, { onConflict:'authority,violation_no,invoice_no' });
     if(error) return fail(error);
   }
-  for(const r of keyed.filter(r=>r.notes && !existing.has(key(r)))){
-    await sb.from('w2_violations').update({notes:r.notes}).eq('authority',r.authority).eq('violation_no',r.violation_no).eq('invoice_no',r.invoice_no);
+  for(const r of noKey){ const e=existing.get(key(r)), row={...strip(r), ...(r.notes?{notes:r.notes}:{})};
+    const res = e ? await sb.from('w2_violations').update(row).eq('id',e.id) : await sb.from('w2_violations').insert(row);
+    if(res.error) return fail(res.error);
   }
-  if(noKey.length){ const { error } = await sb.from('w2_violations').insert(noKey); if(error) return fail(error); }
-  if(changes.length) await sb.from('w2_violation_updates').insert(changes.map(c=>({violation_id:c.id, body:c.body})));
+  // سجل المتابعة: عمود «آخر تحديث متابعة» + تغييرات الحالة (بدون تكرار)
+  const lasts = pendingImport.filter(r=>r._last);
+  if(lasts.length || changes.length){
+    const a = await sb.from('w2_violations').select('id,authority,violation_no,invoice_no,company,amount,violation_date').limit(5000);
+    const b = await sb.from('w2_violation_updates').select('violation_id,body').limit(20000);
+    if(a.error) return fail(a.error); if(b.error) return fail(b.error);
+    const idOf = new Map(a.data.map(v=>[key(v),v.id])), have = new Set(b.data.map(u=>u.violation_id+'|'+u.body)), add = [];
+    const push = (id,body)=>{ if(id && body && !have.has(id+'|'+body)){ have.add(id+'|'+body); add.push({violation_id:id, body}); } };
+    lasts.forEach(r=>push(idOf.get(key(r)), r._last)); changes.forEach(c=>push(c.id, c.body));
+    if(add.length){ const r = await sb.from('w2_violation_updates').insert(add); if(r.error) return fail(r.error); }
+  }
   closeModal(); toast(`تم استيراد ${pendingImport.length} مخالفة`); await loadAll(); go('viol','dash');
 }
 
