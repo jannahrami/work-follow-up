@@ -2227,7 +2227,7 @@ $('#bkSaveNow').onclick = async e=>{ const b=e.currentTarget; b.disabled=true; c
 // ===== MAIN DASHBOARD =====
 let dashAll = {now:false, soon:false, hid:false};
 function dChip(d){ if(d==null) return ''; return d<0 ? `<span class="dchip late">متأخر ${-d} يوم</span>` : d===0 ? `<span class="dchip late">اليوم</span>` : d<=7 ? `<span class="dchip near">باقي ${d} يوم</span>` : `<span class="dchip far">باقي ${d} يوم</span>`; }
-const SEC_IC = { lease:['📄','var(--blue-soft)'], house:['🏠','var(--purple-soft, #ede9fe)'], viol:['🚨','var(--red-soft)'], bal:['🪪','var(--amber-soft)'], health:['🩺','var(--green-soft)'], topics:['📋','var(--blue-soft)'] };
+const SEC_IC = { lease:['📄','var(--blue-soft)'], house:['🏠','var(--purple-soft, #ede9fe)'], viol:['🚨','var(--red-soft)'], bal:['🪪','var(--amber-soft)'], health:['🩺','var(--green-soft)'], topics:['📋','var(--blue-soft)'], emps:['👥','var(--amber-soft)'] };
 let dashCache = [];
 function dashItems(){
   const it = [];
@@ -2252,6 +2252,10 @@ function dashItems(){
     if(i.d!=null && i.d>=0 && i.d<=30) add('bal', i.d, `بطاقة بلدية: ${esc(e.name)}`, sub, click, `bal:${e.id}:card:${e.card_expiry}`, src);
     if(i.iqd!=null && i.iqd>=0 && i.iqd<=30) add('bal', i.iqd, `إقامة: ${esc(e.name)}`, sub, click, `bal:${e.id}:iq:${e.iqama_expiry}`, src, 1);
     if(i.td!=null && i.td>=0 && i.td<=30) add('bal', i.td, `تثقيف صحي: ${esc(e.name)}`, sub, click, `bal:${e.id}:tr:${e.training_expiry}`, src); });
+  // employees: iqama expiry from the employee card (only when the Baladiya card above doesn't already cover it)
+  if(state.role!=='staff'){ const balIq=new Set(); state.bal.filter(e=>e.active!==false && e.iqama_expiry).forEach(e=>{ if(e.roster_id) balIq.add('r'+e.roster_id); if(e.iqama) balIq.add('i'+String(e.iqama).trim()); });
+    empsList().filter(o=>o.iqama_expiry && ['active','vacation'].includes(o.status||'active') && !balIq.has('r'+o.rid) && !(o.iqama && balIq.has('i'+o.iqama))).forEach(o=>{ const d=daysTo(o.iqama_expiry); if(d==null || d<0 || d>30) return;
+      add('emps', d, `إقامة: ${esc(o.name)}`, esc(o.brand||''), `openEmp('${o.key}')`, `emps:${o.key}:iq:${o.iqama_expiry}`, null, 1); }); }
   // topics
   state.topics.filter(t=>t.status!=='done' && t.due_date).forEach(t=>{ const d=daysTo(t.due_date); if(d>30) return;
     add('topics', d, `معاملة: ${esc(t.title)}`, esc(t.category||t.party||''), `openTopic('${t.id}')`, `topics:${t.id}:${t.due_date}`, ['w2_topic_updates','topic_id',t.id], t.priority==='high'?1:0); });
@@ -2450,7 +2454,7 @@ async function buildIndicatorsWorkbook(){
   [34,16,40,10,44].forEach((w,i)=>ws.getColumn(i+1).width=w);
   ws.pageSetup={orientation:'portrait',fitToPage:true,fitToWidth:1,fitToHeight:0,paperSize:9};
   // follow-up list
-  const it=dashVisible(), sc={lease:'عقود الإيجار',house:'السكنات',viol:'المخالفات',bal:'البطاقات البلدية',topics:'المعاملات'};
+  const it=dashVisible(), sc={lease:'عقود الإيجار',house:'السكنات',viol:'المخالفات',bal:'البطاقات البلدية',topics:'المعاملات',emps:'الموظفين'};
   const ws2=wb.addWorksheet('يحتاج متابعة',{views:[{rightToLeft:true,state:'frozen',ySplit:3}],properties:{tabColor:{argb:'FFDC2626'}}});
   sheetTitle(ws2,'يحتاج متابعة (متأخر أو خلال 30 يوم)',`${stamp} — ${it.length} بند`,6);
   writeTable(ws2,3,[
