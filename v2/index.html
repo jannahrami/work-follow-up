@@ -2061,7 +2061,7 @@ async function buildEmpReport(key){
   ws.pageSetup={orientation:'portrait',fitToPage:true,fitToWidth:1,fitToHeight:0,paperSize:9};
   return wb;
 }
-function empReportBtn(b,key){ withBusy(b, async()=>{ try{ const wb=await buildEmpReport(key); const e=empsList().find(x=>x.key===key); await downloadWorkbook(wb,`تقرير-${String((e&&e.name)||'موظف').replace(/[\\/:*?"<>|]/g,'').trim()}-${today()}.xlsx`); }catch(err){ fail(err); } }); }
+function empReportBtn(b,key){ withBusy(b, async()=>{ const wb=await buildEmpReport(key); const e=empsList().find(x=>x.key===key); await downloadWorkbook(wb,`تقرير-${String((e&&e.name)||'موظف').replace(/[\\/:*?"<>|]/g,'').trim()}-${today()}.xlsx`); }); }
 // ===== ربط بطاقة/سكن بموظف من القائمة =====
 function _lev(a,b){ if(Math.abs(a.length-b.length)>2) return 9; const m=[...Array(a.length+1)].map((_,i)=>[i]); for(let j=1;j<=b.length;j++) m[0][j]=j; for(let i=1;i<=a.length;i++) for(let j=1;j<=b.length;j++) m[i][j]=Math.min(m[i-1][j]+1,m[i][j-1]+1,m[i-1][j-1]+(a[i-1]===b[j-1]?0:1)); return m[a.length][b.length]; }
 function _simScore(a,b){ const t=x=>new Set(String(x||'').toLowerCase().replace(/[^a-z0-9؀-ۿ ]/g,' ').split(/\s+/).filter(w=>w.length>1)); const A=t(a),B=t(b); if(!A.size||!B.size) return 0; let n=0; A.forEach(w=>{ if(B.has(w)) n++; }); return n/Math.min(A.size,B.size); }
