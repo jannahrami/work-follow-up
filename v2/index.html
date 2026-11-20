@@ -2032,9 +2032,11 @@ async function buildEmpReport(key){
   const e = empsList().find(x=>x.key===key); if(!e) throw new Error('لم يتم العثور على الموظف');
   await loadExcelJS();
   const iq=String(e.iqama||'').trim();
-  const bal = e.rid ? state.bal.filter(b=>b.roster_id===e.rid) : (iq ? state.bal.filter(b=>String(b.iqama||'').trim()===iq) : []);
-  const hp  = e.rid ? state.hpeople.filter(h=>h.roster_id===e.rid) : (iq ? state.hpeople.filter(h=>String(h.id_number||'').trim()===iq) : []);
-  const pay = (e.rid ? state.pay.filter(r=>r.roster_id===e.rid) : (iq ? state.pay.filter(r=>String(r.iqama||'').trim()===iq) : [])).filter(r=>!r.is_expense).sort((a,b)=>a.month.localeCompare(b.month));
+  // المربوط بالموظف + غير المربوط بأحد وله نفس رقم الإقامة
+  const mine=(x,idf)=>(e.rid && x.roster_id===e.rid) || (!x.roster_id && iq && String(x[idf]||'').trim()===iq);
+  const bal = state.bal.filter(b=>mine(b,'iqama'));
+  const hp  = state.hpeople.filter(h=>mine(h,'id_number'));
+  const pay = state.pay.filter(r=>mine(r,'iqama')).filter(r=>!r.is_expense).sort((a,b)=>String(a.month||'').localeCompare(String(b.month||'')));
   const wb=new ExcelJS.Workbook(); wb.creator='Work follow up'; wb.created=new Date();
   const stamp='تاريخ التقرير: '+new Date().toLocaleDateString('ar-SA-u-ca-gregory-nu-latn',{day:'numeric',month:'long',year:'numeric'});
   const ws=wb.addWorksheet('تقرير الموظف',{views:[{rightToLeft:true,showGridLines:false}],properties:{tabColor:{argb:C.teal}}});
@@ -2263,6 +2265,13 @@ let dashAll = {now:false, soon:false, hid:false};
 function dChip(d){ if(d==null) return ''; return d<0 ? `<span class="dchip late">متأخر ${-d} يوم</span>` : d===0 ? `<span class="dchip late">اليوم</span>` : d<=7 ? `<span class="dchip near">باقي ${d} يوم</span>` : `<span class="dchip far">باقي ${d} يوم</span>`; }
 const SEC_IC = { lease:['📄','var(--blue-soft)'], house:['🏠','var(--purple-soft, #ede9fe)'], viol:['🚨','var(--red-soft)'], bal:['🪪','var(--amber-soft)'], health:['🩺','var(--green-soft)'], topics:['📋','var(--blue-soft)'], emps:['👥','var(--amber-soft)'] };
 let dashCache = [];
+// إقامات الموظفين اللي ما تغطيها بطاقة بلدية بنفس التاريخ (عشان ما تتكرر ولا تضيع لو اختلف التاريخ)
+function empIqOwn(){
+  if(state.role==='staff') return [];
+  const balIq=new Set(); state.bal.filter(e=>e.active!==false && e.iqama_expiry).forEach(e=>{ const dt=String(e.iqama_expiry).slice(0,10); if(e.roster_id) balIq.add('r'+e.roster_id+'|'+dt); if(e.iqama) balIq.add('i'+String(e.iqama).trim()+'|'+dt); });
+  return empsList().filter(o=>o.iqama_expiry && ['active','vacation'].includes(o.status||'active')).filter(o=>{ const dt=String(o.iqama_expiry).slice(0,10); return !(o.rid && balIq.has('r'+o.rid+'|'+dt)) && !(o.iqama && balIq.has('i'+String(o.iqama).trim()+'|'+dt)); })
+    .map(o=>({o,d:daysTo(o.iqama_expiry)})).filter(x=>x.d!=null);
+}
 function dashItems(){
   const it = [];
   // add(sec, d, title, sub, click, key, src[table,col,id], impact)
@@ -2287,9 +2296,8 @@ function dashItems(){
     if(i.iqd!=null && i.iqd>=0 && i.iqd<=30) add('bal', i.iqd, `إقامة: ${esc(e.name)}`, sub, click, `bal:${e.id}:iq:${e.iqama_expiry}`, src, 1);
     if(i.td!=null && i.td>=0 && i.td<=30) add('bal', i.td, `تثقيف صحي: ${esc(e.name)}`, sub, click, `bal:${e.id}:tr:${e.training_expiry}`, src); });
   // employees: iqama expiry from the employee card (only when the Baladiya card above doesn't already cover it)
-  if(state.role!=='staff'){ const balIq=new Set(); state.bal.filter(e=>e.active!==false && e.iqama_expiry).forEach(e=>{ if(e.roster_id) balIq.add('r'+e.roster_id); if(e.iqama) balIq.add('i'+String(e.iqama).trim()); });
-    empsList().filter(o=>o.iqama_expiry && ['active','vacation'].includes(o.status||'active') && !balIq.has('r'+o.rid) && !(o.iqama && balIq.has('i'+o.iqama))).forEach(o=>{ const d=daysTo(o.iqama_expiry); if(d==null || d<0 || d>30) return;
-      add('emps', d, `إقامة: ${esc(o.name)}`, esc(o.brand||''), `openEmp('${o.key}')`, `emps:${o.key}:iq:${o.iqama_expiry}`, null, 1); }); }
+  empIqOwn().forEach(({o,d})=>{ if(d<0 || d>30) return;
+    add('emps', d, `إقامة: ${esc(o.name)}`, esc(o.brand||''), `openEmp('${o.key}')`, `emps:${o.key}:iq:${o.iqama_expiry}`, null, 1); });
   // topics
   state.topics.filter(t=>t.status!=='done' && t.due_date).forEach(t=>{ const d=daysTo(t.due_date); if(d>30) return;
     add('topics', d, `معاملة: ${esc(t.title)}`, esc(t.category||t.party||''), `openTopic('${t.id}')`, `topics:${t.id}:${t.due_date}`, ['w2_topic_updates','topic_id',t.id], t.priority==='high'?1:0); });
@@ -2353,10 +2361,11 @@ function _renderHomeDash(){
   renderAlerts();
   renderIndicators();
   dashCache = dashItems(); const items=dashCache.filter(x=>!fuHidden(x)), hid=dashCache.filter(fuHidden), now=items.filter(x=>x.d<=7), soon=items.filter(x=>x.d>7 && x.d<=30);
-  const iqExp=X.BI.filter(i=>i.iqState==='expired').length, trExp=X.BI.filter(i=>i.tState==='expired').length;
+  const iqExp=X.BI.filter(i=>i.iqState==='expired').length, eIqExp=empIqOwn().filter(x=>x.d<0).length, trExp=X.BI.filter(i=>i.tState==='expired').length;
   const groups = [
     bExp.length && groupRow('bal', 'بطاقات بلدية منتهية', bExp.length, `${bNone.length} موظف بدون بطاقة`, "goBal('expired')"),
     iqExp && groupRow('bal', 'إقامات منتهية', iqExp, 'للموظفين في البطاقات البلدية', "goBal('iq')"),
+    eIqExp && groupRow('emps', 'إقامات منتهية', eIqExp, 'من خانة الموظفين (غير المكررة مع البلدية)', "goEmps('expired')"),
     trExp && groupRow('bal', 'تثقيف صحي منتهي', trExp, '', "goBal('train')"),
     pNone.length && groupRow('house', 'موظفين بدون سكن', pNone.length, '', "goPeople({Acc:'__none'})"),
   ].filter(Boolean);
