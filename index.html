@@ -2152,7 +2152,7 @@ async function bkDownload(data, day){
   await loadJSZip();
   const z = new JSZip(); files.forEach(([n,buf])=>z.file(n,buf));
   const blob = await z.generateAsync({type:'blob'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`WorkFollowUp-نسخة-${day||today()}.zip`; document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove();},4000);
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`WorkFollowUp-نسخة-${day||today()}.zip`; document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove();},120000);
 }
 async function bkLive(){
   const out={};
@@ -3090,7 +3090,7 @@ async function downloadWorkbook(wb, fname){
   const buf = await wb.xlsx.writeBuffer();
   const url = URL.createObjectURL(new Blob([buf], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
   const a = document.createElement('a'); a.href=url; a.download=fname; document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(()=>URL.revokeObjectURL(url), 4000);
+  setTimeout(()=>URL.revokeObjectURL(url), 120000); // iPhone Safari يسأل "تنزيل؟" — لو انمسح الرابط قبل الضغط يطلع WebKitBlobResource error 1
 }
 async function withBusy(btn, fn){
   const old = btn.innerHTML; btn.disabled=true; btn.innerHTML='⏳ جاري التجهيز...';
