@@ -845,6 +845,20 @@ body.staff[data-sec="home"] #subnav{display:none!important}
       </div>
       <div id="prBody"></div>
     </div>
+    <div id="sec-office" class="hidden">
+      <div class="sec-bar"><h1>🏢 المكتب التنفيذي</h1></div>
+      <div class="bnote" style="margin-bottom:12px">تكلّم السكرتير التنفيذي فقط. السكرتير يوزّع طلبك على المدراء، وكل مدير يقرأ بيانات إدارته فقط (قراءة بدون تعديل)، ثم يرجع لك تقرير موحّد بمصدر كل معلومة.</div>
+      <div id="ofOrg"></div>
+      <div class="item" style="cursor:default;margin-top:12px">
+        <h3>💬 طلب إلى السكرتير</h3>
+        <textarea class="field" id="ofIn" style="min-height:70px;margin-top:8px" placeholder="مثال: أعطني تقرير عن المخالفات المفتوحة ورواتب أكتوبر وعقود الإيجار القريبة من الانتهاء"></textarea>
+        <div id="ofSug" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"></div>
+        <div class="actions"><button class="btn btn-primary" id="ofSendBtn" onclick="ofSend()">📨 أرسل للسكرتير</button></div>
+      </div>
+      <div id="ofCur" style="margin-top:12px"></div>
+      <h2 style="margin-top:16px">🗂️ سجل الطلبات والتقارير</h2>
+      <div class="list" id="ofHist"></div>
+    </div>
     <div id="sec-reqs" class="hidden">
       <div class="sec-bar"><h1>📨 طلباتي</h1></div>
       <div class="bnote" style="margin-bottom:12px">كل إضافة أو تعديل أو حذف تقوم به يصل المدير أولاً، ولا يظهر في البيانات إلا بعد موافقته.</div>
@@ -1171,7 +1185,7 @@ const SUBTABS = {
   lease:  [['dash','لوحة المتابعة'],['list','العقود']],
 };
 
-const NAV = [['home','📊','المؤشرات'],['viol','🚨','المخالفات'],['bal','🏛️','البطاقات البلدية'],['house','🏠','السكنات'],['lease','📄','عقود الإيجار'],['emps','👥','الموظفين'],['pay','💰','الرواتب'],['report','📈','التقرير'],['backup','💾','نسخة احتياطية']];
+const NAV = [['home','📊','المؤشرات'],['office','🏢','المكتب التنفيذي'],['viol','🚨','المخالفات'],['bal','🏛️','البطاقات البلدية'],['house','🏠','السكنات'],['lease','📄','عقود الإيجار'],['emps','👥','الموظفين'],['pay','💰','الرواتب'],['report','📈','التقرير'],['backup','💾','نسخة احتياطية']];
 const TABS = [['home','📊','الرئيسية'],['viol','🚨','المخالفات'],['bal','🏛️','البلدية'],['emps','👥','الموظفين'],['more','☰','المزيد']];
 function allowedSec(k){ if(state.role!=='staff') return !['reqs'].includes(k); if(k==='report') return false; if(['home','reqs'].includes(k)) return true;
   if(k==='emps') return ['bal','health'].some(x=>state.staff.sections.includes(x)); return state.staff.sections.includes(k); }
@@ -1302,13 +1316,13 @@ function go(section, sub){
 }
 function applyRoute(){
   const [sec, sub] = (location.hash.replace('#','')||'home').split('/');
-  let section = ['viol','bal','house','lease','topics','backup','emps','pay','report','reqs','appr','staff'].includes(sec) ? sec : 'home';
-  if(state.role==='staff' && (['topics','backup','report','appr','staff','pay'].includes(section) || !allowedSec(section))) section='home';
+  let section = ['office','viol','bal','house','lease','topics','backup','emps','pay','report','reqs','appr','staff'].includes(sec) ? sec : 'home';
+  if(state.role==='staff' && (['office','topics','backup','report','appr','staff','pay'].includes(section) || !allowedSec(section))) section='home';
   if(state.role!=='staff' && section==='reqs') section='home';
   state.section = section; document.body.classList.toggle('home-wide', section==='home'); renderBrandBar();
   if(sub && SUBTABS[section]?.some(x=>x[0]===sub)) state.sub[section] = sub;
   if(state.role==='staff' && section==='home') state.sub.home='secs';
-  ['home','viol','health','bal','house','lease','topics','backup','emps','pay','report','reqs','appr','staff'].forEach(s=>$('#sec-'+s).classList.toggle('hidden', s!==section));
+  ['home','office','viol','health','bal','house','lease','topics','backup','emps','pay','report','reqs','appr','staff'].forEach(s=>$('#sec-'+s).classList.toggle('hidden', s!==section));
   $('#backBtn').classList.toggle('hidden', section==='home');
   const nav = $('#subnav'), tabs = SUBTABS[section];
   if(tabs){
@@ -1317,7 +1331,7 @@ function applyRoute(){
     tabs.forEach(([k])=>$(`#${section}-${k}`).classList.toggle('hidden', state.sub[section]!==k));
   } else { nav.classList.add('hidden'); nav.innerHTML=''; }
   $('#fab').classList.toggle('hidden', ['backup','emps','pay','report','reqs','appr','staff'].includes(section));
-  if(section==='backup') renderBackup(); if(section==='report') renderReport();
+  if(section==='backup') renderBackup(); if(section==='report') renderReport(); if(section==='office') renderOffice();
   if(section==='emps') renderEmps();
   if(section==='pay') renderPay();
   if(section==='reqs') renderReqs(); if(section==='appr') renderAppr(); if(section==='staff') renderStaff();
@@ -2026,6 +2040,63 @@ async function buildEmployeesWorkbook(list, opts={}){
     [...new Set(L.map(e=>e.brand).filter(Boolean))].sort().forEach(b=>{ const sub=L.filter(e=>e.brand===b); addGenericSheet(wb, b, E_COLS, sub, `${stamp} — ${sub.length} موظف`, (BRAND_COLOR[b]||'#475569').replace('#','FF'), 2); });
   }
   return wb;
+}
+// ===== المكتب التنفيذي (السكرتير + المدراء) — قراءة فقط عبر Edge Function w2-office =====
+const OF_AG={secretary:['🗂️','السكرتير التنفيذي','التنسيق والتقارير + المعاملات','w2_topics'],gov:['🏛️','مدير العلاقات الحكومية','المخالفات · البلدية · الكروت الصحية','w2_violations · w2_baladiya · w2_health_employees'],hr:['👥','مدير الموارد البشرية','الموظفين · الرواتب','w2_roster · w2_employees · w2_payroll'],property:['🏠','مدير العقارات والسكن','السكنات · عقود الإيجار','w2_leases · w2_housing_units · w2_housing_people']};
+const OF_ST={pending:['بالانتظار','#64748b'],running:['جاري العمل','#b45309'],done:['مكتملة','#15803d'],error:['فشلت','#b91c1c']};
+const OF_SUG=['تقرير عن المخالفات المفتوحة ومبالغها','إجمالي رواتب آخر شهر حسب العلامة','عقود الإيجار المنتهية أو القريبة من الانتهاء','كم موظف على رأس العمل وكم في إجازة؟'];
+let ofReqs=[], ofTasks=[], ofReps=[], ofSel=null, ofBusy=false, ofTimer=null;
+const ofChip=s=>{ const [l,c]=OF_ST[s]||[s,'#64748b']; return `<span class="chip" style="background:${c}1a;color:${c}">${l}</span>`; };
+async function ofLoad(){
+  const [a,b,c]=await Promise.all([
+    sb.from('w2_office_requests').select('*').order('created_at',{ascending:false}).limit(50),
+    sb.from('w2_office_tasks').select('*').order('created_at').limit(600),
+    sb.from('w2_office_reports').select('*').order('created_at',{ascending:false}).limit(50)]);
+  for(const r of [a,b,c]) if(r.error) throw r.error;
+  ofReqs=a.data; ofTasks=b.data; ofReps=c.data;
+}
+function ofOrgHtml(){
+  const box=(k,big)=>{ const [ic,n,d,t]=OF_AG[k]; const T=ofTasks.filter(x=>x.agent===k), run=T.filter(x=>x.status==='running').length;
+    return `<div class="item" style="cursor:default;flex:1;min-width:150px;${big?'border-color:var(--blue)':''}"><h3>${ic} ${n}</h3><div class="meta"><span>${d}</span></div><div class="meta"><span dir="ltr" style="font-size:11px">${t}</span></div><div class="meta"><span>المهام: ${T.filter(x=>x.status==='done').length} مكتملة${run?` • ${run} جارية`:''}</span></div></div>`; };
+  return `<div class="item" style="cursor:default;text-align:center"><h3>👔 الرئيس التنفيذي (CEO)</h3><div class="meta" style="justify-content:center"><span>صاحب القرار النهائي</span></div></div>
+    <div style="text-align:center;color:var(--muted)">⬇</div>${box('secretary',true)}<div style="text-align:center;color:var(--muted)">⬇</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">${box('gov')}${box('hr')}${box('property')}</div>`;
+}
+function ofReqHtml(r){
+  const T=ofTasks.filter(x=>x.request_id===r.id), rep=ofReps.find(x=>x.request_id===r.id);
+  const tasks=T.map(t=>{ const [ic,n]=OF_AG[t.agent]||['•',t.agent];
+    return `<div class="item" style="cursor:default;margin-top:8px"><div class="row"><h3>${ic} ${n}</h3>${ofChip(t.status)}</div><div class="meta"><span>المهمة: ${esc(t.instruction)}</span></div>${(t.sources||[]).length?`<div class="meta"><span dir="ltr" style="font-size:11px">${t.sources.map(esc).join(' · ')}</span></div>`:''}${t.result?`<details style="margin-top:6px"><summary>رد المدير</summary><div style="white-space:pre-wrap;margin-top:6px">${esc(t.result)}</div></details>`:''}</div>`; }).join('');
+  return `<div class="item" style="cursor:default"><div class="row"><h3>📝 ${esc(r.prompt)}</h3>${ofChip(r.status)}</div><div class="meta"><span>${new Date(r.created_at).toLocaleString('ar-SA-u-ca-gregory-nu-latn')}</span></div>
+    ${r.status==='running'||r.status==='pending'?'<div class="bnote" style="margin-top:8px">⏳ السكرتير يتابع المهام مع المدراء…</div>':''}
+    ${r.error?`<div class="bnote" style="margin-top:8px">⚠️ ${esc(r.error)}</div>`:''}
+    ${rep?`<div style="margin-top:10px"><b>📄 تقرير السكرتير</b><div style="white-space:pre-wrap;margin-top:6px;line-height:1.8">${esc(rep.body)}</div></div>`:''}
+    ${tasks?`<details ${r.status==='done'?'':'open'} style="margin-top:10px"><summary>تفاصيل المهام المرسلة للإدارات (${T.length})</summary>${tasks}</details>`:''}</div>`;
+}
+async function renderOffice(){
+  if(state.role==='staff') return;
+  try{ await ofLoad(); }catch(e){ $('#ofHist').innerHTML=`<div class="bnote">تعذّر تحميل السجل: ${esc(e.message||String(e))}</div>`; return; }
+  $('#ofOrg').innerHTML=ofOrgHtml();
+  $('#ofSug').innerHTML=OF_SUG.map(t=>`<button class="btn btn-ghost btn-sm" onclick="$('#ofIn').value=this.textContent">${esc(t)}</button>`).join('');
+  const cur=ofReqs.find(r=>r.id===ofSel) || null;
+  $('#ofCur').innerHTML=cur?ofReqHtml(cur):'';
+  $('#ofHist').innerHTML=ofReqs.length?ofReqs.filter(r=>r.id!==ofSel).map(r=>{ const n=ofTasks.filter(x=>x.request_id===r.id).length;
+    return `<div class="item" onclick="ofSel='${r.id}';renderOffice();window.scrollTo({top:0,behavior:'smooth'})"><div class="row"><h3>${esc(r.prompt.slice(0,120))}</h3>${ofChip(r.status)}</div><div class="meta"><span>${new Date(r.created_at).toLocaleString('ar-SA-u-ca-gregory-nu-latn')}</span><span>${n} مهام</span>${ofReps.some(x=>x.request_id===r.id)?'<span>📄 تقرير</span>':''}</div></div>`; }).join(''):'<div class="bnote">ما فيه طلبات بعد.</div>';
+  $('#ofSendBtn').disabled=ofBusy;
+}
+async function ofSend(){
+  const t=$('#ofIn').value.trim(); if(!t||ofBusy) return toast(t?'فيه طلب قيد التنفيذ':'اكتب طلبك أولاً');
+  ofBusy=true; $('#ofSendBtn').disabled=true;
+  const ins=await sb.from('w2_office_requests').insert({prompt:t.slice(0,3000)}).select().single();
+  if(ins.error){ ofBusy=false; $('#ofSendBtn').disabled=false; return fail(ins.error); }
+  $('#ofIn').value=''; ofSel=ins.data.id; await renderOffice();
+  ofTimer=setInterval(()=>{ if(state.section==='office') renderOffice(); },4000);
+  let res; try{ res=await sb.functions.invoke('w2-office',{body:{request_id:ins.data.id}}); }catch(e){ res={error:e}; }
+  clearInterval(ofTimer); ofBusy=false;
+  if(res.error) toast('⚠️ انقطع الاتصال بالمكتب — راجع حالة الطلب في السجل');
+  else if(res.data&&res.data.error==='not_configured') toast('الوكلاء غير مفعّلين: مفتاح GROQ_API_KEY غير موجود في Supabase');
+  else if(res.data&&res.data.status==='error') toast('⚠️ تعذّر إكمال الطلب');
+  else toast('📬 وصل تقرير السكرتير');
+  if(state.section==='office') await renderOffice(); else renderSide();
 }
 // ===== تقرير موظف واحد (إكسل) — يجمع الموظف + البلدية + السكن + الرواتب =====
 async function buildEmpReport(key){
