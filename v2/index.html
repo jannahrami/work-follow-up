@@ -1400,7 +1400,7 @@ function empsList(){
   state.hpeople.filter(e=>e.active!==false && byR.has(e.roster_id)).forEach(e=>{ const o=byR.get(e.roster_id); fill(o,'brand',e.brand); o.src.add('سكن'); });
   const extra=[];
   (state.emps||[]).forEach(m=>{ const o=[...byR.values()].find(x=>x.iqama && x.iqama===String(m.iqama||'').trim());
-    if(o){ o.master=m.id; ['brand','phone','location','iqama_expiry'].forEach(f=>{ if(m[f]) o[f]=m[f]; }); o.notes=m.notes||''; o.src.add('يدوي'); if(m.muqeem_at){ o.mq=m; o.src.add('مقيم'); } } });
+    if(o){ o.master=m.id; ['brand','phone','location','iqama_expiry'].forEach(f=>{ if(m[f]) o[f]=m[f]; }); o.notes=m.notes||''; o.src.add('يدوي'); o.mq=m; if(m.muqeem_at) o.src.add('مقيم'); } });
   const B=state.brand;
   return [...byR.values()].filter(o=>!B || o.brand===B).sort((a,b)=>(a.name||'').localeCompare(b.name||'','en'));
 }
@@ -1518,8 +1518,6 @@ function openEmp(key){ eCur=key||'';
     
     ${hp.map(h=>link('🏠 سكن: '+esc(h.accommodation||'بدون'),`openPerson('${h.id}')`,'فتح')).join('')}
     ${prEmpCard(e)}
-    ${e&&e.mq?(()=>{ const m=e.mq, r=[['الاسم (مقيم)',m.name_ar],['المهنة',m.profession],['رقم الجواز',m.passport_no],['انتهاء الجواز',m.passport_expiry?fmtDate(m.passport_expiry)+(daysTo(m.passport_expiry)<0?' — منتهي':''):''],['إصدار الإقامة',m.iqama_issue?fmtDate(m.iqama_issue):''],['انتهاء الإقامة (هجري)',m.iqama_expiry_hijri],['تاريخ الميلاد',m.birth_date?fmtDate(m.birth_date):''],['خارج المملكة',m.outside_ksa],['رقم صاحب العمل',m.employer_no]].filter(x=>x[1]);
-      return `<div class="item" style="cursor:default;margin-top:8px"><h3>🛂 بيانات مقيم <small style="font-weight:400">(تحديث ${fmtDate(m.muqeem_at)})</small></h3>${r.map(([k,v])=>`<div class="meta"><span>${k}: <b ${/جواز|الإقامة|الميلاد|صاحب/.test(k)?'dir="ltr"':''}>${esc(v)}</b></span></div>`).join('')}${m.outside_ksa==='نعم'?'<div class="bnote" style="margin-top:6px">⚠️ خارج المملكة حسب مقيم</div>':''}</div>`; })():''}
     ${(!staff&&e&&e.rid)?`<button class="btn btn-primary" style="margin-top:8px;width:100%" onclick="empReportBtn(this,'${e.key}')">📄 تقرير الموظف (Excel)</button>`:''}
     ${staff?'<div class="bnote">للعرض فقط — التعديل للمدير.</div>':''}
     <label>الاسم</label><input class="field" id="feName" value="${esc(x.name)}" ${ro}>
@@ -1533,6 +1531,18 @@ function openEmp(key){ eCur=key||'';
     ${x.hire_date||x.gender?`<div class="grid2">${x.hire_date?`<div><label>تاريخ التعيين</label><input class="field" value="${esc(x.hire_date)}" dir="ltr" readonly></div><div><label>مدة الخدمة</label><input class="field" value="${esc(svcLen(x.hire_date))}" readonly></div>`:''}${x.gender?`<div><label>الجنس</label><input class="field" value="${GENDER_LBL[x.gender]||''}" readonly></div>`:''}</div>`:''}
     <div class="grid2"><div><label>الرقم الوظيفي</label><input class="field num" id="feNo" value="${esc(x.emp_no)}" dir="ltr" ${ro}></div>
       <div>${e&&e.rid?`<label>الحالة الوظيفية</label><select class="field" id="feSt" ${ro}>${['active','vacation','settlement','terminated'].map(k=>`<option value="${k}" ${(x.status||'active')===k?'selected':''}>${EMP_ST_LBL[k]}</option>`).join('')}</select><label>العلامة</label><select class="field" id="feTag" ${ro}><option value="">بدون</option>${['new','return'].map(k=>`<option value="${k}" ${(x.tag||'')===k?'selected':''}>${TAG_LBL[k]}</option>`).join('')}</select><label style="display:flex;gap:6px;align-items:center;margin-top:8px"><input type="checkbox" id="feNameOk" ${((state.roster||[]).find(q=>q.id===e.rid)||{}).name_ok?'checked':''} ${ro}> شخص مختلف، نفس الاسم</label>`:''}</div></div>
+    ${(()=>{ const m=x.mq||{}, d=v=>v?String(v).slice(0,10):'';
+      return `<div class="item" style="cursor:default;margin-top:10px"><h3>🛂 بيانات الإقامة والجواز ${m.muqeem_at?`<small style="font-weight:400">(آخر تحديث من مقيم ${fmtDate(m.muqeem_at)})</small>`:''}</h3>
+      ${m.outside_ksa==='نعم'?'<div class="bnote">⚠️ خارج المملكة</div>':''}${m.passport_expiry&&daysTo(m.passport_expiry)<0?'<div class="bnote">⚠️ الجواز منتهي</div>':''}
+      <label>الاسم بالعربي</label><input class="field" id="mq_name_ar" value="${esc(m.name_ar||'')}" ${ro}>
+      <div class="grid2"><div><label>المهنة</label><input class="field" id="mq_profession" value="${esc(m.profession||'')}" ${ro}></div>
+        <div><label>رقم صاحب العمل</label><input class="field num" id="mq_employer_no" value="${esc(m.employer_no||'')}" dir="ltr" ${ro}></div></div>
+      <div class="grid2"><div><label>رقم الجواز</label><input class="field num" id="mq_passport_no" value="${esc(m.passport_no||'')}" dir="ltr" ${ro}></div>
+        <div><label>انتهاء الجواز</label><input class="field" type="date" id="mq_passport_expiry" value="${d(m.passport_expiry)}" ${ro}></div></div>
+      <div class="grid2"><div><label>إصدار الإقامة</label><input class="field" type="date" id="mq_iqama_issue" value="${d(m.iqama_issue)}" ${ro}></div>
+        <div><label>انتهاء الإقامة (هجري)</label><input class="field num" id="mq_iqama_expiry_hijri" value="${esc(m.iqama_expiry_hijri||'')}" dir="ltr" placeholder="1448-07-15" ${ro}></div></div>
+      <div class="grid2"><div><label>تاريخ الميلاد</label><input class="field" type="date" id="mq_birth_date" value="${d(m.birth_date)}" ${ro}></div>
+        <div><label>خارج المملكة</label><select class="field" id="mq_outside_ksa" ${ro?'disabled':''}><option value=""${!m.outside_ksa?' selected':''}>—</option><option${m.outside_ksa==='لا'?' selected':''}>لا</option><option${m.outside_ksa==='نعم'?' selected':''}>نعم</option></select></div></div></div>`; })()}
     <label>ملاحظاتي</label><textarea class="field" id="feNotes" style="min-height:60px" ${ro}>${esc(x.notes||'')}</textarea>
     ${staff?'':`<div class="actions"><button class="btn btn-primary" onclick="saveEmp()">حفظ</button>${e&&e.master?`<button class="btn btn-danger" onclick="delEmp()">حذف تعديلاتي</button>`:''}</div>
     <div class="bnote" style="margin-top:8px">الحفظ هنا يضيف بياناتك فوق بيانات الأقسام الأخرى، ولا يغيّرها.</div>`}`);
@@ -1550,6 +1560,7 @@ async function saveEmp(){ const key=eCur;
   const e = key ? empsList().find(x=>x.key===key) : null;
   const v = id => $('#'+id).value.trim();
   const row = { name:v('feName'), iqama:v('feIq')||null, nationality:v('feNat'), brand:v('feBrand'), phone:v('fePhone'), location:v('feLoc'), emp_no:v('feNo'), iqama_expiry:$('#feExp').value||null, notes:v('feNotes') };
+  if($('#mq_name_ar')) ['name_ar','profession','employer_no','passport_no','iqama_expiry_hijri','outside_ksa'].forEach(k=>row[k]=$('#mq_'+k).value.trim()), ['passport_expiry','iqama_issue','birth_date'].forEach(k=>row[k]=$('#mq_'+k).value||null);
   if(!row.name && !row.iqama) return toast('اكتب الاسم أو رقم الإقامة');
   if(row.iqama && !/^\d{10}$/.test(row.iqama)) { if(!confirm('رقم الإقامة ليس 10 أرقام. تبغى تكمل؟')) return; }
   if(e && e.rid){ // موظف من القائمة الثابتة: الاسم والرقم الوظيفي والجنسية والحالة تُحفظ في القائمة
