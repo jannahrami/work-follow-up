@@ -2120,12 +2120,32 @@ const OPS_CSS=`<style>
 .oc .n.p.closed::after{content:' +';}
 .oc li.x>ul{display:none}
 </style>`;
-function opsNode(n){ const k=(n.c||[]).length; return `<li><span class="n${k?' p':''}" ${k?`onclick="const li=this.parentElement;li.classList.toggle('x');this.classList.toggle('closed')"`:''}>${esc(n.t)}</span>${k?`<ul>${n.c.map(opsNode).join('')}</ul>`:''}</li>`; }
+let opsEditMode=false, opsSel=null, opsCur=null;
+function opsNode(n,path){ const k=(n.c||[]).length, sel=opsEditMode&&opsSel===path;
+  const click = opsEditMode ? `opsPick('${path}')` : (k?"const li=this.parentElement;li.classList.toggle('x');this.classList.toggle('closed')":'');
+  return `<li><span class="n${k?' p':''}" style="${sel?'outline:3px solid #f59e0b;outline-offset:2px;':''}${opsEditMode?'cursor:pointer;':''}" ${click?`onclick="${click}"`:''}>${esc(n.t)}</span>${k?`<ul>${n.c.map((c,ix)=>opsNode(c,path+'.'+ix)).join('')}</ul>`:''}</li>`; }
+function opsAt(tree,path){ const ix=path.split('.').map(Number); let arr=tree, node=null, parent=null;
+  ix.forEach((k,d)=>{ parent=arr; node=arr[k]; arr=node.c=node.c||[]; }); return {node, parent, i:ix[ix.length-1]}; }
+function opsPick(path){ opsSel=opsSel===path?null:path; opsChart(opsCur); }
+async function opsSaveTree(x){ const r=await sb.from('w2_ops_structure').update({tree:x.tree,updated_at:new Date().toISOString()}).eq('id',x.id); if(r.error){ fail(r.error); return false; } return true; }
+async function opsAct(a){
+  const x=opsRows.find(r=>r.id===opsCur); if(!x) return; x.tree=x.tree||[];
+  if(a==='root'){ const t=prompt('نص المربع الجديد:'); if(!t||!t.trim()) return; x.tree.push({t:t.trim(),c:[]}); }
+  else { if(!opsSel) return; const {node,parent,i}=opsAt(x.tree,opsSel);
+    if(a==='add'){ const t=prompt('نص المربع الجديد تحت «'+node.t+'»:'); if(!t||!t.trim()) return; node.c.push({t:t.trim(),c:[]}); }
+    if(a==='ren'){ const t=prompt('تعديل النص:',node.t); if(t==null||!t.trim()) return; node.t=t.trim(); }
+    if(a==='del'){ const k=(node.c||[]).length; if(!confirm(k?`حذف «${node.t}» وكل اللي تحته (${k})؟`:`حذف «${node.t}»؟`)) return; parent.splice(i,1); opsSel=null; }
+  }
+  if(await opsSaveTree(x)){ toast('تم الحفظ'); opsChart(x.id); }
+}
 function opsChart(id){
-  const x=opsRows.find(r=>r.id===id); if(!x) return; const c=x.kind==='head'?'#1e293b':opsColor(x);
+  const x=opsRows.find(r=>r.id===id); if(!x) return; if(opsCur!==id){ opsSel=null; } opsCur=id; const c=x.kind==='head'?'#1e293b':opsColor(x);
   const title=x.kind==='head'?`${esc(x.name)}<div style="font-size:13px;font-weight:400">${esc(x.lead)}</div>`:`${esc(x.name)} ${esc(x.lead)} ${esc(x.supervisors)} ${esc(x.employees)}`;
-  modal(head(title) + OPS_CSS + ((x.tree||[]).length?`<div class="oc" style="--oc:${c}"><ul>${x.tree.map(opsNode).join('')}</ul></div>`:'<div class="bnote">لا يوجد رسم لهذا البند في الملف.</div>')
-    + `<div class="actions"><button class="btn btn-ghost" onclick="opsEdit('${x.id}')">تعديل</button><button class="btn btn-ghost" onclick="closeModal()">إغلاق</button></div>`);
+  const sel=opsSel&&x.tree&&(()=>{ try{ return opsAt(x.tree,opsSel).node; }catch(e){ return null; } })();
+  const bar = opsEditMode ? `<div class="bnote" style="margin:8px 0;display:flex;gap:6px;flex-wrap:wrap;align-items:center">${sel?`<b>المحدد: ${esc(sel.t)}</b><button class="btn btn-ghost btn-sm" onclick="opsAct('add')">➕ إضافة مربع تحته</button><button class="btn btn-ghost btn-sm" onclick="opsAct('ren')">✏️ تعديل النص</button><button class="btn btn-ghost btn-sm" onclick="opsAct('del')">🗑 حذف</button>`:'<span>اضغط على أي مربع لتحديده.</span>'}${(x.tree||[]).length?'':'<button class="btn btn-ghost btn-sm" onclick="opsAct(\'root\')">➕ إضافة أول مربع</button>'}</div>` : '';
+  modal(head(title) + OPS_CSS + `<div style="margin-bottom:6px"><button class="btn ${opsEditMode?'btn-primary':'btn-ghost'} btn-sm" onclick="opsEditMode=!opsEditMode;opsSel=null;opsChart('${x.id}')">✏️ وضع التعديل${opsEditMode?': شغّال':''}</button></div>` + bar
+    + ((x.tree||[]).length?`<div class="oc" style="--oc:${c}"><ul>${x.tree.map((n,ix)=>opsNode(n,String(ix))).join('')}</ul></div>`:'<div class="bnote">لا يوجد رسم لهذا البند في الملف.</div>')
+    + `<div class="actions"><button class="btn btn-ghost" onclick="opsEdit('${x.id}')">تعديل البطاقة</button><button class="btn btn-ghost" onclick="opsEditMode=false;closeModal()">إغلاق</button></div>`);
   const sh=document.querySelector('#modalRoot .sheet'); if(sh) sh.style.maxWidth='min(98vw,1400px)';
 }
 function opsEdit(id){
