@@ -1400,7 +1400,7 @@ function empsList(){
   state.hpeople.filter(e=>e.active!==false && byR.has(e.roster_id)).forEach(e=>{ const o=byR.get(e.roster_id); fill(o,'brand',e.brand); o.src.add('سكن'); });
   const extra=[];
   (state.emps||[]).forEach(m=>{ const o=[...byR.values()].find(x=>x.iqama && x.iqama===String(m.iqama||'').trim());
-    if(o){ o.master=m.id; ['brand','phone','location','iqama_expiry'].forEach(f=>{ if(m[f]) o[f]=m[f]; }); o.notes=m.notes||''; o.src.add('يدوي'); } });
+    if(o){ o.master=m.id; ['brand','phone','location','iqama_expiry'].forEach(f=>{ if(m[f]) o[f]=m[f]; }); o.notes=m.notes||''; o.src.add('يدوي'); if(m.muqeem_at){ o.mq=m; o.src.add('مقيم'); } } });
   const B=state.brand;
   return [...byR.values()].filter(o=>!B || o.brand===B).sort((a,b)=>(a.name||'').localeCompare(b.name||'','en'));
 }
@@ -1518,6 +1518,8 @@ function openEmp(key){ eCur=key||'';
     
     ${hp.map(h=>link('🏠 سكن: '+esc(h.accommodation||'بدون'),`openPerson('${h.id}')`,'فتح')).join('')}
     ${prEmpCard(e)}
+    ${e&&e.mq?(()=>{ const m=e.mq, r=[['الاسم (مقيم)',m.name_ar],['المهنة',m.profession],['رقم الجواز',m.passport_no],['انتهاء الجواز',m.passport_expiry?fmtDate(m.passport_expiry)+(daysTo(m.passport_expiry)<0?' — منتهي':''):''],['إصدار الإقامة',m.iqama_issue?fmtDate(m.iqama_issue):''],['انتهاء الإقامة (هجري)',m.iqama_expiry_hijri],['تاريخ الميلاد',m.birth_date?fmtDate(m.birth_date):''],['خارج المملكة',m.outside_ksa],['رقم صاحب العمل',m.employer_no]].filter(x=>x[1]);
+      return `<div class="item" style="cursor:default;margin-top:8px"><h3>🛂 بيانات مقيم <small style="font-weight:400">(تحديث ${fmtDate(m.muqeem_at)})</small></h3>${r.map(([k,v])=>`<div class="meta"><span>${k}: <b ${/جواز|الإقامة|الميلاد|صاحب/.test(k)?'dir="ltr"':''}>${esc(v)}</b></span></div>`).join('')}${m.outside_ksa==='نعم'?'<div class="bnote" style="margin-top:6px">⚠️ خارج المملكة حسب مقيم</div>':''}</div>`; })():''}
     ${(!staff&&e&&e.rid)?`<button class="btn btn-primary" style="margin-top:8px;width:100%" onclick="empReportBtn(this,'${e.key}')">📄 تقرير الموظف (Excel)</button>`:''}
     ${staff?'<div class="bnote">للعرض فقط — التعديل للمدير.</div>':''}
     <label>الاسم</label><input class="field" id="feName" value="${esc(x.name)}" ${ro}>
@@ -2285,7 +2287,7 @@ async function buildEmpReport(key){
   const tbl=(cols,items,empty)=>{ if(!items.length){ const c=ws.getCell(r,1); c.value=empty; c.font={name:FONT,size:10,color:{argb:C.muted}}; c.alignment={horizontal:'right',readingOrder:'rtl'}; r+=2; return; } r=writeTable(ws,r,cols,items,false)+1; };
   const T=(h,get,type,wrap)=>({h,get,type:type||'code',wrap});
   sec('البيانات الأساسية');
-  const info=[['الاسم',e.name],['رقم الإقامة',e.iqama],['تاريخ انتهاء الإقامة',e.iqama_expiry],['الرقم الوظيفي',e.emp_no],['الجنسية',e.nationality],['العلامة',e.brand],['مركز التكلفة',e.cost_center],['الموقع',e.location],['الجوال',e.phone],['الحالة الوظيفية',EMP_ST_LBL[e.status]||''],['تاريخ التعيين',e.hire_date],['مدة الخدمة',svcLen(e.hire_date)],['الجنس',GENDER_LBL[e.gender]||''],['ملاحظات',e.notes]].filter(x=>x[1]!==''&&x[1]!=null).map(([k,v])=>({k,v}));
+  const info=[['الاسم',e.name],['رقم الإقامة',e.iqama],['تاريخ انتهاء الإقامة',e.iqama_expiry],['الرقم الوظيفي',e.emp_no],['الجنسية',e.nationality],['العلامة',e.brand],['مركز التكلفة',e.cost_center],['الموقع',e.location],['الجوال',e.phone],['الحالة الوظيفية',EMP_ST_LBL[e.status]||''],['تاريخ التعيين',e.hire_date],['مدة الخدمة',svcLen(e.hire_date)],['الجنس',GENDER_LBL[e.gender]||''],...(e.mq?[['الاسم (مقيم)',e.mq.name_ar],['المهنة (مقيم)',e.mq.profession],['رقم الجواز',e.mq.passport_no],['انتهاء الجواز',e.mq.passport_expiry||''],['إصدار الإقامة',e.mq.iqama_issue||''],['انتهاء الإقامة (هجري)',e.mq.iqama_expiry_hijri],['تاريخ الميلاد',e.mq.birth_date||''],['خارج المملكة',e.mq.outside_ksa],['رقم صاحب العمل',e.mq.employer_no],['تحديث مقيم',e.mq.muqeem_at||'']]:[]),['ملاحظات',e.notes]].filter(x=>x[1]!==''&&x[1]!=null).map(([k,v])=>({k,v}));
   tbl([T('البند',x=>x.k),T('القيمة',x=>x.v,'code',true)],info,'—');
   sec('البطاقات البلدية');
   tbl([T('رقم البطاقة',x=>x.baladia_no||''),T('انتهاء البطاقة',x=>x.card_expiry,'date'),T('الحالة',x=>B_LBL[bInfo(x).state]||''),T('انتهاء التثقيف',x=>x.training_expiry,'date'),T('نتيجة الاختبار',x=>x.exam_result==='PASSED'?'ناجح':x.exam_result?'راسب':''),T('ملاحظات',x=>[x.status_note,x.notes].filter(Boolean).join(' | '),'code',true)],bal,'لا توجد بطاقة بلدية مربوطة');
