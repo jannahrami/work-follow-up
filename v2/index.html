@@ -5211,7 +5211,7 @@ init();
 <script>
 (function(){
   const fab=document.getElementById('agFab'),panel=document.getElementById('agPanel'),box=document.getElementById('agMsgs'),inp=document.getElementById('agIn');
-  let hist=[],busy=false,speakOn=false;
+  let hist=[],busy=false,speakOn=true; try{ speakOn=localStorage.getItem('w2_voice')!=='off'; }catch(_){}
   const add=(t,c)=>{const d=document.createElement('div');d.className='agb '+c;d.textContent=t;box.appendChild(d);box.scrollTop=box.scrollHeight;return d};
   const SUG=['كم مخالفة مفتوحة وكم مبلغها؟','أي بطاقات بلدية تنتهي خلال 60 يوماً؟','أي عقود سكن أو إيجار قريبة الانتهاء؟','كم ساكن بدون سكن؟','كم إجمالي رواتب أكتوبر وكم موظف؟','كم تكلفة كل براند في أكتوبر؟'];
   function welcome(){
@@ -5224,9 +5224,12 @@ init();
   function say(t){ if(!TTS||!speakOn)return; voiceSpeak(t); }
   const spk=document.getElementById('agSpk');
   if(!TTS) spk.style.display='none';
-  spk.onclick=()=>{speakOn=!speakOn;spk.textContent=speakOn?'🔊':'🔇';if(!speakOn&&TTS)TTS.cancel()};
+  spk.textContent=speakOn?'🔊':'🔇';
+  spk.onclick=()=>{speakOn=!speakOn;spk.textContent=speakOn?'🔊':'🔇';try{localStorage.setItem('w2_voice',speakOn?'on':'off')}catch(_){};if(!speakOn&&TTS)TTS.cancel()};
+  // آيفون يسمح بالصوت بعد لمسة المستخدم فقط: نفتح الصوت لحظة الإرسال
+  const unlock=()=>{ if(TTS&&speakOn){ try{ TTS.cancel(); const u=new SpeechSynthesisUtterance(' '); u.volume=0; TTS.speak(u); }catch(_){} } };
   async function send(text){
-    if(busy||!text.trim())return; busy=true;
+    if(busy||!text.trim())return; busy=true; unlock();
     add(text,'u'); hist.push({role:'user',content:text});
     const w=add('… السكرتير يتابع مع المدراء، لحظات','a');
     try{
