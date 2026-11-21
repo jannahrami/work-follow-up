@@ -861,7 +861,7 @@ body.staff[data-sec="home"] #subnav{display:none!important}
       <div class="list" id="ofHist"></div>
     </div>
     <div id="sec-ops" class="hidden">
-      <div class="sec-bar"><h1>🏗️ Operations structure</h1><button class="btn btn-ghost btn-sm" onclick="opsEdit()">+ إضافة</button></div>
+      <div class="sec-bar"><h1>🏗️ Operations structure</h1><div><button class="btn btn-ghost btn-sm" onclick="opsPdf(opsRows.map(r=>r.id))">⬇ تحميل الكل PDF</button> <button class="btn btn-ghost btn-sm" onclick="opsEdit()">+ إضافة</button></div></div>
       <div id="opsBody"></div>
     </div>
     <div id="sec-reqs" class="hidden">
@@ -2138,6 +2138,29 @@ async function opsAct(a){
   }
   if(await opsSaveTree(x)){ toast('تم الحفظ'); opsChart(x.id); }
 }
+// تحميل الهيكل PDF: نافذة طباعة بصفحات عرضية (كل رسم في صفحة) — المستخدم يختار "حفظ PDF"
+function opsTitle(x){ return x.kind==='head'?`${x.name} — ${x.lead}`:`${x.name} ${x.lead} ${x.supervisors} ${x.employees}`; }
+function opsPdf(ids){
+  const rows=ids.map(id=>opsRows.find(r=>r.id===id)).filter(x=>x&&(x.tree||[]).length);
+  if(!rows.length) return toast('ما فيه رسم للتحميل');
+  const css=OPS_CSS.replace(/<\/?style>/g,'');
+  const pages=rows.map(x=>{ const c=x.kind==='head'?'#1e293b':opsColor(x);
+    return `<section class="pg"><h2 style="color:${c}">${esc(opsTitle(x))}</h2><div class="fit"><div class="oc" style="--oc:${c}"><ul>${x.tree.map((n,ix)=>opsNode(n,String(ix))).join('')}</ul></div></div></section>`; }).join('');
+  const w=window.open('','_blank'); if(!w) return toast('اسمح بالنوافذ المنبثقة ثم حاول مرة ثانية');
+  w.document.write(`<!DOCTYPE html><html dir="ltr"><head><meta charset="utf-8"><title>Operations structure</title><style>${css}
+    @page{size:A4 landscape;margin:10mm}
+    body{font-family:Tahoma,Arial,sans-serif;margin:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .pg{page-break-after:always;break-after:page;height:185mm;display:flex;flex-direction:column;overflow:hidden}
+    .pg:last-child{page-break-after:auto;break-after:auto}
+    h2{margin:0 0 6px;font-size:16px;text-align:center}
+    .fit{flex:1;display:flex;justify-content:center;align-items:flex-start;overflow:hidden}
+    .oc{overflow:visible}.oc .n{cursor:default}.oc .n.p.closed::after{content:''}
+  </style></head><body>${pages}<script>
+    window.onload=function(){ document.querySelectorAll('.pg').forEach(function(pg){ var f=pg.querySelector('.fit'), oc=pg.querySelector('.oc'); var cw=oc.scrollWidth, ch=oc.scrollHeight, aw=f.clientWidth, ah=f.clientHeight; var k=Math.min(1, aw/cw, ah/ch); oc.style.zoom=k; });
+      setTimeout(function(){ window.print(); }, 300); };
+  <\/script></body></html>`);
+  w.document.close();
+}
 function opsChart(id){
   const x=opsRows.find(r=>r.id===id); if(!x) return; if(opsCur!==id){ opsSel=null; } opsCur=id; const c=x.kind==='head'?'#1e293b':opsColor(x);
   const title=x.kind==='head'?`${esc(x.name)}<div style="font-size:13px;font-weight:400">${esc(x.lead)}</div>`:`${esc(x.name)} ${esc(x.lead)} ${esc(x.supervisors)} ${esc(x.employees)}`;
@@ -2145,7 +2168,7 @@ function opsChart(id){
   const bar = opsEditMode ? `<div class="bnote" style="margin:8px 0;display:flex;gap:6px;flex-wrap:wrap;align-items:center">${sel?`<b>المحدد: ${esc(sel.t)}</b><button class="btn btn-ghost btn-sm" onclick="opsAct('add')">➕ إضافة مربع تحته</button><button class="btn btn-ghost btn-sm" onclick="opsAct('ren')">✏️ تعديل النص</button><button class="btn btn-ghost btn-sm" onclick="opsAct('del')">🗑 حذف</button>`:'<span>اضغط على أي مربع لتحديده.</span>'}${(x.tree||[]).length?'':'<button class="btn btn-ghost btn-sm" onclick="opsAct(\'root\')">➕ إضافة أول مربع</button>'}</div>` : '';
   modal(head(title) + OPS_CSS + `<div style="margin-bottom:6px"><button class="btn ${opsEditMode?'btn-primary':'btn-ghost'} btn-sm" onclick="opsEditMode=!opsEditMode;opsSel=null;opsChart('${x.id}')">✏️ وضع التعديل${opsEditMode?': شغّال':''}</button></div>` + bar
     + ((x.tree||[]).length?`<div class="oc" style="--oc:${c}"><ul>${x.tree.map((n,ix)=>opsNode(n,String(ix))).join('')}</ul></div>`:'<div class="bnote">لا يوجد رسم لهذا البند في الملف.</div>')
-    + `<div class="actions"><button class="btn btn-ghost" onclick="opsEdit('${x.id}')">تعديل البطاقة</button><button class="btn btn-ghost" onclick="opsEditMode=false;closeModal()">إغلاق</button></div>`);
+    + `<div class="actions"><button class="btn btn-primary" onclick="opsPdf(['${x.id}'])">⬇ تحميل PDF</button><button class="btn btn-ghost" onclick="opsEdit('${x.id}')">تعديل البطاقة</button><button class="btn btn-ghost" onclick="opsEditMode=false;closeModal()">إغلاق</button></div>`);
   const sh=document.querySelector('#modalRoot .sheet'); if(sh) sh.style.maxWidth='min(98vw,1400px)';
 }
 function opsEdit(id){
