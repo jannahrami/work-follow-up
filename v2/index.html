@@ -4954,9 +4954,13 @@ init();
   async function send(text){
     if(busy||!text.trim())return; busy=true;
     add(text,'u'); hist.push({role:'user',content:text});
-    const w=add('… أبحث في البيانات','a');
+    const w=add('… السكرتير يتابع مع المدراء، لحظات','a');
     try{
-      const {data,error}=await Promise.resolve({data:null,error:{message:'الوكيل غير متاح في النسخة الجديدة بعد'}});
+      // يمر عبر المكتب التنفيذي (السكرتير ← المدراء) — قراءة فقط، ويُسجَّل في سجل الطلبات
+      const ins=await sb.from('w2_office_requests').insert({prompt:text.slice(0,3000)}).select().single(); if(ins.error) throw ins.error;
+      const r=await sb.functions.invoke('w2-office',{body:{request_id:ins.data.id}});
+      const error=r.error, data=r.data?{reply:r.data.report||'', error:r.data.status==='error'?(r.data.error||'error'):r.data.error}:null;
+      if(state.section==='office') renderOffice();
       if(error) throw error;
       if(data&&data.error==='not_configured') w.textContent='الوكيل غير مفعّل بعد: يجب إضافة مفتاح GROQ_API_KEY في Supabase (Edge Functions → Secrets).';
       else if(data&&data.reply){ w.textContent=data.reply; hist.push({role:'assistant',content:data.reply}); say(data.reply); }
