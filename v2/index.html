@@ -2086,8 +2086,8 @@ async function brRun(){
   brRender();
 }
 // ===== المكتب التنفيذي (السكرتير + المدراء) — قراءة فقط عبر Edge Function w2-office =====
-const OF_AG={secretary:['🗂️','السكرتير التنفيذي','التنسيق والتقارير + المعاملات','w2_topics'],gov:['🏛️','مدير العلاقات الحكومية','المخالفات · البلدية · الكروت الصحية','w2_violations · w2_baladiya · w2_health_employees'],hr:['👥','مدير الموارد البشرية','الموظفين · الرواتب','w2_roster · w2_employees · w2_payroll'],property:['🏠','مدير العقارات والسكن','السكنات · عقود الإيجار','w2_leases · w2_housing_units · w2_housing_people']};
-const OF_WK={gov:[['violations','📑','موظف المخالفات','w2_violations'],['baladiya','🪪','موظف البلدية','w2_baladiya'],['health','🩺','موظف الكروت الصحية','w2_health_employees']],hr:[['employees','🧑‍💼','موظف شؤون الموظفين','w2_roster · w2_employees'],['payroll','💰','موظف الرواتب','w2_payroll']],property:[['housing','🏘️','موظف السكنات','w2_housing_units · w2_housing_people'],['leases','📜','موظف العقود','w2_leases']]};
+const OF_AG={secretary:['🗂️','السكرتير التنفيذي','التنسيق والتقارير + المعاملات','w2_topics'],gov:['🏛️','مدير العلاقات الحكومية','المخالفات · البلدية والكروت الصحية','w2_violations · w2_baladiya'],hr:['👥','مدير الموارد البشرية','الموظفين · الرواتب','w2_roster · w2_employees · w2_payroll'],property:['🏠','مدير العقارات والسكن','السكنات · عقود الإيجار','w2_leases · w2_housing_units · w2_housing_people']};
+const OF_WK={gov:[['violations','📑','موظف المخالفات','w2_violations'],['baladiya','🪪','موظف البلدية والكروت الصحية','w2_baladiya']],hr:[['employees','🧑‍💼','موظف شؤون الموظفين','w2_roster · w2_employees'],['payroll','💰','موظف الرواتب','w2_payroll']],property:[['housing','🏘️','موظف السكنات','w2_housing_units · w2_housing_people'],['leases','📜','موظف العقود','w2_leases']]};
 const ofWkName=(ag,w)=>{ const x=(OF_WK[ag]||[]).find(y=>y[0]===w); return x?[x[1],x[2]]:['•',w]; };
 const OF_CL={secretary:'#2563eb',gov:'#7c3aed',hr:'#059669',property:'#d97706'};
 const OF_ST={pending:['بالانتظار','#64748b'],running:['جاري العمل','#b45309'],done:['مكتملة','#15803d'],error:['فشلت','#b91c1c']};
