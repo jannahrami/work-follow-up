@@ -1602,6 +1602,9 @@ function _dice(a,b){ const n=x=>String(x||'').toLowerCase().replace(/[^a-z0-9؀-
 let uSub='';
 function setUSub(v){ uSub=v; eShown=100; renderEmps(); }
 let eGrp='';
+function eMatch(e){ const q=$('#eSearch').value.trim().toLowerCase(), b=$('#eBrand').value, st=$('#eIq').value, nt=$('#eNat').value, sv=$('#eSt').value;
+  return (!b||e.brand===b) && (!sv||(sv.startsWith('tag:')?e.tag===sv.slice(4):e.status===sv)) && (!nt||e.nationality===nt) && (!st||iqState(e)===st) && (!q||[e.name,e.iqama,e.nationality,e.location,e.emp_no,e.phone].join(' ').toLowerCase().includes(q)); }
+const eInGrp=(e,g)=>!g||(g==='FBH'?e.grp==='FBH':e.grp!=='FBH');
 function setEmpGrp(v){ eGrp=(eGrp===v?'':v); eUnl=false; eShown=100; renderEmps(); }
 function setEmpSt(v){ $('#eSt').value=v; eUnl=false; eShown=100; renderEmps(); }
 function reviewItems(){
@@ -1619,7 +1622,7 @@ function renderEmps(){
   try{ const rv=$('#eReview'); if(rv){ const L=state.role==='staff'?[]:reviewItems(); rv.innerHTML=L.length?`<details class="bnote" style="margin:8px 0;background:#fef3c7;border:1px solid #f59e0b;color:#92400e"><summary style="cursor:pointer"><b>⚠️ يحتاج مراجعة (${L.length})</b> — اضغط للعرض. عدّل المشكلة في بطاقة الموظف واحفظ، وبعدها يختفي من هنا.</summary>${L.map(x=>`<div style="margin-top:8px;padding-top:8px;border-top:1px dashed #f59e0b"><a href="javascript:void(0)" style="color:inherit;text-decoration:underline" onclick="openEmp('r${x.r.id}')"><b>${esc(x.r.name)}</b> (${esc(x.r.emp_no)})</a>${x.p.map(t=>typeof t==='string'?`<div class="sm">• ${esc(t)}</div>`:`<div class="sm">• ${esc(t.t)}${t.o.map(y=>`<a href="javascript:void(0)" style="color:inherit;text-decoration:underline;margin-inline-end:8px" onclick="openEmp('r${y.id}')"><b>${esc(y.name)}</b> (${esc(y.emp_no)})</a>`).join('')}</div>`).join('')}</div>`).join('')}</details>`:''; } }catch(_){}
   { const A0=scoped(empsList), has=(state.roster||[]).length>0;
     const gc=(L,lbl,key,col)=>{ const n=k=>L.filter(e=>e.status===k).length, on=eGrp===key;
-      return `<div class="stat" onclick="setEmpGrp('${key}')" style="${on?'outline:2px solid '+col+';':''}border-top:4px solid ${col}"><small>${lbl}</small><b class="num" style="color:${col}">${L.length}</b><div class="sm" style="margin-top:4px;font-size:11px;line-height:1.6">على رأس العمل ${n('active')} • إجازة ${n('vacation')}<br>تصفية ${n('settlement')} • إنهاء خدمة ${n('terminated')}</div></div>`; };
+      return `<div class="stat" onclick="setEmpGrp('${key}')" style="${on?'outline:2px solid '+col+';':''}border-top:4px solid ${col}"><small>${lbl}</small><b class="num" style="color:${col}">${L.length}</b><div class="sm" style="margin-top:4px;font-size:11px;line-height:1.6">على رأس العمل ${n('active')} • إجازة ${n('vacation')}<br>تصفية ${n('settlement')} • إنهاء خدمة ${n('terminated')}</div>${state.role==='staff'?'':`<button class="btn btn-ghost btn-sm" style="margin-top:6px;padding:2px 10px" onclick="event.stopPropagation();empDashXlsx(this,'${key}')">⬇ Excel</button>`}</div>`; };
     const eg=$('#eGrpStats'); if(eg) eg.innerHTML = has ? gc(A0,'الجميع','','#475569')+gc(A0.filter(e=>e.grp==='FBH'),'FBH','FBH','#1d4ed8')+gc(A0.filter(e=>e.grp!=='FBH'),'Others','Other','#7c3aed') : '';
     const A=eGrp?A0.filter(e=>eGrp==='FBH'?e.grp==='FBH':e.grp!=='FBH'):A0, c=k=>A.filter(e=>e.status===k).length;
     $('#eStats').innerHTML = has ? `<div class="stat" onclick="setEmpSt('')"><small>إجمالي الموظفين</small><b class="num">${A.length}</b></div>
@@ -1633,8 +1636,7 @@ function renderEmps(){
   const bsel=$('#eBrand'); if(bsel.options.length<=1 || bsel.dataset.n!=String(brands.length)){ const keep=bsel.value; bsel.innerHTML='<option value="">كل العلامات</option>'+brands.map(b=>`<option>${esc(b)}</option>`).join(''); bsel.value=keep; bsel.dataset.n=brands.length; }
   const nats=[...new Set(all.map(e=>e.nationality).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'en')), nsel=$('#eNat');
   if(nsel.dataset.n!==nats.join('|')){ const keep=nsel.value; nsel.innerHTML='<option value="">كل الجنسيات</option>'+nats.map(n=>`<option>${esc(n)}</option>`).join(''); nsel.value=nats.includes(keep)?keep:''; nsel.dataset.n=nats.join('|'); }
-  const q=$('#eSearch').value.trim().toLowerCase(), b=$('#eBrand').value, st=$('#eIq').value, nt=nsel.value, sv=$('#eSt').value;
-  const L=all.filter(e=>(!b||e.brand===b) && (!sv||(sv.startsWith('tag:')?e.tag===sv.slice(4):e.status===sv)) && (!nt||e.nationality===nt) && (!st||iqState(e)===st) && (!q||[e.name,e.iqama,e.nationality,e.location,e.emp_no,e.phone].join(' ').toLowerCase().includes(q)) && (!eUnl||!uSub||(uSub==='sim'?!!e.cand:!e.cand)));
+  const L=all.filter(e=>eMatch(e) && (!eUnl||!uSub||(uSub==='sim'?!!e.cand:!e.cand)));
   const _u=scoped(unlinkedList).length; $('#eCount').innerHTML=(eUnl?`غير مدرجين بالقائمة: ${L.length} من ${all.length} &nbsp; <button class="btn ${uSub===''?'':'btn-ghost'}" style="padding:2px 10px" onclick="setUSub('')">الكل</button> <button class="btn ${uSub==='sim'?'':'btn-ghost'}" style="padding:2px 10px" onclick="setUSub('sim')">له شبيه بالقائمة (${all.filter(e=>e.cand).length})</button> <button class="btn ${uSub==='none'?'':'btn-ghost'}" style="padding:2px 10px" onclick="setUSub('none')">غير موجود بالقائمة (${all.filter(e=>!e.cand).length})</button>`:`${L.length} موظف من ${all.length} • على رأس العمل ${all.filter(e=>e.status==='active').length} • إجازة ${all.filter(e=>e.status==='vacation').length} • تصفية ${all.filter(e=>e.status==='settlement').length} • إنهاء خدمة ${all.filter(e=>e.status==='terminated').length}`)+((state.role!=='staff'&&(state.roster||[]).length)?` &nbsp; <button class="btn btn-ghost" style="padding:2px 10px" onclick="toggleUnl()">${eUnl?'⬅ رجوع لقائمة الموظفين':'غير مرتبطين بالقائمة ('+_u+')'}</button>`:'');
   { const rb=$('#rosterUpBtn'); if(rb) rb.style.display=state.role==='staff'?'none':''; }
   const SC={expired:['late','منتهية'],soon:['near','تنتهي قريباً'],valid:['ok','سارية'],unknown:['','تاريخ الإقامة غير متوفر']};
@@ -2038,6 +2040,58 @@ function attachEmpExtras(L){ // يربط بكل موظف بطاقته البلد
   L.forEach(e=>{ const bs=(bm.get(e.rid)||[]).slice().sort((a,b)=>(b.card_expiry||'')<(a.card_expiry||'')?-1:1);
     e._c=bs[0]||null; e._cn=bs.length; e._ci=e._c?bInfo(e._c):null; e._h=[...new Set((hm.get(e.rid)||[]).map(h=>h.accommodation).filter(Boolean))].join(' / '); });
 }
+// ===== داش بورد الموظفين لكل جهة (الجميع / FBH / Others) — يحترم الفلاتر الظاهرة =====
+function empDashXlsx(btn,g){ return withBusy(btn, async()=>{
+  await loadExcelJS();
+  const GL={'':'الجميع',FBH:'FBH',Other:'Others'}[g];
+  const L=scoped(empsList).filter(e=>eInGrp(e,g)&&eMatch(e));
+  if(!L.length){ toast('ما في موظفين بهذا الفلتر'); return; }
+  const fl=[$('#eSt').selectedOptions[0]&&$('#eSt').value?$('#eSt').selectedOptions[0].text:'',$('#eBrand').value,$('#eNat').value,$('#eIq').value?E_LBL[$('#eIq').value]:'',$('#eSearch').value.trim()?'بحث: '+$('#eSearch').value.trim():''].filter(Boolean).join(' • ')||'بدون فلاتر';
+  const stamp='تاريخ التقرير: '+new Date().toLocaleDateString('ar-SA-u-ca-gregory-nu-latn',{day:'numeric',month:'long',year:'numeric'});
+  const wb=new ExcelJS.Workbook(); wb.creator='Work follow up'; wb.created=new Date();
+  const tab=g==='FBH'?C.blue:g==='Other'?C.purple:C.navy;
+  const ws=wb.addWorksheet('الداش بورد',{views:[{rightToLeft:true,showGridLines:false}],properties:{tabColor:{argb:tab}}});
+  [26,14,14,14,14,14,14,14].forEach((w,i)=>ws.getColumn(i+1).width=w);
+  sheetTitle(ws,'داش بورد الموظفين — '+GL,stamp+' — '+fl,8);
+  const n=k=>L.filter(e=>e.status===k).length, tg=k=>L.filter(e=>e.tag===k).length;
+  const K=(r,c,l,v,bg,fg)=>{ kpi(ws,r,c,l,v,bg,fg,v&&L.length?Math.round(v/L.length*1000)/10+'%':''); ws.getCell(r+1,c).numFmt='0'; ws.getRow(r+1).height=30; };
+  K(4,1,'الإجمالي',L.length,C.graySoft,C.navy); K(4,3,'على رأس العمل',n('active'),C.greenSoft,C.green); K(4,5,'إجازة',n('vacation'),C.amberSoft,C.amber); K(4,7,'تصفية',n('settlement'),C.redSoft,C.red);
+  K(8,1,'إنهاء خدمة',n('terminated'),C.redSoft,C.red); K(8,3,'تعيين جديد',tg('new'),C.greenSoft,C.green); K(8,5,'عودة من إجازة',tg('return'),C.blueSoft,C.blue);
+  ws.getCell(5,1).numFmt='0'; ws.getCell(6,1).value='';
+  let r=12;
+  const sec=t=>{ ws.mergeCells(r,1,r,8); const c=ws.getCell(r,1); c.value=t; c.font={name:FONT,size:12,bold:true,color:{argb:C.white}}; c.fill=fill(C.navy); c.alignment={horizontal:'right',vertical:'middle',readingOrder:'rtl'}; ws.getRow(r).height=22; r++; };
+  const cs=(c,o={})=>{ c.font={name:FONT,size:10,bold:!!o.b,color:{argb:o.fg||'FF0F172A'}}; if(o.bg) c.fill=fill(o.bg); c.border=box; c.alignment={horizontal:o.al||'center',vertical:'middle',readingOrder:'rtl'}; if(o.f) c.numFmt=o.f; };
+  const tbl=(heads,rows,barCol,barColor)=>{ heads.forEach((h,k)=>{ const c=ws.getCell(r,k+1); c.value=h; cs(c,{b:true,bg:C.teal,fg:C.white}); }); ws.getRow(r).height=22; const r0=r+1;
+    rows.forEach((d,j)=>{ r++; d.forEach((v,k)=>{ const c=ws.getCell(r,k+1); c.value=v; cs(c,{bg:j%2?C.zebra:C.white,al:k===0?'right':'center',b:k===0,f:heads[k]==='النسبة'?'0.0%':(typeof v==='number'?'#,##0':null)}); }); });
+    r++; heads.forEach((h,k)=>{ const c=ws.getCell(r,k+1); c.value=k===0?'الإجمالي':(h==='النسبة'?1:rows.reduce((s,d)=>s+(typeof d[k]==='number'?d[k]:0),0)); cs(c,{b:true,bg:C.tealSoft,al:k===0?'right':'center',f:h==='النسبة'?'0.0%':'#,##0'}); });
+    if(rows.length){ const L2=colLetter(barCol+1); ws.addConditionalFormatting({ref:`${L2}${r0}:${L2}${r0+rows.length-1}`,rules:[{type:'dataBar',priority:1,gradient:false,cfvo:[{type:'min'},{type:'max'}],color:{argb:barColor||'FF99F6E4'}}]}); }
+    r+=2; };
+  const T=L.length;
+  sec('حسب الحالة الوظيفية');
+  tbl(['الحالة','العدد','النسبة'],['active','vacation','settlement','terminated'].map(k=>[EMP_ST_LBL[k],n(k),n(k)/T]).filter(d=>d[1]),1,'FF86EFAC');
+  const grpBy=(f,lbl)=>{ const m=new Map(); L.forEach(e=>{ const k=f(e)||'غير محدد'; const o=m.get(k)||{k,t:0,a:0,v:0,s:0,x:0}; o.t++; if(e.status==='active')o.a++; else if(e.status==='vacation')o.v++; else if(e.status==='settlement')o.s++; else if(e.status==='terminated')o.x++; m.set(k,o); });
+    return [...m.values()].sort((a,b)=>b.t-a.t).map(o=>[o.k,o.t,o.a,o.v,o.s,o.x,o.t/T]); };
+  const H=x=>[x,'العدد','على رأس العمل','إجازة','تصفية','إنهاء خدمة','النسبة'];
+  sec('حسب البراند'); tbl(H('البراند'),grpBy(e=>e.brand),1,'FF93C5FD');
+  sec('حسب الجنسية'); tbl(H('الجنسية'),grpBy(e=>e.nationality),1,'FFC4B5FD');
+  sec('حالة الإقامة');
+  tbl(['الحالة','العدد','النسبة'],['expired','soon','valid','unknown'].map(k=>{ const c=L.filter(e=>iqState(e)===k).length; return [E_LBL[k],c,c/T]; }).filter(d=>d[1]),1,'FFFCA5A5');
+  ws.pageSetup={orientation:'portrait',fitToPage:true,fitToWidth:1,fitToHeight:0,paperSize:9};
+  const S=L.slice().sort((a,b)=>(a.name||'').localeCompare(b.name||'','en')); S.forEach((e,i)=>e._i=i+1);
+  const LC=[
+    {h:'#',w:5,get:e=>e._i,type:'num'},
+    {h:'الرقم الوظيفي',w:12,get:e=>e.emp_no,type:'code'},
+    {h:'الاسم',w:32,get:e=>e.name,style:(e,c)=>{c.font={name:FONT,size:10,bold:true};}},
+    {h:'رقم الإقامة',w:15,get:e=>e.iqama,type:'code'},
+    {h:'الجنسية',w:14,get:e=>e.nationality,type:'code'},
+    {h:'البراند',w:12,get:e=>e.brand,type:'code'},
+    E_COLS.find(c=>c.h==='الحالة الوظيفية'),
+    {h:'الجهة',w:9,get:e=>e.grp==='FBH'?'FBH':'Other',type:'code'},
+    {h:'تاريخ التعيين',w:13,get:e=>e.hire_date||'',type:'code'},
+    E_COLS.find(c=>c.h==='تاريخ انتهاء الإقامة')];
+  addGenericSheet(wb,'القائمة',LC,S,`${stamp} — ${GL} — ${fl} — ${S.length} موظف`,tab,3);
+  await downloadWorkbook(wb,`داشبورد-الموظفين-${GL}-${today()}.xlsx`);
+  toast('تم تصدير '+L.length+' موظف'); }); }
 async function buildEmployeesWorkbook(list, opts={}){
   await loadExcelJS();
   const wb=new ExcelJS.Workbook(); wb.creator='Work follow up'; wb.created=new Date();
