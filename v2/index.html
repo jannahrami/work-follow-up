@@ -551,6 +551,7 @@ body.staff[data-sec="home"] #subnav{display:none!important}
       <div class="dash-head"><div><h1 id="homeTitle">الرئيسية</h1><div class="hello" id="dDate" style="margin:2px 0 0"></div></div></div>
       <div class="bnote hidden" id="brandNote"></div>
       <div id="home-kpi">
+        <div id="dBrief"></div>
         <div id="dAlerts"></div>
         <div class="kpis" id="dKpis"></div>
         <div class="result-bar" style="margin-top:16px"><h2 style="margin:0">📊 الرسوم البيانية</h2><button class="btn btn-ghost btn-sm" id="indExportBtn">⬇ تصدير المؤشرات (Excel)</button></div>
@@ -848,7 +849,8 @@ body.staff[data-sec="home"] #subnav{display:none!important}
     <div id="sec-office" class="hidden">
       <div class="sec-bar"><h1>🏢 المكتب التنفيذي</h1></div>
       <div class="bnote" style="margin-bottom:12px">تكلّم السكرتير التنفيذي فقط. السكرتير يوزّع طلبك على المدراء، وكل مدير يقرأ بيانات إدارته فقط (قراءة بدون تعديل)، ثم يرجع لك تقرير موحّد بمصدر كل معلومة.</div>
-      <div id="ofOrg"></div>
+      <div id="ofBrief"></div>
+      <div id="ofOrg" style="margin-top:12px"></div>
       <div class="item" style="cursor:default;margin-top:12px">
         <h3>💬 طلب إلى السكرتير</h3>
         <textarea class="field" id="ofIn" style="min-height:70px;margin-top:8px" placeholder="مثال: أعطني تقرير عن المخالفات المفتوحة ورواتب أكتوبر وعقود الإيجار القريبة من الانتهاء"></textarea>
@@ -2041,6 +2043,48 @@ async function buildEmployeesWorkbook(list, opts={}){
   }
   return wb;
 }
+// ===== تنبيهات السكرتير الاستباقية (w2_office_alerts / w2_office_briefs) — الأرقام من SQL، والملخص من السكرتير =====
+const BR_SEV={high:['#b91c1c','عاجل'],med:['#b45309','قريب'],info:['#2563eb','للعلم']};
+const BR_GO={lease_soon:"go('lease')",lease_past:"go('lease')",vio_due:"go('viol')",vio_objection:"go('viol')",card_expired:"goBal('expired')",card_soon:"go('bal')",payroll_change:"go('pay')"};
+let brData=null, brBusy=false;
+async function brLoad(){
+  const day=new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Riyadh'});
+  const [b,a]=await Promise.all([sb.from('w2_office_briefs').select('*').order('run_date',{ascending:false}).limit(1),
+    sb.from('w2_office_alerts').select('*').order('created_at')]);
+  if(b.error||a.error) throw (b.error||a.error);
+  const br=(b.data||[])[0]||null, rd=br?br.run_date:day;
+  brData={brief:br, day, alerts:(a.data||[]).filter(x=>x.run_date===rd)};
+  return brData;
+}
+function brItem(x){ const v=[x.t,x.s].filter(Boolean).map(esc).join(' — '); return `<li>${v}${x.d?` <span style="opacity:.7">(${esc(x.d)})</span>`:''}${x.a!=null?` <b>${Number(x.a).toLocaleString('en-US')}</b>`:''}</li>`; }
+function brHtml(compact){
+  if(!brData) return '';
+  const {brief,alerts,day}=brData, old=brief&&brief.run_date!==day;
+  const rows=alerts.map(a=>{ const [c,l]=BR_SEV[a.severity]||BR_SEV.med, go=BR_GO[a.kind]||'';
+    return `<details style="border-inline-start:4px solid ${c};padding:6px 10px;margin-top:6px;background:${c}0d;border-radius:8px"><summary style="cursor:pointer"><span class="chip" style="background:${c}1a;color:${c}">${l}</span> <b>${esc(a.title)}</b>${a.cnt?` — ${a.cnt}`:''}${a.amount!=null?` — ${Number(a.amount).toLocaleString('en-US')} ريال`:''}</summary>
+      <ul style="margin:6px 0;padding-inline-start:18px;font-size:13px">${(a.items||[]).slice(0,12).map(brItem).join('')}${(a.items||[]).length>12?`<li>… و${a.items.length-12} غيرها</li>`:''}</ul>${go?`<button class="btn btn-ghost btn-sm" onclick="${go}">فتح القسم</button>`:''}</details>`; }).join('');
+  return `<div class="item" style="cursor:default;border:1.5px solid #2563eb;border-top:5px solid #2563eb;background:#2563eb0d">
+    <div class="row"><h3 style="color:#2563eb">🔔 موجز السكرتير ${brief?`<small style="font-weight:400">(${esc(brief.run_date)})</small>`:''}</h3>
+    <button class="btn btn-ghost btn-sm" ${brBusy?'disabled':''} onclick="brRun()">${brBusy?'⏳ جاري الفحص…':'🔄 فحص الآن'}</button></div>
+    ${old?'<div class="bnote" style="margin-top:6px">هذا آخر موجز، فحص اليوم لم يتم بعد.</div>':''}
+    ${brief?`<div style="white-space:pre-wrap;line-height:1.8;margin-top:6px">${esc(brief.body)}</div>`:'<div class="meta"><span>ما فيه موجز بعد. اضغط "فحص الآن".</span></div>'}
+    ${compact?(alerts.length?`<div class="meta" style="margin-top:6px"><span>${alerts.length} تنبيهات</span><a href="javascript:void 0" onclick="go('office')">التفاصيل في المكتب التنفيذي</a></div>`:''):rows}
+    <div class="meta" style="margin-top:6px;font-size:11px"><span>الأرقام محسوبة من قاعدة البيانات مباشرة. الفحص التلقائي يومياً 8:00 صباحاً.</span></div></div>`;
+}
+async function brRender(){
+  if(state.role==='staff') return;
+  try{ await brLoad(); }catch(e){ const m=`<div class="bnote">تعذّر تحميل موجز السكرتير: ${esc(e.message||String(e))}</div>`; if($('#ofBrief')) $('#ofBrief').innerHTML=m; return; }
+  if($('#dBrief')) $('#dBrief').innerHTML=brHtml(true);
+  if($('#ofBrief')) $('#ofBrief').innerHTML=brHtml(false);
+}
+async function brRun(){
+  if(brBusy) return; brBusy=true; brRender();
+  let r; try{ r=await sb.functions.invoke('w2-office-brief',{body:{}}); }catch(e){ r={error:e}; }
+  brBusy=false;
+  if(r.error||(r.data&&r.data.error)) toast('⚠️ تعذّر الفحص: '+((r.data&&r.data.error)||(r.error&&r.error.message)||''));
+  else toast('🔔 تم تحديث موجز السكرتير');
+  brRender();
+}
 // ===== المكتب التنفيذي (السكرتير + المدراء) — قراءة فقط عبر Edge Function w2-office =====
 const OF_AG={secretary:['🗂️','السكرتير التنفيذي','التنسيق والتقارير + المعاملات','w2_topics'],gov:['🏛️','مدير العلاقات الحكومية','المخالفات · البلدية · الكروت الصحية','w2_violations · w2_baladiya · w2_health_employees'],hr:['👥','مدير الموارد البشرية','الموظفين · الرواتب','w2_roster · w2_employees · w2_payroll'],property:['🏠','مدير العقارات والسكن','السكنات · عقود الإيجار','w2_leases · w2_housing_units · w2_housing_people']};
 const OF_WK={gov:[['violations','📑','موظف المخالفات','w2_violations'],['baladiya','🪪','موظف البلدية','w2_baladiya'],['health','🩺','موظف الكروت الصحية','w2_health_employees']],hr:[['employees','🧑‍💼','موظف شؤون الموظفين','w2_roster · w2_employees'],['payroll','💰','موظف الرواتب','w2_payroll']],property:[['housing','🏘️','موظف السكنات','w2_housing_units · w2_housing_people'],['leases','📜','موظف العقود','w2_leases']]};
@@ -2081,7 +2125,7 @@ function ofReqHtml(r){
 async function renderOffice(){
   if(state.role==='staff') return;
   try{ await ofLoad(); }catch(e){ $('#ofHist').innerHTML=`<div class="bnote">تعذّر تحميل السجل: ${esc(e.message||String(e))}</div>`; return; }
-  $('#ofOrg').innerHTML=ofOrgHtml();
+  $('#ofOrg').innerHTML=ofOrgHtml(); if(!brData) brRender(); else $('#ofBrief').innerHTML=brHtml(false);
   $('#ofSug').innerHTML=OF_SUG.map(t=>`<button class="btn btn-ghost btn-sm" onclick="$('#ofIn').value=this.textContent">${esc(t)}</button>`).join('');
   const cur=ofReqs.find(r=>r.id===ofSel) || null;
   $('#ofCur').innerHTML=cur?ofReqHtml(cur):'';
@@ -2428,6 +2472,7 @@ function _renderHomeDash(){
   const X=homeCtx(), {bExp,bNone,hFail,pNone}=X;
   $('#dKpis').innerHTML = homeKpis(X).map(k=>`<div class="kpi" style="--k:${IC_CSS(k.color)}" onclick="${k.click}"><div class="t">${k.ic} ${k.t}</div><b class="num">${k.v}</b><em>${k.em}</em></div>`).join('');
   renderAlerts();
+  if(state.role!=='staff'){ if(brData) $('#dBrief').innerHTML=brHtml(true); else brRender(); }
   renderIndicators();
   dashCache = dashItems(); const items=dashCache.filter(x=>!fuHidden(x)), hid=dashCache.filter(fuHidden), now=items.filter(x=>x.d<=7), soon=items.filter(x=>x.d>7 && x.d<=30);
   const iqExp=X.BI.filter(i=>i.iqState==='expired').length, trExp=X.BI.filter(i=>i.tState==='expired').length;
