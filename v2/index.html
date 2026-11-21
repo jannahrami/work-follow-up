@@ -2095,7 +2095,7 @@ async function renderOps(){
   const r=await sb.from('w2_ops_structure').select('*').order('sort'); if(r.error){ $('#opsBody').innerHTML=`<div class="bnote">تعذّر التحميل: ${esc(r.error.message)}</div>`; return; }
   opsRows=r.data; const H=opsRows.filter(x=>x.kind==='head'), U=opsRows.filter(x=>x.kind==='unit'&&!x.in_progress), P=opsRows.filter(x=>x.kind==='unit'&&x.in_progress);
   const card=(x)=>{ const c=x.in_progress?'#94a3b8':(BRAND_COLOR[x.name]||BRAND_COLOR[{SY5:'SAYA5',JAZAR:'Jazzar',Level:'LEVL'}[x.name]]||'#0f766e');
-    return `<div class="item" style="cursor:pointer;flex:1;min-width:180px;border:1.5px solid ${c};border-top:5px solid ${c};background:${c}12" onclick="opsEdit('${x.id}')">
+    return `<div class="item" style="cursor:pointer;flex:1;min-width:180px;border:1.5px solid ${c};border-top:5px solid ${c};background:${c}12" onclick="opsChart('${x.id}')">
       <h3 style="color:${c}">${esc(x.name)}</h3><div class="meta"><span>👔 ${esc(x.lead)}</span></div>
       ${x.extra?`<div class="meta"><span>${esc(x.extra)}</span></div>`:''}
       <div class="meta"><span>🧑‍💼 المشرفين: <b>${esc(x.supervisors)}</b></span><span>👥 الموظفين: <b>${esc(x.employees)}</b></span></div></div>`; };
@@ -2103,6 +2103,21 @@ async function renderOps(){
     + `<div style="text-align:center;color:var(--muted)">⬇</div><div style="display:flex;gap:10px;flex-wrap:wrap">${U.map(card).join('')}</div>`
     + (P.length?`<h2 style="margin-top:16px">⏳ In Progress</h2><div style="display:flex;gap:10px;flex-wrap:wrap">${P.map(card).join('')}</div>`:'')
     + `<div class="bnote" style="margin-top:12px">المصدر: ملف Operations structure. اضغط على أي بطاقة لتعديلها.</div>`;
+}
+function opsColor(x){ return x.in_progress?'#94a3b8':(BRAND_COLOR[x.name]||BRAND_COLOR[{SY5:'SAYA5',JAZAR:'Jazzar',Level:'LEVL'}[x.name]]||'#0f766e'); }
+function opsChart(id){
+  const x=opsRows.find(r=>r.id===id); if(!x) return; const c=opsColor(x), hd=opsRows.find(r=>r.kind==='head');
+  const nSup=parseInt(String(x.supervisors).replace(/\D/g,''))||0, supLbl=/R/i.test(x.supervisors)?'R Supervisor':'Supervisor';
+  const box=(t,sub,bg,fg,w)=>`<div style="border:2px solid ${bg};background:${fg?bg:'#fff'};color:${fg||'inherit'};border-radius:12px;padding:8px 12px;text-align:center;min-width:${w||110}px;margin:0 auto"><b>${t}</b>${sub?`<div style="font-size:12px;opacity:.85;margin-top:2px">${sub}</div>`:''}</div>`;
+  const line=`<div style="width:2px;height:18px;background:${c};margin:0 auto"></div>`;
+  const sups=nSup?`<div style="position:relative;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;padding-top:18px;border-top:2px solid ${c};margin:0 8%">${Array.from({length:nSup},(_,i)=>`<div style="flex:0 1 120px">${box(supLbl+' '+(i+1),'',c)}</div>`).join('')}</div>`:`<div class="bnote" style="text-align:center">لا يوجد مشرفين</div>`;
+  modal(head('🏗️ '+esc(x.name)) + `<div style="padding:6px 0">
+    ${hd?box(esc(hd.name),esc(hd.lead),'#1e293b','#fff',220)+line:''}
+    ${box(esc(x.name),'👔 '+esc(x.lead)+(x.extra?' — '+esc(x.extra):''),c,'#fff',200)}
+    ${line}${sups}${line}
+    ${box('👥 '+esc(x.employees)+' موظف','',c,'',160)}
+    ${x.in_progress?'<div class="bnote" style="margin-top:10px;text-align:center">⏳ قيد التجهيز (In Progress)</div>':''}
+  </div><div class="actions"><button class="btn btn-ghost" onclick="opsEdit('${x.id}')">✏️ تعديل الأرقام</button><button class="btn btn-ghost" onclick="closeModal()">إغلاق</button></div>`);
 }
 function opsEdit(id){
   const x=opsRows.find(r=>r.id===id)||{kind:'unit',name:'',lead:'',supervisors:'',employees:'',in_progress:false,extra:''}, isH=x.kind==='head';
