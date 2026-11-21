@@ -861,7 +861,7 @@ body.staff[data-sec="home"] #subnav{display:none!important}
       <div class="list" id="ofHist"></div>
     </div>
     <div id="sec-ops" class="hidden">
-      <div class="sec-bar"><h1>🏗️ الهيكل التشغيلي</h1><button class="btn btn-ghost btn-sm" onclick="opsEdit()">+ إضافة</button></div>
+      <div class="sec-bar"><h1>🏗️ Operations structure</h1><button class="btn btn-ghost btn-sm" onclick="opsEdit()">+ إضافة</button></div>
       <div id="opsBody"></div>
     </div>
     <div id="sec-reqs" class="hidden">
@@ -1190,7 +1190,7 @@ const SUBTABS = {
   lease:  [['dash','لوحة المتابعة'],['list','العقود']],
 };
 
-const NAV = [['home','📊','المؤشرات'],['office','🏢','المكتب التنفيذي'],['ops','🏗️','الهيكل التشغيلي'],['viol','🚨','المخالفات'],['bal','🏛️','البطاقات البلدية'],['house','🏠','السكنات'],['lease','📄','عقود الإيجار'],['emps','👥','الموظفين'],['pay','💰','الرواتب'],['report','📈','التقرير'],['backup','💾','نسخة احتياطية']];
+const NAV = [['home','📊','المؤشرات'],['office','🏢','المكتب التنفيذي'],['ops','🏗️','Operations structure'],['viol','🚨','المخالفات'],['bal','🏛️','البطاقات البلدية'],['house','🏠','السكنات'],['lease','📄','عقود الإيجار'],['emps','👥','الموظفين'],['pay','💰','الرواتب'],['report','📈','التقرير'],['backup','💾','نسخة احتياطية']];
 const TABS = [['home','📊','الرئيسية'],['viol','🚨','المخالفات'],['bal','🏛️','البلدية'],['emps','👥','الموظفين'],['more','☰','المزيد']];
 function allowedSec(k){ if(state.role!=='staff') return !['reqs'].includes(k); if(k==='report') return false; if(['home','reqs'].includes(k)) return true;
   if(k==='emps') return ['bal','health'].some(x=>state.staff.sections.includes(x)); return state.staff.sections.includes(k); }
@@ -2094,40 +2094,36 @@ async function renderOps(){
   if(state.role==='staff') return;
   const r=await sb.from('w2_ops_structure').select('*').order('sort'); if(r.error){ $('#opsBody').innerHTML=`<div class="bnote">تعذّر التحميل: ${esc(r.error.message)}</div>`; return; }
   opsRows=r.data; const H=opsRows.filter(x=>x.kind==='head'), U=opsRows.filter(x=>x.kind==='unit'&&!x.in_progress), P=opsRows.filter(x=>x.kind==='unit'&&x.in_progress);
-  const card=(x)=>{ const c=x.in_progress?'#94a3b8':(BRAND_COLOR[x.name]||BRAND_COLOR[{SY5:'SAYA5',JAZAR:'Jazzar',Level:'LEVL'}[x.name]]||'#0f766e');
+  const card=(x)=>{ const c=opsColor(x);
     return `<div class="item" style="cursor:pointer;flex:1;min-width:180px;border:1.5px solid ${c};border-top:5px solid ${c};background:${c}12" onclick="opsChart('${x.id}')">
-      <h3 style="color:${c}">${esc(x.name)}</h3><div class="meta"><span>👔 ${esc(x.lead)}</span></div>
-      ${x.extra?`<div class="meta"><span>${esc(x.extra)}</span></div>`:''}
-      <div class="meta"><span>🧑‍💼 المشرفين: <b>${esc(x.supervisors)}</b></span><span>👥 الموظفين: <b>${esc(x.employees)}</b></span></div></div>`; };
+      <h3 style="color:${c}">${esc(x.name)}</h3><div class="meta"><span>${esc(x.lead)}</span></div>
+      <div class="meta"><span>${esc(x.supervisors)}</span></div><div class="meta"><span><b>${esc(x.employees)}</b></span></div></div>`; };
   $('#opsBody').innerHTML = H.map(h=>`<div class="item" style="cursor:pointer;text-align:center;border:1.5px solid #1e293b;border-top:5px solid #1e293b" onclick="opsEdit('${h.id}')"><h3>${esc(h.name)}</h3><div class="meta" style="justify-content:center"><span>${esc(h.lead)}</span></div></div>`).join('')
     + `<div style="text-align:center;color:var(--muted)">⬇</div><div style="display:flex;gap:10px;flex-wrap:wrap">${U.map(card).join('')}</div>`
-    + (P.length?`<h2 style="margin-top:16px">⏳ In Progress</h2><div style="display:flex;gap:10px;flex-wrap:wrap">${P.map(card).join('')}</div>`:'')
-    + `<div class="bnote" style="margin-top:12px">المصدر: ملف Operations structure. اضغط على أي بطاقة لتعديلها.</div>`;
+    + (P.length?`<h2 style="margin-top:16px">In Progress</h2><div style="display:flex;gap:10px;flex-wrap:wrap">${P.map(card).join('')}</div>`:'');
 }
 function opsColor(x){ return x.in_progress?'#94a3b8':(BRAND_COLOR[x.name]||BRAND_COLOR[{SY5:'SAYA5',JAZAR:'Jazzar',Level:'LEVL'}[x.name]]||'#0f766e'); }
 function opsChart(id){
   const x=opsRows.find(r=>r.id===id); if(!x) return; const c=opsColor(x), hd=opsRows.find(r=>r.kind==='head');
-  const nSup=parseInt(String(x.supervisors).replace(/\D/g,''))||0, supLbl=/R/i.test(x.supervisors)?'R Supervisor':'Supervisor';
-  const box=(t,sub,bg,fg,w)=>`<div style="border:2px solid ${bg};background:${fg?bg:'#fff'};color:${fg||'inherit'};border-radius:12px;padding:8px 12px;text-align:center;min-width:${w||110}px;margin:0 auto"><b>${t}</b>${sub?`<div style="font-size:12px;opacity:.85;margin-top:2px">${sub}</div>`:''}</div>`;
+  const box=(t,sub,bg,fg,w)=>`<div style="border:2px solid ${bg};background:${fg?bg:'#fff'};color:${fg||'inherit'};border-radius:12px;padding:8px 12px;text-align:center;min-width:${w||110}px;max-width:420px;margin:0 auto"><b>${t}</b>${sub?`<div style="font-size:12.5px;opacity:.9;margin-top:2px">${sub}</div>`:''}</div>`;
   const line=`<div style="width:2px;height:18px;background:${c};margin:0 auto"></div>`;
-  const sups=nSup?`<div style="position:relative;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;padding-top:18px;border-top:2px solid ${c};margin:0 8%">${Array.from({length:nSup},(_,i)=>`<div style="flex:0 1 120px">${box(supLbl+' '+(i+1),'',c)}</div>`).join('')}</div>`:`<div class="bnote" style="text-align:center">لا يوجد مشرفين</div>`;
-  modal(head('🏗️ '+esc(x.name)) + `<div style="padding:6px 0">
-    ${hd?box(esc(hd.name),esc(hd.lead),'#1e293b','#fff',220)+line:''}
-    ${box(esc(x.name),'👔 '+esc(x.lead)+(x.extra?' — '+esc(x.extra):''),c,'#fff',200)}
-    ${line}${sups}${line}
-    ${box('👥 '+esc(x.employees)+' موظف','',c,'',160)}
-    ${x.in_progress?'<div class="bnote" style="margin-top:10px;text-align:center">⏳ قيد التجهيز (In Progress)</div>':''}
-  </div><div class="actions"><button class="btn btn-ghost" onclick="opsEdit('${x.id}')">✏️ تعديل الأرقام</button><button class="btn btn-ghost" onclick="closeModal()">إغلاق</button></div>`);
+  modal(head(esc(x.name)) + `<div style="padding:6px 0" dir="ltr">
+    ${hd?box(esc(hd.name),esc(hd.lead),'#1e293b','#fff',240)+line:''}
+    ${box(esc(x.name),esc(x.lead),c,'#fff',200)}${line}
+    ${box(esc(x.supervisors),'',c,'',180)}${line}
+    ${box(esc(x.employees),'',c,'',160)}
+    ${x.in_progress?`<div style="text-align:center;margin-top:10px"><b>In Progress</b></div>`:''}
+  </div><div class="actions"><button class="btn btn-ghost" onclick="opsEdit('${x.id}')">تعديل</button><button class="btn btn-ghost" onclick="closeModal()">إغلاق</button></div>`);
 }
 function opsEdit(id){
   const x=opsRows.find(r=>r.id===id)||{kind:'unit',name:'',lead:'',supervisors:'',employees:'',in_progress:false,extra:''}, isH=x.kind==='head';
   const f=(k,l)=>`<label style="display:block;margin-top:8px;font-weight:600">${l}</label><input class="field" id="op_${k}" value="${esc(x[k]||'')}">`;
-  modal(head(id?'تعديل':'إضافة') + f('name','الاسم') + f('lead',isH?'الوصف':'المسؤول') + (isH?'':f('supervisors','المشرفين')+f('employees','الموظفين')+f('extra','ملاحظة')+`<label style="display:block;margin-top:8px"><input type="checkbox" id="op_prog" ${x.in_progress?'checked':''}> قيد التجهيز (In Progress)</label>`)
+  modal(head(id?'تعديل':'إضافة') + f('name','الاسم') + f('lead','السطر الثاني') + (isH?'':f('supervisors','السطر الثالث')+f('employees','السطر الرابع')+`<label style="display:block;margin-top:8px"><input type="checkbox" id="op_prog" ${x.in_progress?'checked':''}> In Progress</label>`)
     + `<div class="actions"><button class="btn btn-primary" onclick="opsSave('${id||''}')">حفظ</button>${id&&!isH?`<button class="btn btn-ghost" onclick="opsDel('${id}')">🗑 حذف</button>`:''}<button class="btn btn-ghost" onclick="closeModal()">إلغاء</button></div>`);
 }
 async function opsSave(id){
   const v=k=>($('#op_'+k)?$('#op_'+k).value.trim():undefined), row={name:v('name'),lead:v('lead'),updated_at:new Date().toISOString()};
-  if($('#op_supervisors')) Object.assign(row,{supervisors:v('supervisors'),employees:v('employees'),extra:v('extra'),in_progress:$('#op_prog').checked});
+  if($('#op_supervisors')) Object.assign(row,{supervisors:v('supervisors'),employees:v('employees'),in_progress:$('#op_prog').checked});
   const r= id ? await sb.from('w2_ops_structure').update(row).eq('id',id) : await sb.from('w2_ops_structure').insert({...row,kind:'unit',sort:(opsRows.reduce((m,x)=>Math.max(m,x.sort),0)+1)});
   if(r.error) return fail(r.error); closeModal(); toast('تم الحفظ'); renderOps();
 }
