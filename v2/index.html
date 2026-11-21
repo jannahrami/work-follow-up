@@ -2171,13 +2171,13 @@ function opsPdf(ids){
   w.document.write(`<!DOCTYPE html><html dir="ltr"><head><meta charset="utf-8"><title>Operations structure</title><style>${css}
     @page{size:A4 landscape;margin:10mm}
     body{font-family:Tahoma,Arial,sans-serif;margin:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-    .pg{page-break-after:always;break-after:page;height:185mm;display:flex;flex-direction:column;overflow:hidden}
+    .pg{page-break-after:always;break-after:page;height:185mm;display:flex;flex-direction:column;justify-content:center;overflow:hidden}
     .pg:last-child{page-break-after:auto;break-after:auto}
-    h2{margin:0 0 6px;font-size:16px;text-align:center}
-    .fit{flex:1;display:flex;justify-content:center;align-items:flex-start;overflow:hidden}
-    .oc{overflow:visible}.oc .n{cursor:default}.oc .n.p.closed::after{content:''}
+    h2{margin:0 0 14px;font-size:17px;text-align:center}
+    .fit{display:flex;justify-content:center;overflow:hidden}
+    .oc{overflow:visible;background:#fff;padding:0}.oc .n{cursor:default}.oc .n.p.closed::after{content:''}
   </style></head><body>${pages}<script>
-    window.onload=function(){ document.querySelectorAll('.pg').forEach(function(pg){ var f=pg.querySelector('.fit'), oc=pg.querySelector('.zw'); var cw=oc.scrollWidth, ch=oc.scrollHeight, aw=f.clientWidth, ah=f.clientHeight; var k=Math.min(1, aw/cw, ah/ch); oc.style.zoom=k; });
+    window.onload=function(){ document.querySelectorAll('.pg').forEach(function(pg){ var oc=pg.querySelector('.zw'); oc.style.minWidth='0'; var cw=oc.scrollWidth, ch=oc.scrollHeight; var k=Math.min(1.3, 1030/cw, 600/ch); oc.style.zoom=k; });
       setTimeout(function(){ window.print(); }, 300); };
   <\/script></body></html>`);
   w.document.close();
