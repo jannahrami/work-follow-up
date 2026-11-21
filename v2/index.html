@@ -2105,25 +2105,32 @@ async function renderOps(){
 function opsColor(x){ return x.in_progress?'#94a3b8':(BRAND_COLOR[x.name]||BRAND_COLOR[{SY5:'SAYA5',JAZAR:'Jazzar',Level:'LEVL'}[x.name]]||'#0f766e'); }
 // رسم الهيكل كما في مخطط SmartArt داخل الملف (نفس النصوص) — اضغط على أي مربع لفتح/إغلاق ما تحته
 const OPS_CSS=`<style>
-.oc{overflow:auto;padding:8px 0 4px;direction:ltr}
-.oc ul{display:flex;justify-content:center;padding:18px 0 0;margin:0;position:relative}
-.oc li{list-style:none;text-align:center;position:relative;padding:18px 4px 0}
-.oc li::before,.oc li::after{content:'';position:absolute;top:0;right:50%;width:50%;height:18px;border-top:2px solid var(--oc)}
-.oc li::after{right:auto;left:50%;border-left:2px solid var(--oc)}
+.oc{overflow:auto;padding:14px 8px 10px;direction:ltr;border-radius:14px;background:radial-gradient(circle,#e2e8f0 1px,transparent 1.2px) 0 0/18px 18px,#f8fafc;--ln:color-mix(in srgb,var(--oc) 40%,#cbd5e1)}
+.oc ul{display:flex;justify-content:center;padding:22px 0 0;margin:0;position:relative}
+.oc li{list-style:none;text-align:center;position:relative;padding:22px 5px 0;display:flex;flex-direction:column;align-items:center}
+.oc li::before,.oc li::after{content:'';position:absolute;top:0;right:50%;width:50%;height:22px;border-top:1.5px solid var(--ln)}
+.oc li::after{right:auto;left:50%;border-left:1.5px solid var(--ln)}
 .oc li:only-child::before,.oc li:only-child::after{display:none}.oc li:only-child{padding-top:0}
 .oc li:first-child::before,.oc li:last-child::after{border:0 none}
-.oc li:last-child::before{border-right:2px solid var(--oc);border-radius:0 6px 0 0}.oc li:first-child::after{border-radius:6px 0 0 0}
-.oc ul ul::before{content:'';position:absolute;top:0;left:50%;height:18px;border-left:2px solid var(--oc)}
+.oc li:last-child::before{border-right:1.5px solid var(--ln);border-radius:0 10px 0 0}.oc li:first-child::after{border-radius:10px 0 0 0}
+.oc ul ul::before{content:'';position:absolute;top:0;left:50%;height:22px;border-left:1.5px solid var(--ln)}
 .oc>ul{padding-top:0}
-.oc .n{display:inline-block;border:2px solid var(--oc);border-radius:10px;padding:6px 10px;background:#fff;font-size:13px;white-space:pre-wrap;min-width:70px;cursor:default}
-.oc .n.p{cursor:pointer;background:var(--oc);color:#fff;font-weight:700}
-.oc .n.p.closed::after{content:' +';}
+.oc .n{display:inline-block;position:relative;max-width:190px;padding:9px 14px;border-radius:12px;font:600 13px/1.35 system-ui,-apple-system,"Segoe UI",Tahoma,sans-serif;color:#0f172a;white-space:pre-wrap;
+  background:#fff;border:1px solid color-mix(in srgb,var(--oc) 22%,#e2e8f0);border-top:3px solid var(--oc);box-shadow:0 1px 2px rgba(15,23,42,.06),0 6px 16px -6px rgba(15,23,42,.12);transition:transform .15s ease,box-shadow .15s ease}
+.oc .n.d0{background:var(--oc);color:#fff;border-color:var(--oc);font-size:14.5px;padding:11px 18px;box-shadow:0 8px 22px -8px color-mix(in srgb,var(--oc) 70%,transparent)}
+.oc .n.d1{background:color-mix(in srgb,var(--oc) 10%,#fff)}
+.oc .n.leaf{background:#fff;color:#334155;font-weight:500;border-top-width:1px;border-top-color:color-mix(in srgb,var(--oc) 22%,#e2e8f0)}
+.oc .n.p{cursor:pointer}.oc .n.p:hover{transform:translateY(-1px);box-shadow:0 2px 4px rgba(15,23,42,.08),0 10px 22px -8px rgba(15,23,42,.18)}
+.oc .tg{display:block;margin:-7px auto 0;position:relative;z-index:1;min-width:20px;height:20px;padding:0 6px;border-radius:10px;font:700 11px/18px system-ui,sans-serif;color:var(--oc);background:#fff;border:1.5px solid var(--ln);cursor:pointer}
 .oc li.x>ul{display:none}
+@media print{.oc{background:#fff}.oc .tg{display:none}}
 </style>`;
 let opsEditMode=false, opsSel=null, opsCur=null;
-function opsNode(n,path){ const k=(n.c||[]).length, sel=opsEditMode&&opsSel===path;
-  const click = opsEditMode ? `opsPick('${path}')` : (k?"const li=this.parentElement;li.classList.toggle('x');this.classList.toggle('closed')":'');
-  return `<li><span class="n${k?' p':''}" style="${sel?'outline:3px solid #f59e0b;outline-offset:2px;':''}${opsEditMode?'cursor:pointer;':''}" ${click?`onclick="${click}"`:''}>${esc(n.t)}</span>${k?`<ul>${n.c.map((c,ix)=>opsNode(c,path+'.'+ix)).join('')}</ul>`:''}</li>`; }
+function opsNode(n,path){ const k=(n.c||[]).length, sel=opsEditMode&&opsSel===path, d=path.split('.').length-1;
+  const cls=['n', d===0?'d0':d===1?'d1':'', k?'p':'leaf'].filter(Boolean).join(' ');
+  const tog="const li=this.closest('li');li.classList.toggle('x');const b=li.querySelector(':scope>.tg');if(b)b.textContent=li.classList.contains('x')?'+"+"'+b.dataset.k:'−'";
+  const click = opsEditMode ? `opsPick('${path}')` : (k?tog:'');
+  return `<li><span class="${cls}" style="${sel?'outline:3px solid #f59e0b;outline-offset:3px;':''}${opsEditMode?'cursor:pointer;':''}" ${click?`onclick="${click}"`:''}>${esc(n.t)}</span>${k&&!opsEditMode?`<button class="tg" data-k="${k}" onclick="${tog}">−</button>`:''}${k?`<ul>${n.c.map((c,ix)=>opsNode(c,path+'.'+ix)).join('')}</ul>`:''}</li>`; }
 function opsAt(tree,path){ const ix=path.split('.').map(Number); let arr=tree, node=null, parent=null;
   ix.forEach((k,d)=>{ parent=arr; node=arr[k]; arr=node.c=node.c||[]; }); return {node, parent, i:ix[ix.length-1]}; }
 function opsPick(path){ opsSel=opsSel===path?null:path; opsChart(opsCur); }
