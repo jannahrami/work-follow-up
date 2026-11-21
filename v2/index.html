@@ -2098,22 +2098,35 @@ async function renderOps(){
     return `<div class="item" style="cursor:pointer;flex:1;min-width:180px;border:1.5px solid ${c};border-top:5px solid ${c};background:${c}12" onclick="opsChart('${x.id}')">
       <h3 style="color:${c}">${esc(x.name)}</h3><div class="meta"><span>${esc(x.lead)}</span></div>
       <div class="meta"><span>${esc(x.supervisors)}</span></div><div class="meta"><span><b>${esc(x.employees)}</b></span></div></div>`; };
-  $('#opsBody').innerHTML = H.map(h=>`<div class="item" style="cursor:pointer;text-align:center;border:1.5px solid #1e293b;border-top:5px solid #1e293b" onclick="opsEdit('${h.id}')"><h3>${esc(h.name)}</h3><div class="meta" style="justify-content:center"><span>${esc(h.lead)}</span></div></div>`).join('')
+  $('#opsBody').innerHTML = H.map(h=>`<div class="item" style="cursor:pointer;text-align:center;border:1.5px solid #1e293b;border-top:5px solid #1e293b" onclick="opsChart('${h.id}')"><h3>${esc(h.name)}</h3><div class="meta" style="justify-content:center"><span>${esc(h.lead)}</span></div></div>`).join('')
     + `<div style="text-align:center;color:var(--muted)">⬇</div><div style="display:flex;gap:10px;flex-wrap:wrap">${U.map(card).join('')}</div>`
     + (P.length?`<h2 style="margin-top:16px">In Progress</h2><div style="display:flex;gap:10px;flex-wrap:wrap">${P.map(card).join('')}</div>`:'');
 }
 function opsColor(x){ return x.in_progress?'#94a3b8':(BRAND_COLOR[x.name]||BRAND_COLOR[{SY5:'SAYA5',JAZAR:'Jazzar',Level:'LEVL'}[x.name]]||'#0f766e'); }
+// رسم الهيكل كما في مخطط SmartArt داخل الملف (نفس النصوص) — اضغط على أي مربع لفتح/إغلاق ما تحته
+const OPS_CSS=`<style>
+.oc{overflow:auto;padding:8px 0 4px;direction:ltr}
+.oc ul{display:flex;justify-content:center;padding:18px 0 0;margin:0;position:relative}
+.oc li{list-style:none;text-align:center;position:relative;padding:18px 4px 0}
+.oc li::before,.oc li::after{content:'';position:absolute;top:0;right:50%;width:50%;height:18px;border-top:2px solid var(--oc)}
+.oc li::after{right:auto;left:50%;border-left:2px solid var(--oc)}
+.oc li:only-child::before,.oc li:only-child::after{display:none}.oc li:only-child{padding-top:0}
+.oc li:first-child::before,.oc li:last-child::after{border:0 none}
+.oc li:last-child::before{border-right:2px solid var(--oc);border-radius:0 6px 0 0}.oc li:first-child::after{border-radius:6px 0 0 0}
+.oc ul ul::before{content:'';position:absolute;top:0;left:50%;height:18px;border-left:2px solid var(--oc)}
+.oc>ul{padding-top:0}
+.oc .n{display:inline-block;border:2px solid var(--oc);border-radius:10px;padding:6px 10px;background:#fff;font-size:13px;white-space:pre-wrap;min-width:70px;cursor:default}
+.oc .n.p{cursor:pointer;background:var(--oc);color:#fff;font-weight:700}
+.oc .n.p.closed::after{content:' +';}
+.oc li.x>ul{display:none}
+</style>`;
+function opsNode(n){ const k=(n.c||[]).length; return `<li><span class="n${k?' p':''}" ${k?`onclick="const li=this.parentElement;li.classList.toggle('x');this.classList.toggle('closed')"`:''}>${esc(n.t)}</span>${k?`<ul>${n.c.map(opsNode).join('')}</ul>`:''}</li>`; }
 function opsChart(id){
-  const x=opsRows.find(r=>r.id===id); if(!x) return; const c=opsColor(x), hd=opsRows.find(r=>r.kind==='head');
-  const box=(t,sub,bg,fg,w)=>`<div style="border:2px solid ${bg};background:${fg?bg:'#fff'};color:${fg||'inherit'};border-radius:12px;padding:8px 12px;text-align:center;min-width:${w||110}px;max-width:420px;margin:0 auto"><b>${t}</b>${sub?`<div style="font-size:12.5px;opacity:.9;margin-top:2px">${sub}</div>`:''}</div>`;
-  const line=`<div style="width:2px;height:18px;background:${c};margin:0 auto"></div>`;
-  modal(head(esc(x.name)) + `<div style="padding:6px 0" dir="ltr">
-    ${hd?box(esc(hd.name),esc(hd.lead),'#1e293b','#fff',240)+line:''}
-    ${box(esc(x.name),esc(x.lead),c,'#fff',200)}${line}
-    ${box(esc(x.supervisors),'',c,'',180)}${line}
-    ${box(esc(x.employees),'',c,'',160)}
-    ${x.in_progress?`<div style="text-align:center;margin-top:10px"><b>In Progress</b></div>`:''}
-  </div><div class="actions"><button class="btn btn-ghost" onclick="opsEdit('${x.id}')">تعديل</button><button class="btn btn-ghost" onclick="closeModal()">إغلاق</button></div>`);
+  const x=opsRows.find(r=>r.id===id); if(!x) return; const c=x.kind==='head'?'#1e293b':opsColor(x);
+  const title=x.kind==='head'?`${esc(x.name)}<div style="font-size:13px;font-weight:400">${esc(x.lead)}</div>`:`${esc(x.name)} ${esc(x.lead)} ${esc(x.supervisors)} ${esc(x.employees)}`;
+  modal(head(title) + OPS_CSS + ((x.tree||[]).length?`<div class="oc" style="--oc:${c}"><ul>${x.tree.map(opsNode).join('')}</ul></div>`:'<div class="bnote">لا يوجد رسم لهذا البند في الملف.</div>')
+    + `<div class="actions"><button class="btn btn-ghost" onclick="opsEdit('${x.id}')">تعديل</button><button class="btn btn-ghost" onclick="closeModal()">إغلاق</button></div>`);
+  const sh=document.querySelector('#modalRoot .sheet'); if(sh) sh.style.maxWidth='min(98vw,1400px)';
 }
 function opsEdit(id){
   const x=opsRows.find(r=>r.id===id)||{kind:'unit',name:'',lead:'',supervisors:'',employees:'',in_progress:false,extra:''}, isH=x.kind==='head';
