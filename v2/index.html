@@ -860,6 +860,10 @@ body.staff[data-sec="home"] #subnav{display:none!important}
       <h2 style="margin-top:16px">🗂️ سجل الطلبات والتقارير</h2>
       <div class="list" id="ofHist"></div>
     </div>
+    <div id="sec-ops" class="hidden">
+      <div class="sec-bar"><h1>🏗️ الهيكل التشغيلي</h1><button class="btn btn-ghost btn-sm" onclick="opsEdit()">+ إضافة</button></div>
+      <div id="opsBody"></div>
+    </div>
     <div id="sec-reqs" class="hidden">
       <div class="sec-bar"><h1>📨 طلباتي</h1></div>
       <div class="bnote" style="margin-bottom:12px">كل إضافة أو تعديل أو حذف تقوم به يصل المدير أولاً، ولا يظهر في البيانات إلا بعد موافقته.</div>
@@ -1186,7 +1190,7 @@ const SUBTABS = {
   lease:  [['dash','لوحة المتابعة'],['list','العقود']],
 };
 
-const NAV = [['home','📊','المؤشرات'],['office','🏢','المكتب التنفيذي'],['viol','🚨','المخالفات'],['bal','🏛️','البطاقات البلدية'],['house','🏠','السكنات'],['lease','📄','عقود الإيجار'],['emps','👥','الموظفين'],['pay','💰','الرواتب'],['report','📈','التقرير'],['backup','💾','نسخة احتياطية']];
+const NAV = [['home','📊','المؤشرات'],['office','🏢','المكتب التنفيذي'],['ops','🏗️','الهيكل التشغيلي'],['viol','🚨','المخالفات'],['bal','🏛️','البطاقات البلدية'],['house','🏠','السكنات'],['lease','📄','عقود الإيجار'],['emps','👥','الموظفين'],['pay','💰','الرواتب'],['report','📈','التقرير'],['backup','💾','نسخة احتياطية']];
 const TABS = [['home','📊','الرئيسية'],['viol','🚨','المخالفات'],['bal','🏛️','البلدية'],['emps','👥','الموظفين'],['more','☰','المزيد']];
 function allowedSec(k){ if(state.role!=='staff') return !['reqs'].includes(k); if(k==='report') return false; if(['home','reqs'].includes(k)) return true;
   if(k==='emps') return ['bal','health'].some(x=>state.staff.sections.includes(x)); return state.staff.sections.includes(k); }
@@ -1317,13 +1321,13 @@ function go(section, sub){
 }
 function applyRoute(){
   const [sec, sub] = (location.hash.replace('#','')||'home').split('/');
-  let section = ['office','viol','bal','house','lease','topics','backup','emps','pay','report','reqs','appr','staff'].includes(sec) ? sec : 'home';
-  if(state.role==='staff' && (['office','topics','backup','report','appr','staff','pay'].includes(section) || !allowedSec(section))) section='home';
+  let section = ['office','ops','viol','bal','house','lease','topics','backup','emps','pay','report','reqs','appr','staff'].includes(sec) ? sec : 'home';
+  if(state.role==='staff' && (['office','ops','topics','backup','report','appr','staff','pay'].includes(section) || !allowedSec(section))) section='home';
   if(state.role!=='staff' && section==='reqs') section='home';
   state.section = section; document.body.classList.toggle('home-wide', section==='home'); renderBrandBar();
   if(sub && SUBTABS[section]?.some(x=>x[0]===sub)) state.sub[section] = sub;
   if(state.role==='staff' && section==='home') state.sub.home='secs';
-  ['home','office','viol','health','bal','house','lease','topics','backup','emps','pay','report','reqs','appr','staff'].forEach(s=>$('#sec-'+s).classList.toggle('hidden', s!==section));
+  ['home','office','ops','viol','health','bal','house','lease','topics','backup','emps','pay','report','reqs','appr','staff'].forEach(s=>$('#sec-'+s).classList.toggle('hidden', s!==section));
   $('#backBtn').classList.toggle('hidden', section==='home');
   const nav = $('#subnav'), tabs = SUBTABS[section];
   if(tabs){
@@ -1332,7 +1336,7 @@ function applyRoute(){
     tabs.forEach(([k])=>$(`#${section}-${k}`).classList.toggle('hidden', state.sub[section]!==k));
   } else { nav.classList.add('hidden'); nav.innerHTML=''; }
   $('#fab').classList.toggle('hidden', ['backup','emps','pay','report','reqs','appr','staff'].includes(section));
-  if(section==='backup') renderBackup(); if(section==='report') renderReport(); if(section==='office') renderOffice();
+  if(section==='backup') renderBackup(); if(section==='report') renderReport(); if(section==='office') renderOffice(); if(section==='ops') renderOps();
   if(section==='emps') renderEmps();
   if(section==='pay') renderPay();
   if(section==='reqs') renderReqs(); if(section==='appr') renderAppr(); if(section==='staff') renderStaff();
@@ -2084,6 +2088,35 @@ async function brRun(){
   else toast('🔔 تم تحديث موجز السكرتير');
   brRender();
 }
+// ===== الهيكل التشغيلي (w2_ops_structure) — كما في ملف Operations structure =====
+let opsRows=[];
+async function renderOps(){
+  if(state.role==='staff') return;
+  const r=await sb.from('w2_ops_structure').select('*').order('sort'); if(r.error){ $('#opsBody').innerHTML=`<div class="bnote">تعذّر التحميل: ${esc(r.error.message)}</div>`; return; }
+  opsRows=r.data; const H=opsRows.filter(x=>x.kind==='head'), U=opsRows.filter(x=>x.kind==='unit'&&!x.in_progress), P=opsRows.filter(x=>x.kind==='unit'&&x.in_progress);
+  const card=(x)=>{ const c=x.in_progress?'#94a3b8':(BRAND_COLOR[x.name]||BRAND_COLOR[{SY5:'SAYA5',JAZAR:'Jazzar',Level:'LEVL'}[x.name]]||'#0f766e');
+    return `<div class="item" style="cursor:pointer;flex:1;min-width:180px;border:1.5px solid ${c};border-top:5px solid ${c};background:${c}12" onclick="opsEdit('${x.id}')">
+      <h3 style="color:${c}">${esc(x.name)}</h3><div class="meta"><span>👔 ${esc(x.lead)}</span></div>
+      ${x.extra?`<div class="meta"><span>${esc(x.extra)}</span></div>`:''}
+      <div class="meta"><span>🧑‍💼 المشرفين: <b>${esc(x.supervisors)}</b></span><span>👥 الموظفين: <b>${esc(x.employees)}</b></span></div></div>`; };
+  $('#opsBody').innerHTML = H.map(h=>`<div class="item" style="cursor:pointer;text-align:center;border:1.5px solid #1e293b;border-top:5px solid #1e293b" onclick="opsEdit('${h.id}')"><h3>${esc(h.name)}</h3><div class="meta" style="justify-content:center"><span>${esc(h.lead)}</span></div></div>`).join('')
+    + `<div style="text-align:center;color:var(--muted)">⬇</div><div style="display:flex;gap:10px;flex-wrap:wrap">${U.map(card).join('')}</div>`
+    + (P.length?`<h2 style="margin-top:16px">⏳ In Progress</h2><div style="display:flex;gap:10px;flex-wrap:wrap">${P.map(card).join('')}</div>`:'')
+    + `<div class="bnote" style="margin-top:12px">المصدر: ملف Operations structure. اضغط على أي بطاقة لتعديلها.</div>`;
+}
+function opsEdit(id){
+  const x=opsRows.find(r=>r.id===id)||{kind:'unit',name:'',lead:'',supervisors:'',employees:'',in_progress:false,extra:''}, isH=x.kind==='head';
+  const f=(k,l)=>`<label style="display:block;margin-top:8px;font-weight:600">${l}</label><input class="field" id="op_${k}" value="${esc(x[k]||'')}">`;
+  modal(head(id?'تعديل':'إضافة') + f('name','الاسم') + f('lead',isH?'الوصف':'المسؤول') + (isH?'':f('supervisors','المشرفين')+f('employees','الموظفين')+f('extra','ملاحظة')+`<label style="display:block;margin-top:8px"><input type="checkbox" id="op_prog" ${x.in_progress?'checked':''}> قيد التجهيز (In Progress)</label>`)
+    + `<div class="actions"><button class="btn btn-primary" onclick="opsSave('${id||''}')">حفظ</button>${id&&!isH?`<button class="btn btn-ghost" onclick="opsDel('${id}')">🗑 حذف</button>`:''}<button class="btn btn-ghost" onclick="closeModal()">إلغاء</button></div>`);
+}
+async function opsSave(id){
+  const v=k=>($('#op_'+k)?$('#op_'+k).value.trim():undefined), row={name:v('name'),lead:v('lead'),updated_at:new Date().toISOString()};
+  if($('#op_supervisors')) Object.assign(row,{supervisors:v('supervisors'),employees:v('employees'),extra:v('extra'),in_progress:$('#op_prog').checked});
+  const r= id ? await sb.from('w2_ops_structure').update(row).eq('id',id) : await sb.from('w2_ops_structure').insert({...row,kind:'unit',sort:(opsRows.reduce((m,x)=>Math.max(m,x.sort),0)+1)});
+  if(r.error) return fail(r.error); closeModal(); toast('تم الحفظ'); renderOps();
+}
+async function opsDel(id){ if(!confirm('حذف هذه البطاقة من الهيكل؟')) return; const r=await sb.from('w2_ops_structure').delete().eq('id',id); if(r.error) return fail(r.error); closeModal(); renderOps(); }
 // ===== المكتب التنفيذي (السكرتير + المدراء) — قراءة فقط عبر Edge Function w2-office =====
 const OF_AG={secretary:['🗂️','السكرتير التنفيذي','التنسيق والتقارير + المعاملات','w2_topics'],gov:['🏛️','مدير العلاقات الحكومية','المخالفات · البلدية والكروت الصحية','w2_violations · w2_baladiya'],hr:['👥','مدير الموارد البشرية','الموظفين · الرواتب','w2_roster · w2_employees · w2_payroll'],property:['🏠','مدير العقارات والسكن','السكنات · عقود الإيجار','w2_leases · w2_housing_units · w2_housing_people']};
 const OF_WK={gov:[['violations','📑','موظف المخالفات','w2_violations'],['baladiya','🪪','موظف البلدية والكروت الصحية','w2_baladiya']],hr:[['employees','🧑‍💼','موظف شؤون الموظفين','w2_roster · w2_employees'],['payroll','💰','موظف الرواتب','w2_payroll']],property:[['housing','🏘️','موظف السكنات','w2_housing_units · w2_housing_people'],['leases','📜','موظف العقود','w2_leases']]};
