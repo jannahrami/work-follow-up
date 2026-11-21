@@ -2043,6 +2043,8 @@ async function buildEmployeesWorkbook(list, opts={}){
 }
 // ===== المكتب التنفيذي (السكرتير + المدراء) — قراءة فقط عبر Edge Function w2-office =====
 const OF_AG={secretary:['🗂️','السكرتير التنفيذي','التنسيق والتقارير + المعاملات','w2_topics'],gov:['🏛️','مدير العلاقات الحكومية','المخالفات · البلدية · الكروت الصحية','w2_violations · w2_baladiya · w2_health_employees'],hr:['👥','مدير الموارد البشرية','الموظفين · الرواتب','w2_roster · w2_employees · w2_payroll'],property:['🏠','مدير العقارات والسكن','السكنات · عقود الإيجار','w2_leases · w2_housing_units · w2_housing_people']};
+const OF_WK={gov:[['violations','📑','موظف المخالفات','w2_violations'],['baladiya','🪪','موظف البلدية','w2_baladiya'],['health','🩺','موظف الكروت الصحية','w2_health_employees']],hr:[['employees','🧑‍💼','موظف شؤون الموظفين','w2_roster · w2_employees'],['payroll','💰','موظف الرواتب','w2_payroll']],property:[['housing','🏘️','موظف السكنات','w2_housing_units · w2_housing_people'],['leases','📜','موظف العقود','w2_leases']]};
+const ofWkName=(ag,w)=>{ const x=(OF_WK[ag]||[]).find(y=>y[0]===w); return x?[x[1],x[2]]:['•',w]; };
 const OF_ST={pending:['بالانتظار','#64748b'],running:['جاري العمل','#b45309'],done:['مكتملة','#15803d'],error:['فشلت','#b91c1c']};
 const OF_SUG=['تقرير عن المخالفات المفتوحة ومبالغها','إجمالي رواتب آخر شهر حسب العلامة','عقود الإيجار المنتهية أو القريبة من الانتهاء','كم موظف على رأس العمل وكم في إجازة؟'];
 let ofReqs=[], ofTasks=[], ofReps=[], ofSel=null, ofBusy=false, ofTimer=null;
@@ -2056,16 +2058,18 @@ async function ofLoad(){
   ofReqs=a.data; ofTasks=b.data; ofReps=c.data;
 }
 function ofOrgHtml(){
-  const box=(k,big)=>{ const [ic,n,d,t]=OF_AG[k]; const T=ofTasks.filter(x=>x.agent===k), run=T.filter(x=>x.status==='running').length;
-    return `<div class="item" style="cursor:default;flex:1;min-width:150px;${big?'border-color:var(--blue)':''}"><h3>${ic} ${n}</h3><div class="meta"><span>${d}</span></div><div class="meta"><span dir="ltr" style="font-size:11px">${t}</span></div><div class="meta"><span>المهام: ${T.filter(x=>x.status==='done').length} مكتملة${run?` • ${run} جارية`:''}</span></div></div>`; };
+  const box=(k,big)=>{ const [ic,n,d,t]=OF_AG[k]; const T=ofTasks.filter(x=>x.agent===k&&!x.worker), run=T.filter(x=>x.status==='running').length;
+    const W=(OF_WK[k]||[]).map(([w,wi,wn,wt])=>{ const WT=ofTasks.filter(x=>x.agent===k&&x.worker===w), wr=WT.filter(x=>x.status==='running').length;
+      return `<div style="border-top:1px dashed var(--border,#cbd5e1);margin-top:8px;padding-top:6px"><div style="font-weight:600">${wi} ${wn}</div><div class="meta"><span dir="ltr" style="font-size:11px">${wt}</span></div><div class="meta"><span>المهام: ${WT.filter(x=>x.status==='done').length} مكتملة${wr?` • ${wr} جارية`:''}</span></div></div>`; }).join('');
+    return `<div class="item" style="cursor:default;flex:1;min-width:150px;${big?'border-color:var(--blue)':''}"><h3>${ic} ${n}</h3><div class="meta"><span>${d}</span></div>${W||`<div class="meta"><span dir="ltr" style="font-size:11px">${t}</span></div>`}<div class="meta" style="margin-top:8px"><span>مهام المدير: ${T.filter(x=>x.status==='done').length} مكتملة${run?` • ${run} جارية`:''}</span></div></div>`; };
   return `<div class="item" style="cursor:default;text-align:center"><h3>👔 الرئيس التنفيذي (CEO)</h3><div class="meta" style="justify-content:center"><span>صاحب القرار النهائي</span></div></div>
     <div style="text-align:center;color:var(--muted)">⬇</div>${box('secretary',true)}<div style="text-align:center;color:var(--muted)">⬇</div>
     <div style="display:flex;gap:10px;flex-wrap:wrap">${box('gov')}${box('hr')}${box('property')}</div>`;
 }
 function ofReqHtml(r){
   const T=ofTasks.filter(x=>x.request_id===r.id), rep=ofReps.find(x=>x.request_id===r.id);
-  const tasks=T.map(t=>{ const [ic,n]=OF_AG[t.agent]||['•',t.agent];
-    return `<div class="item" style="cursor:default;margin-top:8px"><div class="row"><h3>${ic} ${n}</h3>${ofChip(t.status)}</div><div class="meta"><span>المهمة: ${esc(t.instruction)}</span></div>${(t.sources||[]).length?`<div class="meta"><span dir="ltr" style="font-size:11px">${t.sources.map(esc).join(' · ')}</span></div>`:''}${t.result?`<details style="margin-top:6px"><summary>رد المدير</summary><div style="white-space:pre-wrap;margin-top:6px">${esc(t.result)}</div></details>`:''}</div>`; }).join('');
+  const tasks=T.map(t=>{ const [ic,n0]=OF_AG[t.agent]||['•',t.agent]; const wn=t.worker?ofWkName(t.agent,t.worker):null; const n=wn?`${wn[0]} ${wn[1]} <span style="font-weight:400;font-size:12px">(تحت ${n0})</span>`:n0;
+    return `<div class="item" style="cursor:default;margin-top:8px;${t.worker?'margin-inline-start:18px':''}"><div class="row"><h3>${wn?'':ic+' '}${n}</h3>${ofChip(t.status)}</div><div class="meta"><span>المهمة: ${esc(t.instruction)}</span></div>${(t.sources||[]).length?`<div class="meta"><span dir="ltr" style="font-size:11px">${t.sources.map(esc).join(' · ')}</span></div>`:''}${t.result?`<details style="margin-top:6px"><summary>${t.worker?'رد الموظف':'رد المدير'}</summary><div style="white-space:pre-wrap;margin-top:6px">${esc(t.result)}</div></details>`:''}</div>`; }).join('');
   return `<div class="item" style="cursor:default"><div class="row"><h3>📝 ${esc(r.prompt)}</h3>${ofChip(r.status)}</div><div class="meta"><span>${new Date(r.created_at).toLocaleString('ar-SA-u-ca-gregory-nu-latn')}</span></div>
     ${r.status==='running'||r.status==='pending'?'<div class="bnote" style="margin-top:8px">⏳ السكرتير يتابع المهام مع المدراء…</div>':''}
     ${r.error?`<div class="bnote" style="margin-top:8px">⚠️ ${esc(r.error)}</div>`:''}
