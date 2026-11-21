@@ -1395,13 +1395,13 @@ const GENDER_LBL={m:'ذكر',f:'أنثى'};
 function svcLen(d){ if(!d) return ''; const a=new Date(d), n=new Date(); if(isNaN(a)||a>n) return ''; let m=(n.getFullYear()-a.getFullYear())*12+n.getMonth()-a.getMonth(); if(n.getDate()<a.getDate()) m--; if(m<0) m=0; const y=Math.floor(m/12), mm=m%12; return [y?`${y} سنة`:'', mm?`${mm} شهر`:''].filter(Boolean).join(' و ')||'أقل من شهر'; }
 function empsList(){
   const R=state.roster||[]; if(!R.length) return empsListLegacy();
-  const byR=new Map(R.map(r=>[r.id,{key:'r'+r.id, rid:r.id, iqama:r.iqama||'', name:r.name||'', brand:r.brand||'', cost_center:r.cost_center||'', hire_date:r.hire_date||'', gender:r.gender||'', nationality:r.nationality||'', phone:'', location:'', iqama_expiry:'', emp_no:r.emp_no||'', status:r.status||'active', tag:r.move_tag||'', grp:r.company_group||'Other', src:new Set(['القائمة'])}]));
+  const byR=new Map(R.map(r=>[r.id,{key:'r'+r.id, rid:r.id, iqama:r.iqama||'', name:r.name||'', brand:r.brand||'', rbrand:r.brand||'', cost_center:r.cost_center||'', hire_date:r.hire_date||'', gender:r.gender||'', nationality:r.nationality||'', phone:'', location:'', iqama_expiry:'', emp_no:r.emp_no||'', status:r.status||'active', tag:r.move_tag||'', grp:r.company_group||'Other', src:new Set(['القائمة'])}]));
   const fill=(o,f,v)=>{ if(v && !o[f]) o[f]=v; };
   state.bal.filter(e=>e.active!==false && byR.has(e.roster_id)).forEach(e=>{ const o=byR.get(e.roster_id); fill(o,'brand',e.brand); fill(o,'location',e.location); fill(o,'iqama_expiry',e.iqama_expiry); o.src.add('بلدية'); });
   state.hpeople.filter(e=>e.active!==false && byR.has(e.roster_id)).forEach(e=>{ const o=byR.get(e.roster_id); fill(o,'brand',e.brand); o.src.add('سكن'); });
   const extra=[];
   (state.emps||[]).forEach(m=>{ const o=[...byR.values()].find(x=>x.iqama && x.iqama===String(m.iqama||'').trim());
-    if(o){ o.master=m.id; ['brand','phone','location','iqama_expiry'].forEach(f=>{ if(m[f]) o[f]=m[f]; }); o.notes=m.notes||''; o.src.add('يدوي'); o.mq=m; if(m.muqeem_at) o.src.add('مقيم'); } });
+    if(o){ o.master=m.id; ['brand','phone','location','iqama_expiry'].forEach(f=>{ if(m[f] && !(f==='brand' && o.rbrand)) o[f]=m[f]; }); o.notes=m.notes||''; o.src.add('يدوي'); o.mq=m; if(m.muqeem_at) o.src.add('مقيم'); } });
   const B=state.brand;
   return [...byR.values()].filter(o=>!B || o.brand===B).sort((a,b)=>(a.name||'').localeCompare(b.name||'','en'));
 }
@@ -1529,7 +1529,7 @@ function openEmp(key){ eCur=key||'';
     <div class="grid2"><div><label>الجوال</label><input class="field num" id="fePhone" value="${esc(x.phone)}" dir="ltr" inputmode="tel" ${ro}></div>
       <div><label>الموقع</label><input class="field" id="feLoc" value="${esc(x.location)}" ${ro}></div></div>
     ${x.cost_center?`<label>مركز التكلفة</label><input class="field" value="${esc(x.cost_center)}" dir="ltr" readonly>`:''}
-    ${x.hire_date||x.gender?`<div class="grid2">${x.hire_date?`<div><label>تاريخ التعيين</label><input class="field" value="${esc(x.hire_date)}" dir="ltr" readonly></div><div><label>مدة الخدمة</label><input class="field" value="${esc(svcLen(x.hire_date))}" readonly></div>`:''}${x.gender?`<div><label>الجنس</label><input class="field" value="${GENDER_LBL[x.gender]||''}" readonly></div>`:''}</div>`:''}
+    ${e&&e.rid?`<div class="grid2"><div><label>تاريخ التعيين</label><input class="field" type="date" id="feHire" value="${esc(String(x.hire_date||'').slice(0,10))}" ${ro}></div><div><label>مدة الخدمة</label><input class="field" value="${esc(x.hire_date?svcLen(x.hire_date):'')}" readonly></div>${x.gender?`<div><label>الجنس</label><input class="field" value="${GENDER_LBL[x.gender]||''}" readonly></div>`:''}</div>`:''}
     <div class="grid2"><div><label>الرقم الوظيفي</label><input class="field num" id="feNo" value="${esc(x.emp_no)}" dir="ltr" ${ro}></div>
       <div>${e&&e.rid?`<label>الحالة الوظيفية</label><select class="field" id="feSt" ${ro}>${['active','vacation','settlement','terminated'].map(k=>`<option value="${k}" ${(x.status||'active')===k?'selected':''}>${EMP_ST_LBL[k]}</option>`).join('')}</select><label>الجهة</label><select class="field" id="feGrp" ${ro}>${['FBH','Other'].map(k=>`<option value="${k}" ${(x.grp||'Other')===k?'selected':''}>${k}</option>`).join('')}</select><label>العلامة</label><select class="field" id="feTag" ${ro}><option value="">بدون</option>${['new','return'].map(k=>`<option value="${k}" ${(x.tag||'')===k?'selected':''}>${TAG_LBL[k]}</option>`).join('')}</select><label style="display:flex;gap:6px;align-items:center;margin-top:8px"><input type="checkbox" id="feNameOk" ${((state.roster||[]).find(q=>q.id===e.rid)||{}).name_ok?'checked':''} ${ro}> شخص مختلف، نفس الاسم</label>`:''}</div></div>
     ${(()=>{ const m=x.mq||{}, d=v=>v?String(v).slice(0,10):'';
@@ -1557,6 +1557,16 @@ async function syncIdent(rid, oldR, newR){
   }
   return null;
 }
+// توحيد بيانات الموظف: بطاقة الموظف هي المصدر — البراند والجنسية وانتهاء الإقامة تنعكس على البلدية والسكن المربوطة به (الرواتب سجل تاريخي ما تتغير)
+async function syncSections(rid,row){
+  const ops=[];
+  const bal={}; if(row.brand) bal.brand=row.brand; if(row.iqama_expiry) bal.iqama_expiry=row.iqama_expiry;
+  if(Object.keys(bal).length) ops.push(sb.from('w2_baladiya').update(bal).eq('roster_id',rid));
+  const hp={}; if(row.brand) hp.brand=row.brand; if(row.nationality) hp.nationality=row.nationality;
+  if(Object.keys(hp).length) ops.push(sb.from('w2_housing_people').update(hp).eq('roster_id',rid));
+  for(const r of await Promise.all(ops)) if(r.error) return r.error;
+  return null;
+}
 async function saveEmp(){ const key=eCur;
   const e = key ? empsList().find(x=>x.key===key) : null;
   const v = id => $('#'+id).value.trim();
@@ -1566,9 +1576,10 @@ async function saveEmp(){ const key=eCur;
   if(row.iqama && !/^\d{10}$/.test(row.iqama)) { if(!confirm('رقم الإقامة ليس 10 أرقام. تبغى تكمل؟')) return; }
   if(e && e.rid){ // موظف من القائمة الثابتة: الاسم والرقم الوظيفي والجنسية والحالة تُحفظ في القائمة
     const _old={...((state.roster||[]).find(q=>q.id===e.rid)||{})};
-    const rr=await sb.from('w2_roster').update({name:row.name, emp_no:row.emp_no, nationality:row.nationality, status:$('#feSt').value, move_tag:($('#feTag').value||null), company_group:($('#feGrp')?$('#feGrp').value:'Other'), name_ok:!!($('#feNameOk')&&$('#feNameOk').checked), review_note:null, iqama:(row.iqama&&/^\d{10}$/.test(row.iqama))?row.iqama:'', updated_at:new Date().toISOString()}).eq('id',e.rid);
+    const rr=await sb.from('w2_roster').update({name:row.name, emp_no:row.emp_no, nationality:row.nationality, status:$('#feSt').value, move_tag:($('#feTag').value||null), company_group:($('#feGrp')?$('#feGrp').value:'Other'), brand:row.brand||null, hire_date:($('#feHire')&&$('#feHire').value)||null, name_ok:!!($('#feNameOk')&&$('#feNameOk').checked), review_note:null, iqama:(row.iqama&&/^\d{10}$/.test(row.iqama))?row.iqama:'', updated_at:new Date().toISOString()}).eq('id',e.rid);
     if(rr.error) return fail(rr.error);
     { const se=await syncIdent(e.rid,_old,{name:row.name,emp_no:row.emp_no,iqama:(row.iqama&&/^\d{10}$/.test(row.iqama))?row.iqama:''}); if(se) return fail(se); }
+    { const se=await syncSections(e.rid,row); if(se) return fail(se); }
     if(!row.iqama){ toast('تم الحفظ'); await loadAll(); applyRoute(); return openEmp(e.key); }
   }
   let mid = e && e.master;
@@ -1912,8 +1923,15 @@ async function prImport(file){
       $('#prPrev').innerHTML='<div class="bnote">ما لقيت شيتات أشهر بالشكل المطلوب (Worker number / Worker name / Total ...).</div>'; return; }
     const R=state.roster||[]; const all=[]; by.forEach(r=>{ prMatch(r,R); prJobFix(r); r.forEach(x=>all.push(x)); }); _pi={by,all};
     const ms=[...by.keys()].sort();
+    // تاريخ التعيين: آخر شهر في الملف لكل موظف مربوط
+    { const jd=new Map(); ms.forEach(m=>by.get(m).forEach(x=>{ if(x.roster_id&&x.joining_date) jd.set(x.roster_id,x.joining_date); }));
+      const RB=new Map(R.map(r=>[r.id,r])), fill=[], diff=[];
+      jd.forEach((d,rid)=>{ const r=RB.get(rid); if(!r) return; const cur=String(r.hire_date||'').slice(0,10); if(!cur) fill.push({rid,d}); else if(cur!==d) diff.push({rid,d,cur,name:r.name,no:r.emp_no}); });
+      _pi.hire={fill,diff}; }
     $('#prPrev').innerHTML=`<table class="tbl"><tr><th>الشهر</th><th>السطور</th><th>مربوطين بالقائمة</th><th>خارج القائمة</th><th>موجود حالياً</th></tr>${ms.map(m=>{ const r=by.get(m), e=r.filter(x=>!x.is_expense); const old=state.pay.filter(x=>x.month===m).length; return `<tr><td>${prMLabel(m)}</td><td>${r.length}</td><td>${e.filter(x=>x.roster_id).length}</td><td>${e.filter(x=>!x.roster_id).length}</td><td>${old?old+' (يُستبدل)':'—'}</td></tr>`; }).join('')}</table>
     ${skipped.length?`<div class="meta" style="margin-top:6px">شيتات تم تجاهلها: ${esc(skipped.join('، '))}</div>`:''}
+    ${(_pi.hire.fill.length||_pi.hire.diff.length)?`<div class="bnote" style="margin-top:8px"><b>📅 تاريخ التعيين في بطاقة الموظف</b><br>• يُعبّى تلقائياً لـ <b>${_pi.hire.fill.length}</b> موظف تاريخهم فاضي.${_pi.hire.diff.length?`<br>• <b>${_pi.hire.diff.length}</b> موظف تاريخهم في الملف يختلف عن البطاقة — حدّد اللي تبغى تحدّثه (غير المحدد يظل مثل ما هو):`:''}</div>
+    ${_pi.hire.diff.length?`<table class="tbl"><tr><th>تحديث</th><th>الموظف</th><th>في البطاقة</th><th>في الملف</th></tr>${_pi.hire.diff.map((x,i)=>`<tr><td><input type="checkbox" class="prHd" data-i="${i}"></td><td>${esc(x.name)} <small>(${esc(x.no||'')})</small></td><td dir="ltr">${x.cur}</td><td dir="ltr">${x.d}</td></tr>`).join('')}</table>`:''}`:''}
     <div class="toolbar" style="margin-top:10px"><button class="btn btn-primary" onclick="prApply()">اعتمد الاستيراد (${all.length} سطر)</button></div>`;
   }catch(e){ console.error(e); $('#prPrev').innerHTML='<div class="bnote">تعذّر قراءة الملف.</div>'; }
 }
@@ -1934,7 +1952,9 @@ async function prApply(){
   const clean=x=>({month:x.month,emp_no:x.emp_no,name:x.name,iqama:x.iqama||null,nationality:x.nationality,brand:x.brand,cost_center:x.cost_center,job:x.job,company:x.company,gross:x.gross,overtime:x.overtime,total:x.total,joining_date:x.joining_date,roster_id:x.roster_id,is_expense:x.is_expense});
   for(let i=0;i<_pi.all.length;i+=400){ const r=await sb.from('w2_payroll').insert(_pi.all.slice(i,i+400).map(clean)); if(r.error){ await prLoad(); renderPay(); return fail(r.error); } }
   for(let i=0;i<oldIds.length;i+=200){ const r=await sb.from('w2_payroll').delete().in('id',oldIds.slice(i,i+200)); if(r.error) return fail(r.error); }
-  _pi=null; await prLoad(); prTab='dash'; prMonth=''; toast('تم استيراد الرواتب'); renderPay();
+  let hn=0; if(_pi.hire){ const pick=[..._pi.hire.fill, ...[...document.querySelectorAll('.prHd:checked')].map(c=>_pi.hire.diff[+c.dataset.i])];
+    for(const x of pick){ const r=await sb.from('w2_roster').update({hire_date:x.d,updated_at:new Date().toISOString()}).eq('id',x.rid); if(r.error) return fail(r.error); hn++; } }
+  _pi=null; await loadAll(); prTab='dash'; prMonth=''; toast('تم استيراد الرواتب'+(hn?` • تحديث تاريخ التعيين لـ ${hn} موظف`:'')); renderPay();
 }
 // ---------- التصدير ----------
 function prDl(aoa,name,sheet){ const ws=XLSX.utils.aoa_to_sheet(aoa); ws['!views']=[{rightToLeft:true}]; const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,sheet); XLSX.writeFile(wb,name); }
